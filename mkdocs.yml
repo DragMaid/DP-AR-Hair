@@ -5,3 +5,4 @@ theme:
 nav:
   - Structure: structure.md
   - Git version control: git.md
+  - Testing: test.md

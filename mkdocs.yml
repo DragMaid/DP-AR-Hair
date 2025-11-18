@@ -1,3 +1,7 @@
 site_name: Hair-Shifter documentation
 theme:
   name: readthedocs
+
+nav:
+  - Structure: structure.md
+  - Git version control: git.md

@@ -1,10 +1,3 @@
-This project structure is already based on the **Cookiecutter Data Science** template, making it highly suitable for a Machine Learning (ML) project. To adapt it for your specific ML/Augmented Reality (AR) context and enhance its professional documentation, the changes primarily involve:
-
-1.  **Updating descriptions** to specifically reference ML/AR terminology (e.g., "AR Assets," "Model Weights," "Experiments").
-2.  **Adding the `ar/` directory** for your specific Augmented Reality code, separate from the core ML model code.
-
-Here is the revised, professional structure document:
-
 # Project Directory Structure
 
 This document provides a definitive overview of the project's directory layout and the purpose of each major component. It establishes the organizational standard for maintainability and reproducibility in our ML/AR environment.

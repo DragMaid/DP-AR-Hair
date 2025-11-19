@@ -1,83 +1,150 @@
-## Testing Plan and Conventions for ML/AR Project
+# Testing Plan and Conventions for ML/AR Project
 
-This document outlines the **testing strategy** for the Machine Learning and Augmented Reality project. It defines the types of tests, their placement, execution standards, and conventions to ensure code stability and model performance.
+This document defines the testing strategy for the Machine Learning + Augmented Reality project. It covers test structure, conventions, execution workflow, and standards for ensuring software correctness and model performance across the entire pipeline.
 
------
+---
 
 ## Testing Philosophy
 
-Every change, regardless of scope, must be accompanied by relevant testing to ensure **functional correctness** (code works as intended) and **performance fidelity** (model meets evaluation metrics). Testing is mandatory for merging any code into the `dev` branch.
+Every code change must include appropriate testing. The goal is to guarantee:
 
-### 1\. Test Placement
+* **Functional correctness** — code behaves consistently and as intended
+* **Pipeline reliability** — components integrate without breaking
+* **Model performance fidelity** — ML models continue to meet or exceed required metrics
 
-Tests should be organized in a dedicated directory at the root level, typically named `tests/`. The structure within this directory should mirror the structure of the `src/` directory.
+No changes are merged into the `dev` branch without passing all required tests.
 
-| Directory | Content | Purpose |
-| :--- | :--- | :--- |
-| `tests/src/data/` | Tests for data validation and pre-processing scripts. | Ensures data pipelines are deterministic and clean. |
-| `tests/src/models/` | Tests for model layer definitions, training logic, and inference correctness. | Verifies the ML pipeline is correctly implemented. |
-| `tests/src/ar/` | Tests for AR tracking logic, rendering, and device interaction. | Ensures the augmented reality interface functions on target hardware. |
-| `tests/src/utils/` | Tests for general utility functions (e.g., helpers, logging). | Verifies core project utilities are reliable. |
+---
 
-### 2\. Naming Conventions
+## Test Directory Structure
 
-All test files and functions must follow clear, conventional naming rules for discoverability and execution.
+All tests are placed in a root-level directory named `tests/`.
+Its internal structure mirrors the `src/` directory for clarity and discoverability.
 
-  * **File Naming:** Test files must be prefixed with `test_`.
-      * **Example:** `tests/src/models/test_training_logic.py`
-  * **Function Naming:** Test functions must be prefixed with `test_`.
-      * **Example:** `def test_model_output_shape():`
+| Directory           | Contains                                             | Purpose                                         |
+| ------------------- | ---------------------------------------------------- | ----------------------------------------------- |
+| `tests/src/data/`   | Data loaders, parsers, preprocessing tests           | Ensures deterministic and clean data pipelines  |
+| `tests/src/models/` | Model components, training routines, inference logic | Validates ML pipeline behavior                  |
+| `tests/src/ar/`     | AR tracking, rendering, device IO logic              | Ensures AR features function on target hardware |
+| `tests/src/utils/`  | Helper functions, logging, system utilities          | Guarantees stability of shared utilities        |
 
------
+This mirroring ensures that every file in `src/` has a predictable testing location.
+
+---
+
+## Naming Conventions
+
+To ensure automatic discovery by test runners such as PyTest:
+
+* **Test files** must be prefixed with `test_`
+
+  * Example: `tests/src/models/test_training_logic.py`
+* **Test functions** must also be prefixed with `test_`
+
+  * Example:
+
+    ```python
+    def test_model_output_shape():
+        ...
+    ```
+
+Following these conventions ensures CI systems can automatically locate and execute all tests.
+
+---
 
 ## Types of Testing
 
-The project requires three main categories of tests, corresponding to the software development and ML lifecycles:
+The project relies on three complementary categories of tests.
 
-### 1\. Unit Tests (Code Integrity)
+---
 
-These tests verify the smallest parts of the code base (individual functions, classes, or modules) in isolation.
+### Unit Tests — Code Integrity
 
-  * **Focus:** Input validation, utility function correctness, data transformation logic, and AR component initialization.
-  * **Execution:** Run automatically by the Continuous Integration (CI) pipeline on every Pull Request (PR).
-  * **Tooling:** Typically executed using **PyTest**.
+These tests verify small, isolated pieces of logic.
 
-### 2\. Integration Tests (Pipeline Flow)
+**Focus areas include:**
 
-These tests verify that different components of the system work together correctly, particularly focusing on the ML and AR pipelines.
+* Data transformation correctness
+* Input validation
+* Utility function behavior
+* AR component initialization logic
 
-  * **Examples:**
-      * Testing the data pipeline from `raw` to `processed` directory.
-      * Verifying that a trained model correctly loads into the AR inference module.
-      * Testing the sequence: Data Ingestion → Feature Engineering → Model Prediction.
-  * **Execution:** Executed on the `dev` branch before merging to `main`.
+**Execution:**
+Automatically run in CI for every Pull Request.
 
-### 3\. ML-Specific Tests (Performance & Stability)
+**Tools:**
+Primarily **PyTest**.
 
-These specialized tests focus on the model's behavior and performance, using statistical rigor.
+---
 
-| Test Type | Purpose | Standard/Threshold |
-| :--- | :--- | :--- |
-| **Data Validation** | Check for data drift, missing values, or schema violations in the input data. | Schema must match the expected feature set. |
-| **Model Sanity Check** | Ensure the model can overfit a tiny subset of data (debug). | Must achieve near-perfect metrics (e.g., $99\%+$ accuracy) on the tiny set. |
-| **Performance Regression** | Compare current model metrics (e.g., $F_1$ score, latency) against the last successful release/baseline. | Metrics must not degrade by more than **$X\%$** (e.g., $0.5\%$) relative to the current `main` branch model. |
-| **Inference Latency** | Measure the time taken for a single prediction in the AR environment. | Must meet the strict real-time requirement (e.g., $\le 10$ milliseconds). |
+### Integration Tests — Pipeline Flow
 
------
+Integration tests verify correct coordination between components.
 
-## Testing Workflow & PR Requirements
+**Typical scenarios include:**
 
-To merge a feature branch into `dev`, the following testing criteria **must be met** and verified by the CI system:
+* Full data pipeline: raw → cleaned → processed
+* Loading a trained model into AR inference
+* Full sequence validation:
+  Data Ingestion → Feature Engineering → Model Prediction
 
-1.  **Code Coverage:** All new or modified code must be covered by **Unit Tests** and pass the minimum code coverage threshold (e.g., $80\%$).
+**Execution:**
+Performed on `dev` before merging into `main`.
 
-2.  **No Regression:** All existing **Unit and Integration Tests** must pass without failure.
+---
 
-3.  **Model Stability:** If the PR changes model code, the **Performance Regression Test** must pass, showing no significant degradation in metrics.
+### ML-Specific Tests — Performance & Stability
 
-4.  **Local Verification:** Developers must run the full test suite locally before pushing and opening a PR:
+These tests target ML behavior, evaluation metrics, and runtime constraints.
+
+| Test Type                  | Purpose                                                  | Standard / Threshold                        |
+| -------------------------- | -------------------------------------------------------- | ------------------------------------------- |
+| **Data Validation**        | Detect data drift, schema mismatches, missing values     | Feature schema must match baseline          |
+| **Sanity Overfit Test**    | Check model correctness by overfitting on a tiny dataset | Must reach near-perfect accuracy/score      |
+| **Performance Regression** | Ensure new models do not degrade metrics                 | No > **X%** drop (e.g., 0.5%) from baseline |
+| **Inference Latency**      | Validate real-time AR inference speed                    | Must meet required runtime (e.g., ≤ 10 ms)  |
+
+These ensure both code and model performance remain stable and predictable.
+
+---
+
+## Testing Workflow and PR Requirements
+
+A feature branch can only be merged into `dev` if the CI system verifies all of the following:
+
+---
+
+### 1. Code Coverage
+
+All new and modified lines must be covered by **Unit Tests**, meeting the coverage threshold (e.g., 80%).
+
+---
+
+### 2. No Regression
+
+All existing Unit Tests and Integration Tests must pass without introducing new failures.
+
+---
+
+### 3. Model Stability
+
+If a PR affects model code:
+
+* Performance Regression Tests must pass
+* Updated metrics must remain within the allowed tolerance
+
+Regression failures block the merge.
+
+---
+
+### 4. Local Verification
+
+Before pushing any branch, developers must run the entire test suite locally:
 
 ```bash
-# Run all tests using the project's preferred tool (e.g., pytest)
-pytest --cov=src --cov-report term-missing tests/
+pytest --cov=src --cov-report=term-missing tests/
 ```
+
+This ensures failures are caught before CI evaluation.
+
+---

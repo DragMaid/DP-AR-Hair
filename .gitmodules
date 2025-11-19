@@ -1,0 +1,6 @@
+[submodule "Stable-Hair"]
+	path = Stable-Hair
+	url = https://github.com/Xiaojiu-z/Stable-Hair.git
+[submodule "Face-Parsing"]
+	path = Face-Parsing
+	url = https://github.com/yakhyo/face-parsing.git

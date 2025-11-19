@@ -9,6 +9,9 @@ authors = [
 license = "MIT"
 readme = "README.md"
 
+[tool.poetry]
+package-mode = false
+
 [tool.poetry.dependencies]
 python = ">=3.10.5,<3.11"
 torch = {version = "2.2.2+cu118", source = "pytorch-cu118"}

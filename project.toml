@@ -1,5 +1,5 @@
-[tool.poetry]
-name = "Hair Shifter"
+[project]
+name = "Hair-Shifter"
 version = "0.1.0"
 description = "Project dependencies"
 authors = [
@@ -51,8 +51,8 @@ fonttools = "4.51.0"
 frozenlist = "1.4.1"
 fsspec = "2024.3.1"
 gdown = "5.2.0"
-gradiο = "3.43.1"
-gradiο_client = "0.5.0"
+gradio = "3.43.1"
+gradio_client = "0.5.0"
 grpcio = "1.64.1"
 h11 = "0.14.0"
 h5py = "3.11.0"

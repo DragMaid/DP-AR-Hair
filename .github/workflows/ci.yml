@@ -36,7 +36,7 @@ jobs:
       - name: Download snapshots
         run: |
           mkdir -p tests/__snapshots__
-          gdown https://drive.google.com/open?id=1GJtxLu4CM9VOuo2ueIzr6T2K0mZUbKCS -O tests/__snapshots__/snapshot.zip
+          gdown https://drive.google.com/drive/folders/1GJtxLu4CM9VOuo2ueIzr6T2K0mZUbKCS -O tests/__snapshots__ --folder
           unzip -o tests/__snapshots__/snapshot.zip -d tests/__snapshots__
           rm tests/__snapshots__/snapshot.zip
 

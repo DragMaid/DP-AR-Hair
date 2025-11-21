@@ -49,7 +49,6 @@ def make_coordinate_grid(spatial_size, ref, **kwargs):
 
     return meshed
 
-
 class ResBlock3d(nn.Module):
     """
     Res block, preserve spatial resolution.

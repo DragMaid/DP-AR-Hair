@@ -24,7 +24,7 @@ warping_module_params:
     reshape_depth: 16
     compress: 4
 
-spade_generator_params:
+context_decoder_params:
   upscale: 2
   block_expansion: 64
   max_features: 512

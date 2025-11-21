@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from src.models.util import SameBlock2d, DownBlock2d, ResBlock3d
+from models.util import SameBlock2d, DownBlock2d, ResBlock3d
 
 
 class AppearanceFeatureExtractor(nn.Module):

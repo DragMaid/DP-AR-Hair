@@ -1,7 +1,7 @@
 from torch import nn
 import torch.nn.functional as F
-from src.models.util import SameBlock2d
-from src.models.dense_motion import DenseMotionNetwork
+from models.util import SameBlock2d
+from models.dense_motion import DenseMotionNetwork
 
 
 class WarpingNetwork(nn.Module):

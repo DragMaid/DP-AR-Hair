@@ -1,3 +1,4 @@
+import os
 from yaml import safe_load
 from pathlib import Path
 from pydantic import BaseModel
@@ -39,7 +40,7 @@ class WarpingModuleParams(BaseModel):
     dense_motion_params: DenseMotionParams
 
 
-class SpadeGeneratorParams(BaseModel):
+class ContextDecoderParams(BaseModel):
     upscale: int
     block_expansion: int
     max_features: int
@@ -54,7 +55,7 @@ class ModelConfig(BaseModel):
     appearance_feature_extractor_params: AppearanceFeatureExtractorParams
     motion_extractor_params: MotionExtractorParams
     warping_module_params: WarpingModuleParams
-    spade_generator_params: SpadeGeneratorParams
+    context_decoder_params: ContextDecoderParams
 
 
 # ---------------------------
@@ -70,4 +71,5 @@ def load_config(path: str | Path) -> ModelConfig:
     return ModelConfig(**data)
 
 
-config = load_config("config.yaml")
+work_dir = os.path.dirname(os.path.realpath(__file__))
+config = load_config(Path(work_dir) / "configs.yaml")

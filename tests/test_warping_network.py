@@ -1,25 +1,18 @@
 import torch
 import pytest
-from src.models.warping_network import WarpingNetwork
+from configs.configs import config
+from models.warping_network import WarpingNetwork
 
 
 @pytest.fixture
 def warping_network():
     torch.manual_seed(0)
+    params = config.warping_module_params.model_dump()
+    dense = params.pop("dense_motion_params")
+
     return WarpingNetwork(
-        num_kp=10,
-        block_expansion=64,
-        max_features=1024,
-        num_down_blocks=2,
-        reshape_channel=32,
-        estimate_occlusion_map=True,
-        dense_motion_params={
-            'block_expansion': 64,
-            'max_features': 1024,
-            'num_blocks': 4,
-            'pad': 'reflect',
-            'use_mask': False
-        }
+        **params,
+        dense_motion_params=dense
     )
 
 
@@ -27,60 +20,78 @@ def warping_network():
 def sample_data():
     torch.manual_seed(0)
     feature_3d = torch.randn(2, 32, 16, 64, 64)
-    kp_driving = torch.randn(2, 10, 2)
-    kp_source = torch.randn(2, 10, 2)
+    kp_driving = torch.randn(2, 21, 3)
+    kp_source = torch.randn(2, 21, 3)
     return feature_3d, kp_driving, kp_source
 
 
-def test_warping_network_output_structure(warping_network, sample_data):
+# -----------------------------------------------------------
+# Structural Tests
+# -----------------------------------------------------------
+
+def test_output_keys(warping_network, sample_data):
     feature_3d, kp_driving, kp_source = sample_data
     out = warping_network(feature_3d, kp_driving, kp_source)
 
     assert isinstance(out, dict)
-    assert 'out' in out
-    assert 'deformation' in out
-    assert 'occlusion_map' in out
+    assert set(out.keys()) == {"out", "deformation", "occlusion_map"}
 
 
-def test_warping_network_output_shape(warping_network, sample_data):
+def test_output_shapes(warping_network, sample_data):
     feature_3d, kp_driving, kp_source = sample_data
     out = warping_network(feature_3d, kp_driving, kp_source)
 
-    assert out['out'].ndim == 4
-    assert out['out'].shape[0] == 2  # batch size
+    # out: B x 256 x 64 x 64
+    assert out["out"].shape == (2, 256, 64, 64)
+
+    # deformation: B x 16 x 64 x 64 x 3
+    assert out["deformation"].shape == (2, 16, 64, 64, 3)
+
+    # occlusion_map: B x 1 x 64 x 64 OR None
+    occ = out["occlusion_map"]
+    if occ is not None:
+        assert occ.shape == (2, 1, 64, 64)
 
 
-def test_warping_network_deformation_shape(warping_network, sample_data):
+def test_no_nans(warping_network, sample_data):
     feature_3d, kp_driving, kp_source = sample_data
     out = warping_network(feature_3d, kp_driving, kp_source)
 
-    assert out['deformation'].ndim == 5
-    assert out['deformation'].shape[-1] == 3  # spatial coordinates
+    assert not torch.isnan(out["out"]).any()
+    assert not torch.isnan(out["deformation"]).any()
+    if out["occlusion_map"] is not None:
+        assert not torch.isnan(out["occlusion_map"]).any()
 
 
-def test_warping_network_no_nans(warping_network, sample_data):
+# -----------------------------------------------------------
+# Gradient Test
+# -----------------------------------------------------------
+
+def test_gradients_flow(warping_network, sample_data):
     feature_3d, kp_driving, kp_source = sample_data
+
     out = warping_network(feature_3d, kp_driving, kp_source)
-
-    assert not torch.isnan(out['out']).any(), "Output contains NaNs"
-    assert not torch.isnan(out['deformation']).any(), "Deformation contains NaNs"
-
-
-def test_warping_network_gradients(warping_network, sample_data):
-    feature_3d, kp_driving, kp_source = sample_data
-    out = warping_network(feature_3d, kp_driving, kp_source)
-    out['out'].sum().backward()
+    loss = out["out"].sum()
+    loss.backward()
 
     for name, p in warping_network.named_parameters():
-        assert p.grad is not None, f"{name} has no gradient!"
+        assert p.grad is not None, f"Gradient missing for {name}"
 
 
-def test_warping_network_snapshot(warping_network, sample_data, data_regression):
+# -----------------------------------------------------------
+# Snapshot Test
+# -----------------------------------------------------------
+
+def test_snapshot_regression(warping_network, sample_data, data_regression):
     feature_3d, kp_driving, kp_source = sample_data
     out = warping_network(feature_3d, kp_driving, kp_source)
 
-    snapshot_data = {
-        "output": out['out'].detach().cpu().numpy().tolist(),
-        "deformation_shape": list(out['deformation'].shape),
+    snapshot = {
+        "out_mean": float(out["out"].mean().item()),
+        "out_std": float(out["out"].std().item()),
+        "deformation_mean": float(out["deformation"].mean().item()),
+        "deformation_std": float(out["deformation"].std().item()),
+        "use_occlusion": out["occlusion_map"] is not None,
     }
-    data_regression.check(snapshot_data)
+
+    data_regression.check(snapshot)

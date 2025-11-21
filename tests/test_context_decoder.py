@@ -1,18 +1,14 @@
 import torch
 import pytest
-from src.models.context_decoder import ContextDecoder
+from configs.configs import config
+from models.context_decoder import ContextDecoder
 
 
 @pytest.fixture
 def context_decoder():
     torch.manual_seed(0)
     return ContextDecoder(
-        block_expansion=64,
-        num_blocks=4,
-        max_features=1024,
-        num_down_blocks=2,
-        out_channels=3
-    )
+        **config.context_decoder_params.model_dump())
 
 
 @pytest.fixture

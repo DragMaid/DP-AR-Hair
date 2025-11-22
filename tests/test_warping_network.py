@@ -6,7 +6,6 @@ from models.warping_network import WarpingNetwork
 
 @pytest.fixture
 def warping_network():
-    torch.manual_seed(0)
     params = config.warping_module_params.model_dump()
     dense = params.pop("dense_motion_params")
 
@@ -18,7 +17,6 @@ def warping_network():
 
 @pytest.fixture
 def sample_data():
-    torch.manual_seed(0)
     feature_3d = torch.randn(2, 32, 16, 64, 64)
     kp_driving = torch.randn(2, 21, 3)
     kp_source = torch.randn(2, 21, 3)

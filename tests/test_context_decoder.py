@@ -6,14 +6,12 @@ from models.context_decoder import ContextDecoder
 
 @pytest.fixture
 def context_decoder():
-    torch.manual_seed(0)
     return ContextDecoder(
         **config.context_decoder_params.model_dump())
 
 
 @pytest.fixture
 def sample_feature():
-    torch.manual_seed(0)
     return torch.randn(2, 256, 64, 64)
 
 

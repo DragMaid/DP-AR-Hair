@@ -6,14 +6,12 @@ from models.appearance_feature_extractor import AppearanceFeatureExtractor
 
 @pytest.fixture
 def appearance_extractor():
-    torch.manual_seed(0)
     return AppearanceFeatureExtractor(
         **config.appearance_feature_extractor_params.model_dump())
 
 
 @pytest.fixture
 def sample_image():
-    torch.manual_seed(0)
     return torch.randn(2, 3, 256, 256)  # Input image size
 
 

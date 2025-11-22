@@ -2,9 +2,21 @@ import pytest
 from pathlib import Path
 import numpy as np
 import torch
+import random
 
 # Enable deterministic algorithms globally for reproducible tests
 torch.use_deterministic_algorithms(True)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def seed_all():
+    seed = 0
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 
 @pytest.fixture(scope="session")
@@ -21,20 +33,5 @@ def lazy_datadir(request) -> Path:
 
 def pytest_addoption(parser):
     parser.addini("lazy_datadir", "my own datadir for pytest-regressions")
-    parser.addini("original_datadir", "my own original_datadir for pytest-regressions")
-
-
-# Approximate comparison helper for snapshot checks
-def _approx_data(out, expected, tol=1e-5):
-    out = np.array(out)
-    expected = np.array(expected)
-    assert np.allclose(out, expected, atol=tol)
-
-
-@pytest.fixture
-def approx_data():
-    """
-    Fixture that returns a callable approx_data(out, expected, tol=1e-5)
-    for use in tests (e.g. approx_data(out.tolist(), snapshot_data)).
-    """
-    return _approx_data
+    parser.addini("original_datadir",
+                  "my own original_datadir for pytest-regressions")

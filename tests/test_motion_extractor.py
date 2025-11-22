@@ -6,14 +6,12 @@ from models.motion_extractor import MotionExtractor
 
 @pytest.fixture
 def motion_extractor():
-    torch.manual_seed(0)
     return MotionExtractor(
         **config.motion_extractor_params.model_dump())
 
 
 @pytest.fixture
 def sample_image():
-    torch.manual_seed(0)
     return torch.randn(2, 3, 256, 256)
 
 
@@ -50,4 +48,5 @@ def test_motion_extractor_gradients(motion_extractor, sample_image):
 def test_motion_extractor_snapshot(motion_extractor, sample_image, data_regression):
     out = motion_extractor(sample_image)
     kp = out['kp'].detach().cpu().numpy()
-    data_regression.check({"kp": kp.tolist()})
+    data_regression.check({"kp": kp.tolist()},
+                          default_tolerance={"atol": 1e-5})

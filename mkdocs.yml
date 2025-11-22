@@ -3,7 +3,13 @@ theme:
   name: readthedocs
 
 nav:
-  - Structure: structure.md
-  - Git version control: git.md
-  - Testing: test.md
-  - Dependency Management: dependencies.md
+  - Contributions:
+    - Structure: structure.md
+    - Git version control: git.md
+    - Testing: test.md
+    - Dependency Management: dependencies.md
+  - Models:
+    - E_m: motion_extractor.md
+    - E_h and E_c: appearance_feature_extractor.md
+    - W: warping_network.md
+    - Spade: spade.md

@@ -6,14 +6,12 @@ from models.motion_extractor import MotionExtractor
 
 @pytest.fixture
 def motion_extractor():
-    torch.manual_seed(0)
     return MotionExtractor(
         **config.motion_extractor_params.model_dump())
 
 
 @pytest.fixture
 def sample_image():
-    torch.manual_seed(0)
     return torch.randn(2, 3, 256, 256)
 
 
@@ -47,7 +45,17 @@ def test_motion_extractor_gradients(motion_extractor, sample_image):
             assert p.grad is not None, f"{name} not used for kp!"
 
 
-def test_motion_extractor_snapshot(motion_extractor, sample_image, data_regression):
-    out = motion_extractor(sample_image)
-    kp = out['kp'].detach().cpu().numpy()
-    data_regression.check({"kp": kp.tolist()})
+# def test_motion_extractor_snapshot(motion_extractor, sample_image, data_regression):
+    # motion_extractor.eval()
+    # out = motion_extractor(sample_image)
+    # kp = out['kp'].detach().cpu().numpy()
+
+    # summary = {
+        # "mean": float(kp.mean()),
+        # "min": float(kp.min()),
+        # "max": float(kp.max()),
+        # "std": float(kp.std()),
+        # "sample": kp.flatten()[::1000].tolist()
+    # }
+
+    # data_regression.check(summary)

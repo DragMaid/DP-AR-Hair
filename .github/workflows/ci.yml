@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2. Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10.5"
+
+      # 3. Install Poetry
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      # 4. Install dependencies via Poetry
+      - name: Install dependencies
+        run: |
+          poetry install --no-interaction --no-ansi
+          #pip install gdown
+
+      # 5. Download snapshots from Google Drive
+      #- name: Download snapshots
+        #run: |
+          #mkdir -p tests/__snapshots__
+          #gdown https://drive.google.com/drive/folders/1GJtxLu4CM9VOuo2ueIzr6T2K0mZUbKCS -O tests/__snapshots__ --folder
+
+      # 6. Run tests via Poetry
+      - name: Run tests
+        run: |
+          poetry run pytest

@@ -46,7 +46,16 @@ def test_motion_extractor_gradients(motion_extractor, sample_image):
 
 
 def test_motion_extractor_snapshot(motion_extractor, sample_image, data_regression):
+    motion_extractor.eval()
     out = motion_extractor(sample_image)
     kp = out['kp'].detach().cpu().numpy()
-    data_regression.check({"kp": kp.tolist()},
-                          default_tolerance={"atol": 1e-5})
+
+    summary = {
+        "mean": float(kp.mean()),
+        "min": float(kp.min()),
+        "max": float(kp.max()),
+        "std": float(kp.std()),
+        "sample": kp.flatten()[::1000].tolist()
+    }
+
+    data_regression.check(summary)

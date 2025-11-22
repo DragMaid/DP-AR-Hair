@@ -82,6 +82,8 @@ def test_gradients_flow(warping_network, sample_data):
 
 def test_snapshot_regression(warping_network, sample_data, data_regression):
     feature_3d, kp_driving, kp_source = sample_data
+
+    warping_network.eval()
     out = warping_network(feature_3d, kp_driving, kp_source)
 
     snapshot = {

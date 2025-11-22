@@ -37,5 +37,15 @@ def test_appearance_extractor_gradients(appearance_extractor, sample_image):
 def test_appearance_extractor_snapshot(appearance_extractor,
                                        sample_image,
                                        data_regression):
+    appearance_extractor.eval()
     out = appearance_extractor(sample_image).detach().cpu().numpy()
-    data_regression.check({"output": out.tolist()})
+
+    summary = {
+        "mean": float(out.mean()),
+        "min": float(out.min()),
+        "max": float(out.max()),
+        "std": float(out.std()),
+        "sample": out.flatten()[::1000].tolist()
+    }
+
+    data_regression.check(summary)

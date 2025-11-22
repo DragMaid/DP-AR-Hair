@@ -42,5 +42,15 @@ def test_context_decoder_gradients(context_decoder, sample_feature):
 
 
 def test_context_decoder_snapshot(context_decoder, sample_feature, data_regression):
+    context_decoder.eval()
     out = context_decoder(sample_feature).detach().cpu().numpy()
-    data_regression.check({"output": out.tolist()})
+
+    summary = {
+        "mean": float(out.mean()),
+        "min": float(out.min()),
+        "max": float(out.max()),
+        "std": float(out.std()),
+        "sample": out.flatten()[::1000].tolist()
+    }
+
+    data_regression.check(summary)

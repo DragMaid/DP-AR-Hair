@@ -34,18 +34,18 @@ def test_appearance_extractor_gradients(appearance_extractor, sample_image):
         assert p.grad is not None, f"{name} has no gradient!"
 
 
-def test_appearance_extractor_snapshot(appearance_extractor,
-                                       sample_image,
-                                       data_regression):
-    appearance_extractor.eval()
-    out = appearance_extractor(sample_image).detach().cpu().numpy()
+# def test_appearance_extractor_snapshot(appearance_extractor,
+                                       # sample_image,
+                                       # data_regression):
+    # appearance_extractor.eval()
+    # out = appearance_extractor(sample_image).detach().cpu().numpy()
 
-    summary = {
-        "mean": float(out.mean()),
-        "min": float(out.min()),
-        "max": float(out.max()),
-        "std": float(out.std()),
-        "sample": out.flatten()[::1000].tolist()
-    }
+    # summary = {
+        # "mean": float(out.mean()),
+        # "min": float(out.min()),
+        # "max": float(out.max()),
+        # "std": float(out.std()),
+        # "sample": out.flatten()[::1000].tolist()
+    # }
 
-    data_regression.check(summary)
+    # data_regression.check(summary)

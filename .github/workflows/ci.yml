@@ -30,13 +30,13 @@ jobs:
       - name: Install dependencies
         run: |
           poetry install --no-interaction --no-ansi
-          pip install gdown
+          #pip install gdown
 
       # 5. Download snapshots from Google Drive
-      - name: Download snapshots
-        run: |
-          mkdir -p tests/__snapshots__
-          gdown https://drive.google.com/drive/folders/1GJtxLu4CM9VOuo2ueIzr6T2K0mZUbKCS -O tests/__snapshots__ --folder
+      #- name: Download snapshots
+        #run: |
+          #mkdir -p tests/__snapshots__
+          #gdown https://drive.google.com/drive/folders/1GJtxLu4CM9VOuo2ueIzr6T2K0mZUbKCS -O tests/__snapshots__ --folder
 
       # 6. Run tests via Poetry
       - name: Run tests

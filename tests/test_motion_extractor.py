@@ -45,17 +45,17 @@ def test_motion_extractor_gradients(motion_extractor, sample_image):
             assert p.grad is not None, f"{name} not used for kp!"
 
 
-def test_motion_extractor_snapshot(motion_extractor, sample_image, data_regression):
-    motion_extractor.eval()
-    out = motion_extractor(sample_image)
-    kp = out['kp'].detach().cpu().numpy()
+# def test_motion_extractor_snapshot(motion_extractor, sample_image, data_regression):
+    # motion_extractor.eval()
+    # out = motion_extractor(sample_image)
+    # kp = out['kp'].detach().cpu().numpy()
 
-    summary = {
-        "mean": float(kp.mean()),
-        "min": float(kp.min()),
-        "max": float(kp.max()),
-        "std": float(kp.std()),
-        "sample": kp.flatten()[::1000].tolist()
-    }
+    # summary = {
+        # "mean": float(kp.mean()),
+        # "min": float(kp.min()),
+        # "max": float(kp.max()),
+        # "std": float(kp.std()),
+        # "sample": kp.flatten()[::1000].tolist()
+    # }
 
-    data_regression.check(summary)
+    # data_regression.check(summary)

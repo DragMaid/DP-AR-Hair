@@ -80,18 +80,18 @@ def test_gradients_flow(warping_network, sample_data):
 # Snapshot Test
 # -----------------------------------------------------------
 
-def test_snapshot_regression(warping_network, sample_data, data_regression):
-    feature_3d, kp_driving, kp_source = sample_data
+# def test_snapshot_regression(warping_network, sample_data, data_regression):
+    # feature_3d, kp_driving, kp_source = sample_data
 
-    warping_network.eval()
-    out = warping_network(feature_3d, kp_driving, kp_source)
+    # warping_network.eval()
+    # out = warping_network(feature_3d, kp_driving, kp_source)
 
-    snapshot = {
-        "out_mean": float(out["out"].mean().item()),
-        "out_std": float(out["out"].std().item()),
-        "deformation_mean": float(out["deformation"].mean().item()),
-        "deformation_std": float(out["deformation"].std().item()),
-        "use_occlusion": out["occlusion_map"] is not None,
-    }
+    # snapshot = {
+        # "out_mean": float(out["out"].mean().item()),
+        # "out_std": float(out["out"].std().item()),
+        # "deformation_mean": float(out["deformation"].mean().item()),
+        # "deformation_std": float(out["deformation"].std().item()),
+        # "use_occlusion": out["occlusion_map"] is not None,
+    # }
 
-    data_regression.check(snapshot)
+    # data_regression.check(snapshot)

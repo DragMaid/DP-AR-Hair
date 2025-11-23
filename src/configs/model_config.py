@@ -72,4 +72,4 @@ def load_config(path: str | Path) -> ModelConfig:
 
 
 work_dir = os.path.dirname(os.path.realpath(__file__))
-config = load_config(Path(work_dir) / "configs.yaml")
+model_config = load_config(Path(work_dir) / "configs.yaml")

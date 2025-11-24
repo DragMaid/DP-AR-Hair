@@ -1,9 +1,16 @@
-from . import appearance_feature_extractor
-from . import motion_extractor
-from . import warping_network
-from . import context_decoder
-from . import spade
+from .appearance_feature_extractor import AppearanceFeatureExtractor
+from .motion_extractor import MotionExtractor
+from .warping_network import WarpingNetwork
+from .context_decoder import ContextDecoder
+from .spade import SPADE, SPADEResnetBlock
 from . import util
 
-__all__ = ["appearance_feature_extractor", "motion_extractor",
-           "warping_network", "context_decoder", "spade", "util"]
+__all__ = [
+    "AppearanceFeatureExtractor",
+    "MotionExtractor",
+    "WarpingNetwork",
+    "ContextDecoder",
+    "SPADE",
+    "SPADEResnetBlock",
+    "util",
+]

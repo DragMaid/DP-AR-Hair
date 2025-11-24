@@ -1,13 +1,13 @@
 import torch
 import pytest
-from configs.configs import config
+from configs.model_config import model_config
 from models.appearance_feature_extractor import AppearanceFeatureExtractor
 
 
 @pytest.fixture
 def appearance_extractor():
     return AppearanceFeatureExtractor(
-        **config.appearance_feature_extractor_params.model_dump())
+        **model_config.appearance_feature_extractor_params.model_dump())
 
 
 @pytest.fixture
@@ -49,3 +49,4 @@ def test_appearance_extractor_gradients(appearance_extractor, sample_image):
     # }
 
     # data_regression.check(summary)
+

@@ -1,12 +1,12 @@
 import torch
 import pytest
-from configs.configs import config
+from configs.model_config import model_config
 from models.warping_network import WarpingNetwork
 
 
 @pytest.fixture
 def warping_network():
-    params = config.warping_module_params.model_dump()
+    params = model_config.warping_module_params.model_dump()
     dense = params.pop("dense_motion_params")
 
     return WarpingNetwork(
@@ -95,3 +95,4 @@ def test_gradients_flow(warping_network, sample_data):
     # }
 
     # data_regression.check(snapshot)
+

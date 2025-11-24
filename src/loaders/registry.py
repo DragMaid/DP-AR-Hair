@@ -1,0 +1,126 @@
+from pathlib import Path
+from typing import Set, Dict
+from uuid import uuid4
+from collections import defaultdict
+from configs.model_config import model_config
+from models.appearance_feature_extractor import AppearanceFeatureExtractor
+from models.motion_extractor import MotionExtractor
+from models.warping_network import WarpingNetwork
+from models.context_decoder import ContextDecoder
+
+WEIGHT_ROOT = Path(__file__).resolve().parents[2] / "weights"
+
+
+class ModelRegistry:
+    _registry = {}
+    _alias_map = {}
+
+    @classmethod
+    def register(cls, names: Set[str], data: Dict):
+        r_id = uuid4()
+        cls._registry[r_id] = data
+        for name in names:
+            cls._alias_map[name] = r_id
+
+    @classmethod
+    def get_registry(cls, name: str) -> dict:
+        if name not in cls._alias_map.keys():
+            raise KeyError(f"Model '{name}' not found in registry.")
+
+        registry = cls._registry.get(cls._alias_map[name], None)
+        # Second check just to be sure
+        if not registry:
+            raise ValueError(f"Expected model registry, got {registry}")
+        return registry
+
+    @classmethod
+    def list(cls):
+        reference = defaultdict(list)
+        for k, v in cls._alias_map.items():
+            reference[v].append(k)
+
+        return {str(v): str(cls._registry[k]) for k, v in reference.items()}
+
+
+ModelRegistry.register(
+    {"appearance_feature_extractor", "E_H", "E_C"},
+    {
+        "model_builder": AppearanceFeatureExtractor,
+        "params": model_config.appearance_feature_extractor_params,
+        "weight": {
+            "type": "huggingface",
+            "options": {
+                "repo_id": "KlingTeam/LivePortrait",
+                "repo_type": "space",
+                "filename": "pretrained_weights/liveportrait/base_models/appearance_feature_extractor.pth",
+                "local_dir": WEIGHT_ROOT,
+            },
+        },
+        "loader": "pytorch",
+        "key_mapper": "default",  # Not implemented yet
+        "precision": "fp32"       # Not implemented yet
+    }
+)
+
+ModelRegistry.register(
+    {"motion_extractor", "E_M"},
+    {
+        "model_builder": MotionExtractor,
+        "params": model_config.motion_extractor_params,
+        "weight": {
+            "type": "huggingface",
+            "options": {
+                "repo_id": "KlingTeam/LivePortrait",
+                "repo_type": "space",
+                "filename": "pretrained_weights/liveportrait/base_models/motion_extractor.pth",
+                "local_dir": WEIGHT_ROOT,
+            },
+        },
+        "loader": "pytorch",
+        "key_mapper": "default",  # Not implemented yet
+        "precision": "fp32"       # Not implemented yet
+    }
+)
+
+ModelRegistry.register(
+    {"warping_module", "W"},
+    {
+        "model_builder": WarpingNetwork,
+        "params": model_config.warping_module_params,
+        "weight": {
+            "type": "huggingface",
+            "options": {
+                "repo_id": "KlingTeam/LivePortrait",
+                "repo_type": "space",
+                "filename": "pretrained_weights/liveportrait/base_models/warping_module.pth",
+                "local_dir": WEIGHT_ROOT,
+            },
+        },
+        "loader": "pytorch",
+        "key_mapper": "default",  # Not implemented yet
+        "precision": "fp32"       # Not implemented yet
+    }
+)
+
+ModelRegistry.register(
+    {"spade_generator", "context_decoder", "D_C", "G"},
+    {
+        "model_builder": ContextDecoder,
+        "params": model_config.context_decoder_params,
+        "weight": {
+            "type": "huggingface",
+            "options": {
+                "repo_id": "KlingTeam/LivePortrait",
+                "repo_type": "space",
+                "filename": "pretrained_weights/liveportrait/base_models/spade_generator.pth",
+                "local_dir": WEIGHT_ROOT,
+            },
+        },
+        "loader": "pytorch",
+        "key_mapper": "default",  # Not implemented yet
+        "precision": "fp32"       # Not implemented yet
+    }
+)
+
+if __name__ == "__main__":
+    print(ModelRegistry.list())

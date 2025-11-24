@@ -122,3 +122,22 @@ def test_spaderesnetblock_backward():
     # Check ALL learnable parameters received gradients
     for name, param in block.named_parameters():
         assert param.grad is not None, f"{name} has no gradient"
+
+
+# def test_spade_snapshot(data_regression):
+#     x = torch.randn(1, 64, 16, 16)
+#     seg = torch.randn(1, 20, 16, 16)
+#     spade = SPADE(norm_nc=64, label_nc=20)
+#
+#     spade.eval()
+#     out = spade(x, seg).detach().cpu().numpy()
+#
+#     summary = {
+#         "mean": float(out.mean()),
+#         "min": float(out.min()),
+#         "max": float(out.max()),
+#         "std": float(out.std()),
+#         "sample": out.flatten()[::1000].tolist()
+#     }
+#
+#     data_regression.check(summary)

@@ -49,3 +49,4 @@ def test_appearance_extractor_gradients(appearance_extractor, sample_image):
     # }
 
     # data_regression.check(summary)
+

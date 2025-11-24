@@ -59,3 +59,4 @@ def test_motion_extractor_gradients(motion_extractor, sample_image):
     # }
 
     # data_regression.check(summary)
+

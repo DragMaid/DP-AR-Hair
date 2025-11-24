@@ -9,7 +9,11 @@ nav:
     - Testing: test.md
     - Dependency Management: dependencies.md
   - Models:
-    - E_m: motion_extractor.md
-    - E_h and E_c: appearance_feature_extractor.md
-    - W: warping_network.md
-    - Spade: spade.md
+    - Motion Extractor (E_M): motion_extractor.md
+    - Appeareance Extractor (E_H & E_C): appearance_feature_extractor.md
+    - Warping Module (W): warping_network.md
+    - Spade & SpadeResnet: spade.md
+  - Loaders:
+    - Registry: registry.md
+    - Loader: loader.md
+    - Downloader: downloader.md

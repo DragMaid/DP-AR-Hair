@@ -76,6 +76,7 @@ class GFSPADE(nn.Module):
         # NOTE: opting for the conv split to save memory is good or not ?
         gamma = self.mlp_gamma(actv)
         beta = self.mlp_beta(actv)
+        # TODO: why is it 1 + gamma
         h_c_tilde = normed * (1 + gamma) + beta  # Eq.1 Page 5
 
         # 3. Compute spatial gate
@@ -89,22 +90,3 @@ class GFSPADE(nn.Module):
         h_w_tilde = self.post_conv(h_w_tilde)
 
         return h_w_tilde
-
-
-# ---------------------------
-# Example usage / smoke test
-# ---------------------------
-# TODO: move this to test folder later
-if __name__ == "__main__":
-    B, C, H, W = 2, 128, 64, 64
-    Cf, Cm = 64, 1  # context feature channels + mask
-
-    h_w = torch.randn(B, C, H, W)
-    h_c = torch.randn(B, C, H, W)
-    f_c = torch.randn(B, Cf, H, W)
-    m_c = torch.randint(0, 2, (B, Cm, H, W)).float()
-    f_n = torch.cat([f_c, m_c], dim=1)
-
-    gf_spade = GFSPADE(num_channels=C, cond_channels=Cf + Cm)
-    out = gf_spade(f_n, h_c, h_w)
-    print("GF-SPADE output shape:", out.shape)  # expect (B, C, H, W)

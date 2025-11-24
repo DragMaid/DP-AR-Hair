@@ -1,13 +1,13 @@
 import torch
 import pytest
-from configs.configs import config
+from configs.model_config import model_config
 from models.context_decoder import ContextDecoder
 
 
 @pytest.fixture
 def context_decoder():
     return ContextDecoder(
-        **config.context_decoder_params.model_dump())
+        **model_config.context_decoder_params.model_dump())
 
 
 @pytest.fixture

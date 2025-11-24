@@ -1,13 +1,13 @@
 import torch
 import pytest
-from configs.configs import config
+from configs.model_config import model_config
 from models.motion_extractor import MotionExtractor
 
 
 @pytest.fixture
 def motion_extractor():
     return MotionExtractor(
-        **config.motion_extractor_params.model_dump())
+        **model_config.motion_extractor_params.model_dump())
 
 
 @pytest.fixture
@@ -27,7 +27,7 @@ def test_motion_extractor_kp_shape(motion_extractor, sample_image):
     kp = out['kp']
     assert kp.ndim == 2
     assert kp.shape[0] == 2  # batch size
-    assert kp.shape[1] == 3 * config.motion_extractor_params.num_kp
+    assert kp.shape[1] == 3 * model_config.motion_extractor_params.num_kp
 
 
 def test_motion_extractor_no_nans(motion_extractor, sample_image):

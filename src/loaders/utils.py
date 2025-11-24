@@ -1,3 +1,4 @@
+import os
 import torch
 import shutil
 from pathlib import Path
@@ -28,7 +29,7 @@ def move_all_files_to_root(root_dir: str | Path) -> None:
         if path.is_file():
             dest = root_dir / path.name
             if dest.exists():
-                dest = root_dir / f"{path.stem}_dup{path.suffix}"
+                os.remove(path)
             shutil.move(str(path), str(dest))
 
     # Clean up any empty subfolders

@@ -1,16 +1,15 @@
 from huggingface_hub import hf_hub_download
-from pathlib import Path
+from loaders.utils import move_all_files_to_root
 
-WEIGHT_ROOT = Path(__file__).resolve().parent / "files"
-WEIGHT_ROOT.mkdir(exist_ok=True, parents=True)
+DOWNLOADER_MAPPER = {
+    "huggingface": lambda repo_id, repo_type, filename, local_dir: hf_hub_download(repo_id=repo_id, repo_type=repo_type, filename=filename, local_dir=local_dir)
+}
 
 
-def download_liveportrait_weights(file, repo, target_dir):
-    file_path = hf_hub_download(
-        repo_id="KlingTeam/LivePortrait",
-        repo_type="space",
-        filename="pretrained_weights/liveportrait/base_models/appearance_feature_extractor.pth",
-        local_dir=target_dir,
-        local_dir_use_symlinks=False
-    )
+def download_weights(dtype, options):
+    downloader = DOWNLOADER_MAPPER.get(dtype, None)
+    if not downloader:
+        raise ValueError(f"No downloader found for type {dtype}")
+    file_path = downloader(**options)
+    move_all_files_to_root(options["local_dir"])
     return file_path

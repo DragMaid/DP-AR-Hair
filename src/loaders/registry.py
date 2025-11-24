@@ -2,9 +2,13 @@ from pathlib import Path
 from typing import Set, Dict
 from uuid import uuid4
 from collections import defaultdict
+from configs.model_config import model_config
 from models.appearance_feature_extractor import AppearanceFeatureExtractor
+from models.motion_extractor import MotionExtractor
+from models.warping_network import WarpingNetwork
+from models.context_decoder import ContextDecoder
 
-WEIGHT_ROOT = Path(__file__).resolve().parent / "weights"
+WEIGHT_ROOT = Path(__file__).resolve().parents[2] / "weights"
 
 
 class ModelRegistry:
@@ -19,15 +23,15 @@ class ModelRegistry:
             cls._alias_map[name] = r_id
 
     @classmethod
-    def get_path(cls, name: str) -> Path:
-        if name not in cls._alias_map:
+    def get_registry(cls, name: str) -> dict:
+        if name not in cls._alias_map.keys():
             raise KeyError(f"Model '{name}' not found in registry.")
 
-        model = cls._registry.get(cls._alias_map[name], None)
+        registry = cls._registry.get(cls._alias_map[name], None)
         # Second check just to be sure
-        if not model:
-            raise ValueError("Expected model object, got None")
-        return model
+        if not registry:
+            raise ValueError(f"Expected model registry, got {registry}")
+        return registry
 
     @classmethod
     def list(cls):
@@ -42,14 +46,77 @@ ModelRegistry.register(
     {"appearance_feature_extractor", "E_H", "E_C"},
     {
         "model_builder": AppearanceFeatureExtractor,
-        "weight_source": {
+        "params": model_config.appearance_feature_extractor_params,
+        "weight": {
             "type": "huggingface",
-            "repo": "KlingTeam/LivePortrait",
-            "repo_type": "space",
-            "path": "pretrained_weights/liveportrait/base_models/appearance_feature_extractor.pth",
-            "save_to": "appearance_feature_extractor.pth"
+            "options": {
+                "repo_id": "KlingTeam/LivePortrait",
+                "repo_type": "space",
+                "filename": "pretrained_weights/liveportrait/base_models/appearance_feature_extractor.pth",
+                "local_dir": WEIGHT_ROOT,
+            },
         },
-        "loader": "pytorch_loader",
+        "loader": "pytorch",
+        "key_mapper": "default",  # Not implemented yet
+        "precision": "fp32"       # Not implemented yet
+    }
+)
+
+ModelRegistry.register(
+    {"motion_extractor", "E_M"},
+    {
+        "model_builder": MotionExtractor,
+        "params": model_config.motion_extractor_params,
+        "weight": {
+            "type": "huggingface",
+            "options": {
+                "repo_id": "KlingTeam/LivePortrait",
+                "repo_type": "space",
+                "filename": "pretrained_weights/liveportrait/base_models/motion_extractor.pth",
+                "local_dir": WEIGHT_ROOT,
+            },
+        },
+        "loader": "pytorch",
+        "key_mapper": "default",  # Not implemented yet
+        "precision": "fp32"       # Not implemented yet
+    }
+)
+
+ModelRegistry.register(
+    {"warping_module", "W"},
+    {
+        "model_builder": WarpingNetwork,
+        "params": model_config.warping_module_params,
+        "weight": {
+            "type": "huggingface",
+            "options": {
+                "repo_id": "KlingTeam/LivePortrait",
+                "repo_type": "space",
+                "filename": "pretrained_weights/liveportrait/base_models/warping_module.pth",
+                "local_dir": WEIGHT_ROOT,
+            },
+        },
+        "loader": "pytorch",
+        "key_mapper": "default",  # Not implemented yet
+        "precision": "fp32"       # Not implemented yet
+    }
+)
+
+ModelRegistry.register(
+    {"spade_generator", "context_decoder", "D_C", "G"},
+    {
+        "model_builder": ContextDecoder,
+        "params": model_config.context_decoder_params,
+        "weight": {
+            "type": "huggingface",
+            "options": {
+                "repo_id": "KlingTeam/LivePortrait",
+                "repo_type": "space",
+                "filename": "pretrained_weights/liveportrait/base_models/spade_generator.pth",
+                "local_dir": WEIGHT_ROOT,
+            },
+        },
+        "loader": "pytorch",
         "key_mapper": "default",  # Not implemented yet
         "precision": "fp32"       # Not implemented yet
     }

@@ -7,6 +7,7 @@ from models.appearance_feature_extractor import AppearanceFeatureExtractor
 from models.motion_extractor import MotionExtractor
 from models.warping_network import WarpingNetwork
 from models.context_decoder import ContextDecoder
+from models.synthesis_decoder import SynthesisDecoder
 
 WEIGHT_ROOT = Path(__file__).resolve().parents[2] / "weights"
 
@@ -106,6 +107,26 @@ ModelRegistry.register(
     {"spade_generator", "context_decoder", "D_C", "G"},
     {
         "model_builder": ContextDecoder,
+        "params": model_config.context_decoder_params,
+        "weight": {
+            "type": "huggingface",
+            "options": {
+                "repo_id": "KlingTeam/LivePortrait",
+                "repo_type": "space",
+                "filename": "pretrained_weights/liveportrait/base_models/spade_generator.pth",
+                "local_dir": WEIGHT_ROOT,
+            },
+        },
+        "loader": "pytorch",
+        "key_mapper": "default",  # Not implemented yet
+        "precision": "fp32"       # Not implemented yet
+    }
+)
+
+ModelRegistry.register(
+    {"synthesis_decoder", "D_S"},
+    {
+        "model_builder": SynthesisDecoder,
         "params": model_config.context_decoder_params,
         "weight": {
             "type": "huggingface",

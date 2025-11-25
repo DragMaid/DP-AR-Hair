@@ -1,5 +1,8 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+import torch.nn.utils.spectral_norm as spectral_norm
+from models.spade import SPADE
 
 
 class GFSPADE(nn.Module):
@@ -13,7 +16,7 @@ class GFSPADE(nn.Module):
     def __init__(self,
                  num_channels,
                  cond_channels,
-                 hidden_channels=64,
+                 hidden_channels=128,
                  kernel_size=3,
                  post_conv=True):
         """
@@ -29,7 +32,8 @@ class GFSPADE(nn.Module):
         self.hidden_channels = hidden_channels
 
         # Normalization for context activation
-        self.param_free_norm = nn.InstanceNorm2d(num_channels)
+        self.param_free_norm = nn.InstanceNorm2d(
+            num_channels, affine=False, eps=1e-5)
 
         padding = kernel_size // 2
 
@@ -90,3 +94,48 @@ class GFSPADE(nn.Module):
         h_w_tilde = self.post_conv(h_w_tilde)
 
         return h_w_tilde
+
+
+class GFSPADEResnetBlock(nn.Module):
+    def __init__(self, fin, fout, norm_G, label_nc, use_se=False, dilation=1):
+        super().__init__()
+
+        # Attributes
+        self.learned_shortcut = (fin != fout)
+        fmiddle = min(fin, fout)
+        self.use_se = use_se
+
+        # create conv layers
+        self.conv_0 = nn.Conv2d(
+            fin, fmiddle, kernel_size=3, padding=dilation, dilation=dilation)
+        self.conv_1 = nn.Conv2d(
+            fmiddle, fout, kernel_size=3, padding=dilation, dilation=dilation)
+        if self.learned_shortcut:
+            self.conv_s = nn.Conv2d(fin, fout, kernel_size=1, bias=False)
+
+        # apply spectral norm if specified
+        if 'spectral' in norm_G:
+            self.conv_0 = spectral_norm(self.conv_0)
+            self.conv_1 = spectral_norm(self.conv_1)
+            if self.learned_shortcut:
+                self.conv_s = spectral_norm(self.conv_s)
+
+        # define normalization layers
+        self.norm_0 = SPADE(fin, label_nc)
+        self.norm_1 = SPADE(fmiddle, label_nc)
+        if self.learned_shortcut:
+            self.norm_s = SPADE(fin, label_nc)
+
+        # define GF-SPADEs
+        self.gf_spade_1 = GFSPADE(fin, label_nc)
+        self.gf_spade_2 = GFSPADE(fmiddle, label_nc)
+
+    def shortcut(self, x, seg1):
+        if self.learned_shortcut:
+            x_s = self.conv_s(self.norm_s(x, seg1))
+        else:
+            x_s = x
+        return x_s
+
+    def actvn(self, x):
+        return F.leaky_relu(x, 2e-1)

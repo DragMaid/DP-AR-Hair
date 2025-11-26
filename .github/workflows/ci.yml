@@ -41,4 +41,5 @@ jobs:
       # 6. Run tests via Poetry
       - name: Run tests
         run: |
+          export PYTHONPATH=src:libs
           poetry run pytest

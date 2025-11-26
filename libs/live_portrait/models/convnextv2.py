@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from models.util import LayerNorm, DropPath, trunc_normal_, GRN
+from live_portrait.models.utils import LayerNorm, DropPath, trunc_normal_, GRN
 
 __all__ = ['convnextv2_tiny']
 

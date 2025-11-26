@@ -1,8 +1,7 @@
-from torch import nn
 import torch
-
-from models.convnextv2 import convnextv2_tiny
-from models.util import filter_state_dict
+from torch import nn
+from live_portrait.models.convnextv2 import convnextv2_tiny
+from live_portrait.models.utils import filter_state_dict
 
 
 class MotionExtractor(nn.Module):

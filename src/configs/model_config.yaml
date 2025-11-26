@@ -29,3 +29,7 @@ context_decoder_params:
   block_expansion: 64
   max_features: 512
   num_down_blocks: 2
+
+face_parsing_params:
+  num_classes: 19
+  backbone_name: "resnet18"

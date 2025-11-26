@@ -3,11 +3,12 @@ from typing import Set, Dict
 from uuid import uuid4
 from collections import defaultdict
 from configs.model_config import model_config
-from models.appearance_feature_extractor import AppearanceFeatureExtractor
-from models.motion_extractor import MotionExtractor
-from models.warping_network import WarpingNetwork
-from models.context_decoder import ContextDecoder
 from models.synthesis_decoder import SynthesisDecoder
+from face_parsing.models.bisenet import BiSeNet
+from live_portrait.models.appearance_feature_extractor import AppearanceFeatureExtractor
+from live_portrait.models.motion_extractor import MotionExtractor
+from live_portrait.models.warping_network import WarpingNetwork
+from live_portrait.models.context_decoder import ContextDecoder
 
 WEIGHT_ROOT = Path(__file__).resolve().parents[2] / "weights"
 
@@ -114,6 +115,27 @@ ModelRegistry.register(
                 "repo_id": "KlingTeam/LivePortrait",
                 "repo_type": "space",
                 "filename": "pretrained_weights/liveportrait/base_models/spade_generator.pth",
+                "local_dir": WEIGHT_ROOT,
+            },
+        },
+        "loader": "pytorch",
+        "key_mapper": "default",  # Not implemented yet
+        "precision": "fp32"       # Not implemented yet
+    }
+)
+
+
+ModelRegistry.register(
+    {"Hair Mask", "M_C"},
+    {
+        "model_builder": BiSeNet,
+        "params": model_config.face_parsing_params,
+        "weight": {
+            "type": "direct_link",
+            "options": {
+                # Will only do ResNet18 for now
+                "link": "https://github.com/yakhyo/face-parsing/releases/download/v0.0.1/resnet18.pt",
+                "filename": "resnet18.pt",
                 "local_dir": WEIGHT_ROOT,
             },
         },

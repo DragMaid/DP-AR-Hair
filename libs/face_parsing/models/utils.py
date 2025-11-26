@@ -1,16 +1,12 @@
-import os
-from typing import Tuple
-
+import torch
 import numpy as np
+import torchvision.transforms as transforms
+from typing import Tuple
 from PIL import Image
 
-import torch
-import torchvision.transforms as transforms
 
-from models.bisenet import BiSeNet
-
-
-def prepare_image(image: Image.Image, input_size: Tuple[int, int] = (512, 512)) -> torch.Tensor:
+def prepare_image(image: Image.Image,
+                  input_size: Tuple[int, int] = (512, 512)) -> torch.Tensor:
     """
     Resize and normalize the image for the model.
     """
@@ -21,20 +17,6 @@ def prepare_image(image: Image.Image, input_size: Tuple[int, int] = (512, 512)) 
     ])
     image_tensor = transform(resized_image).unsqueeze(0)
     return image_tensor
-
-
-def load_model(model_name: str, num_classes: int, weight_path: str, device: torch.device) -> torch.nn.Module:
-    """
-    Load BiSeNet model with pretrained weights.
-    """
-    model = BiSeNet(num_classes, backbone_name=model_name)
-    model.to(device)
-
-    if not os.path.exists(weight_path):
-        raise ValueError(f"Weights not found at {weight_path}")
-    model.load_state_dict(torch.load(weight_path, map_location=device))
-    model.eval()
-    return model
 
 
 @torch.no_grad()

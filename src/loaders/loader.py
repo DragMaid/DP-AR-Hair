@@ -5,7 +5,7 @@ from loaders.downloader import download_weights
 from loaders.utils import model_ram_usage
 
 
-def load_models(name: str, pretrained: bool = False):
+def load_models(name: str, pretrained: bool = False, strict=True):
     """
     Load models from registry and allow convenient load pretrained.
     """
@@ -14,7 +14,7 @@ def load_models(name: str, pretrained: bool = False):
         raise ValueError(f"No model found for name {name}")
     model = registry["model_builder"](**registry["params"].model_dump())
     if pretrained:
-        load_weights(model, name)
+        load_weights(model, name, strict=strict)
     return model
 
 

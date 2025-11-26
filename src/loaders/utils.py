@@ -25,18 +25,19 @@ def move_all_files_to_root(root_dir: str | Path) -> None:
     """
     root_dir = Path(root_dir)
 
+    # Move files from subfolders to root
     for path in root_dir.rglob("*"):
-        if path.is_file():
+        if path.is_file() and path.parent != root_dir:
             dest = root_dir / path.name
+            # Handle name collision by overwriting
             if dest.exists():
-                os.remove(path)
+                dest.unlink()
             shutil.move(str(path), str(dest))
 
-    # Clean up any empty subfolders
+    # Remove empty subfolders
     for folder in sorted(root_dir.rglob("*"), reverse=True):
         if folder.is_dir():
             try:
-                # Returns error if folder is not empty
                 folder.rmdir()
             except OSError:
                 pass

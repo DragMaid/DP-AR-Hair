@@ -47,6 +47,11 @@ class ContextDecoderParams(BaseModel):
     num_down_blocks: int
 
 
+class FaceParsingParams(BaseModel):
+    num_classes: int
+    backbone_name: str
+
+
 # ---------------------------
 # Top-level config
 # ---------------------------
@@ -56,6 +61,7 @@ class ModelConfig(BaseModel):
     motion_extractor_params: MotionExtractorParams
     warping_module_params: WarpingModuleParams
     context_decoder_params: ContextDecoderParams
+    face_parsing_params: FaceParsingParams
 
 
 # ---------------------------

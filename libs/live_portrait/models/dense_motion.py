@@ -1,7 +1,7 @@
 from torch import nn
 import torch.nn.functional as F
 import torch
-from models.util import Hourglass, make_coordinate_grid, kp2gaussian
+from live_portrait.models.utils import Hourglass, make_coordinate_grid, kp2gaussian
 
 
 class DenseMotionNetwork(nn.Module):

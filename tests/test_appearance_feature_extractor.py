@@ -1,7 +1,7 @@
 import torch
 import pytest
 from configs.model_config import model_config
-from models.appearance_feature_extractor import AppearanceFeatureExtractor
+from live_portrait.models.appearance_feature_extractor import AppearanceFeatureExtractor
 
 
 @pytest.fixture

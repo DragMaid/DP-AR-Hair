@@ -1,6 +1,6 @@
 import torch
 import pytest
-from models.spade import SPADE, SPADEResnetBlock
+from live_portrait.models.spade import SPADE, SPADEResnetBlock
 
 
 # ---------------------------------------------------------

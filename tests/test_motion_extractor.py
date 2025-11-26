@@ -1,7 +1,7 @@
 import torch
 import pytest
 from configs.model_config import model_config
-from models.motion_extractor import MotionExtractor
+from live_portrait.models.motion_extractor import MotionExtractor
 
 
 @pytest.fixture

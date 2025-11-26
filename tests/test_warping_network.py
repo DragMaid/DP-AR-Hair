@@ -1,7 +1,7 @@
 import torch
 import pytest
 from configs.model_config import model_config
-from models.warping_network import WarpingNetwork
+from live_portrait.models.warping_network import WarpingNetwork
 
 
 @pytest.fixture

@@ -1,7 +1,7 @@
 import torch
 import pytest
 from configs.model_config import model_config
-from models.context_decoder import ContextDecoder
+from live_portrait.models.context_decoder import ContextDecoder
 
 
 @pytest.fixture

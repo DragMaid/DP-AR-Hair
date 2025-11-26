@@ -3,7 +3,7 @@ from .motion_extractor import MotionExtractor
 from .warping_network import WarpingNetwork
 from .context_decoder import ContextDecoder
 from .spade import SPADE, SPADEResnetBlock
-from . import util
+from . import utils
 
 __all__ = [
     "AppearanceFeatureExtractor",
@@ -12,5 +12,5 @@ __all__ = [
     "ContextDecoder",
     "SPADE",
     "SPADEResnetBlock",
-    "util",
+    "utils",
 ]

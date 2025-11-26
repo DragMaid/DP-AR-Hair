@@ -4,15 +4,18 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { ChakraProvider, defaultSystem } from '@chakra-ui/react'
+import { SocketContextProvider } from './contexts/SocketContext';
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
 root.render(
   <React.StrictMode>
-    <ChakraProvider value={defaultSystem}>
-      <App />
-    </ChakraProvider>
+    <SocketContextProvider>
+      <ChakraProvider value={defaultSystem}>
+        <App />
+      </ChakraProvider>
+    </SocketContextProvider>
   </React.StrictMode>
 );
 

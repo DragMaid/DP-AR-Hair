@@ -5,7 +5,7 @@ import type { Call } from '@/types/callType';
 
 const SocketContext = createContext<any>(undefined);
 const socket = io('http://localhost:8080');  // TODO: Add proper address for future deployment
-function ContextProvider({ children }: { children: React.ReactNode }) {
+function SocketContextProvider({ children }: { children: React.ReactNode }) {
     const [callAccepted, setCallAccepted] = useState<boolean>(false);
     const [callEnded, setCallEnded] = useState<boolean>(false);
     const [stream, setStream] = useState<MediaStream>();
@@ -89,4 +89,4 @@ function ContextProvider({ children }: { children: React.ReactNode }) {
     )
 };
 
-export { ContextProvider, SocketContext };
+export { SocketContextProvider, SocketContext };

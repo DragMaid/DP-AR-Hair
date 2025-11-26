@@ -1,6 +1,5 @@
 import React from 'react';
 import { Box, Heading, Container } from '@chakra-ui/react';
-import logo from './logo.svg';
 import Webcam from './components/Webcam';
 import './App.css';
 

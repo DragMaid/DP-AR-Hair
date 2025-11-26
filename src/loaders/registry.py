@@ -103,7 +103,7 @@ ModelRegistry.register(
 )
 
 ModelRegistry.register(
-    {"spade_generator", "context_decoder", "D_C", "G"},
+    {"spade_generator", "context_decoder", "D_C"},
     {
         "model_builder": ContextDecoder,
         "params": model_config.context_decoder_params,
@@ -134,6 +134,17 @@ ModelRegistry.register(
                 # Will only do ResNet18 for now
                 "link": "https://github.com/yakhyo/face-parsing/releases/download/v0.0.1/resnet18.pt",
                 "name": "resnet18.pt",
+ModelRegistry.register(
+    {"synthesis_decoder", "D_S"},
+    {
+        "model_builder": SynthesisDecoder,
+        "params": model_config.context_decoder_params,
+        "weight": {
+            "type": "huggingface",
+            "options": {
+                "repo_id": "KlingTeam/LivePortrait",
+                "repo_type": "space",
+                "filename": "pretrained_weights/liveportrait/base_models/spade_generator.pth",
                 "local_dir": WEIGHT_ROOT,
             },
         },

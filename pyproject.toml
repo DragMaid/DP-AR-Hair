@@ -154,6 +154,7 @@ transformers = "4.45.2"
 #zipp = "3.18.1"
 pytest = "9.0.1"
 pytest-regressions = "2.8.3"
+dlib = "^20.0.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "0.4.2"

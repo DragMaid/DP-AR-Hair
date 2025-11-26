@@ -408,6 +408,17 @@ graph = ["objgraph (>=1.7.2)"]
 profile = ["gprof2dot (>=2022.7.29)"]
 
 [[package]]
+name = "dlib"
+version = "20.0.0"
+description = "A toolkit for making real world machine learning and data analysis applications"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "dlib-20.0.0.tar.gz", hash = "sha256:9ab6a6fe113cc36a20c3f611c57fa6a07f18d1169bd04efb85c32e21b23b7d2b"},
+]
+
+[[package]]
 name = "einops"
 version = "0.4.1"
 description = "A new flavour of deep learning operations"
@@ -2812,4 +2823,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10.5,<3.11"
-content-hash = "b0c7222646492aaa22085e5ed8ef7eee3ad0e874ee1755fecebc6da7a6c6c655"
+content-hash = "da00871deee28c3dc58291f3a50661c4bccd97646e251ee7971037667b747d30"

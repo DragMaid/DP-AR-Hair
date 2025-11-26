@@ -9,6 +9,6 @@ This project includes components adapted from the **face-parsing** repository.
 
 The files in this project are derived from or heavily inspired by face-parsing’s implementation.
 
-Modifications include restructuring for clarity, integration with this project’s architecture, and adaptation for extended SPADE/GF-SPADE workflows. All original authorship belongs to the LivePortrait contributors.
+Modifications include restructuring for clarity, integration with this project’s architecture, and adaptation for extended SPADE/GF-SPADE workflows. All original authorship belongs to the face-parsing contributors.
 
-If you use or redistribute this modified version, please ensure that you also preserve attribution to the original LivePortrait authors.
+If you use or redistribute this modified version, please ensure that you also preserve attribution to the original face-parsing authors.

@@ -3,11 +3,11 @@ from huggingface_hub import hf_hub_download
 from loaders.utils import move_all_files_to_root
 
 
-def direct_link_download(link, name, dir):
-    if not dir or not dir.exists() or not link:
+def direct_link_download(link, filename, local_dir):
+    if not local_dir or not local_dir.exists() or not link:
         return
-    name = name if name else link.split("/")[-1]
-    dest = dir / name
+    filename = filename if filename else link.split("/")[-1]
+    dest = local_dir / filename
     urlretrieve(link, dest)
     return dest
 

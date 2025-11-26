@@ -3,6 +3,8 @@ from typing import Set, Dict
 from uuid import uuid4
 from collections import defaultdict
 from configs.model_config import model_config
+from models.synthesis_decoder import SynthesisDecoder
+from face_parsing.models.bisenet import BiSeNet
 from live_portrait.models.appearance_feature_extractor import AppearanceFeatureExtractor
 from live_portrait.models.motion_extractor import MotionExtractor
 from live_portrait.models.warping_network import WarpingNetwork
@@ -133,7 +135,16 @@ ModelRegistry.register(
             "options": {
                 # Will only do ResNet18 for now
                 "link": "https://github.com/yakhyo/face-parsing/releases/download/v0.0.1/resnet18.pt",
-                "name": "resnet18.pt",
+                "filename": "resnet18.pt",
+                "local_dir": WEIGHT_ROOT,
+            },
+        },
+        "loader": "pytorch",
+        "key_mapper": "default",  # Not implemented yet
+        "precision": "fp32"       # Not implemented yet
+    }
+)
+
 ModelRegistry.register(
     {"synthesis_decoder", "D_S"},
     {

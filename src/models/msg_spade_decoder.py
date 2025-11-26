@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from models.synthesis_decoder import SynthesisDecoder
-from models.context_decoder import ContextDecoder
+from live_portrait.models.context_decoder import ContextDecoder
 
 
 class MSGSpadeDecoder(nn.Module):

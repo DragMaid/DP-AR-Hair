@@ -48,3 +48,8 @@ def get_hair_mask(
         original_size, resample=Image.NEAREST)
 
     return np.array(hair_mask_resized) // 255  # return 0/1 mask
+
+
+if __name__ == "__main__":
+    from loaders.loader import load_models
+    M_C = load_models("M_C", pretrained=True)

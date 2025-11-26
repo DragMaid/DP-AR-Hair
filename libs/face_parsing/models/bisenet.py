@@ -9,7 +9,7 @@ import torch
 from torch import nn, Tensor
 import torch.nn.functional as F
 
-from models.resnet import resnet18, resnet34
+from face_parsing.models.resnet import resnet18, resnet34
 from typing import Union, Optional, Tuple
 
 

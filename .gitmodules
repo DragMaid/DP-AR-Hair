@@ -1,6 +1,0 @@
-[submodule "libs/stable_hair"]
-	path = libs/stable_hair
-	url = https://github.com/Xiaojiu-z/Stable-Hair.git
-[submodule "libs/face_parsing"]
-	path = libs/face_parsing
-	url = https://github.com/yakhyo/face-parsing.git

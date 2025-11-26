@@ -13,6 +13,7 @@ nav:
     - Appeareance Extractor (E_H & E_C): appearance_feature_extractor.md
     - Warping Module (W): warping_network.md
     - Spade & SpadeResnet: spade.md
+    - MSG Spade Decoder (G): msg_spade_decoder.md
   - Loaders:
     - Registry: registry.md
     - Loader: loader.md

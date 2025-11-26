@@ -9,8 +9,10 @@ from live_portrait.models.appearance_feature_extractor import AppearanceFeatureE
 from live_portrait.models.motion_extractor import MotionExtractor
 from live_portrait.models.warping_network import WarpingNetwork
 from live_portrait.models.context_decoder import ContextDecoder
+from hair_gan.hair_swap import HairFast
 
-WEIGHT_ROOT = Path(__file__).resolve().parents[2] / "weights"
+ROOT_DIR = Path(__file__).resolve().parents[2]
+WEIGHT_ROOT = ROOT_DIR / "weights"
 
 
 class ModelRegistry:
@@ -165,5 +167,28 @@ ModelRegistry.register(
     }
 )
 
+ModelRegistry.register(
+    {"gan_hair", "IIHT1"},  # NOTE: This model loads itself
+    {
+        "model_builder": HairFast,
+        "params": model_config.hair_gan_params,
+        "weight": {
+            "type": "huggingface",
+            "options": {
+                "repo_id": "AIRI-Institute/HairFastGAN",
+                "repo_type": "space",
+                "filename": "pretrained_models",
+                "local_dir": ROOT_DIR / "libs/hair_gan",
+            },
+        },
+        "loader": "pytorch",
+        "key_mapper": "default",  # Not implemented yet
+        "precision": "fp32"       # Not implemented yet
+    }
+)
+
 if __name__ == "__main__":
-    print(ModelRegistry.list())
+    from loaders.downloader import download_weights
+    tmp = ModelRegistry.get_registry("gan_hair")
+    download_weights(tmp["weight"]["type"],
+                     tmp["weight"]["options"])

@@ -1,5 +1,5 @@
 import express, { Request, Response } from "express";
-import { createServer, METHODS } from "http";
+import { createServer } from "http";
 import cors from "cors";
 import { Server } from "socket.io";
 
@@ -21,11 +21,6 @@ app.get('/', (req: Request, res: Response) => {
 io.on("connection", (socket) => {
     socket.emit("me", socket.id);
 
-    // Client disconnected
-    socket.on("disconnect", () => {
-        socket.broadcast.emit("callEnded")
-    });
-
     // Client makes a call
     socket.on("callUser", ({ userToCall, signalData, from, name }) => {
         io.to(userToCall).emit("callUser", { signal: signalData, from, name });
@@ -34,6 +29,11 @@ io.on("connection", (socket) => {
     // Client answers a call
     socket.on("answerCall", (data) => {
         io.to(data.to).emit("callAccepted", data.signal)
+    });
+
+    // Client disconnected
+    socket.on("disconnect", () => {
+        socket.broadcast.emit("callEnded")
     });
 });
 

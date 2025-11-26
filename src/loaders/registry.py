@@ -104,7 +104,7 @@ ModelRegistry.register(
 )
 
 ModelRegistry.register(
-    {"spade_generator", "context_decoder", "D_C", "G"},
+    {"spade_generator", "context_decoder", "D_C"},
     {
         "model_builder": ContextDecoder,
         "params": model_config.context_decoder_params,

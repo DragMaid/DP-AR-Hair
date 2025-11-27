@@ -37,7 +37,7 @@ face_parsing_params:
 hair_gan_params:
     save_all_dir: "output"
     size: 1024
-    ckpt: "libs/hair_gan/pretrained_models/StyleGAN/ffhq.pt"
+    ckpt: "pretrained_models/StyleGAN/ffhq.pt"
     channel_multiplier: 2
     latent: 512
     n_mlp: 8
@@ -46,6 +46,6 @@ hair_gan_params:
     save_all: False
     mixing: 0.95
     smooth: 5
-    rotate_checkpoint: "libs/hair_gan/pretrained_models/Rotate/rotate_best.pth"
-    blending_checkpoint: "libs/hair_gan/pretrained_models/Blending/checkpoint.pth"
-    pp_checkpoint: "libs/hair_gan/pretrained_models/PostProcess/pp_model.pth"
+    rotate_checkpoint: "pretrained_models/Rotate/rotate_best.pth"
+    blending_checkpoint: "pretrained_models/Blending/checkpoint.pth"
+    pp_checkpoint: "pretrained_models/PostProcess/pp_model.pth"

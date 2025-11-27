@@ -52,7 +52,7 @@ ModelRegistry.register(
         "model_builder": AppearanceFeatureExtractor,
         "params": model_config.appearance_feature_extractor_params,
         "weight": {
-            "type": "huggingface",
+            "type": "hf_file",
             "options": {
                 "repo_id": "KlingTeam/LivePortrait",
                 "repo_type": "space",
@@ -72,7 +72,7 @@ ModelRegistry.register(
         "model_builder": MotionExtractor,
         "params": model_config.motion_extractor_params,
         "weight": {
-            "type": "huggingface",
+            "type": "hf_file",
             "options": {
                 "repo_id": "KlingTeam/LivePortrait",
                 "repo_type": "space",
@@ -92,7 +92,7 @@ ModelRegistry.register(
         "model_builder": WarpingNetwork,
         "params": model_config.warping_module_params,
         "weight": {
-            "type": "huggingface",
+            "type": "hf_file",
             "options": {
                 "repo_id": "KlingTeam/LivePortrait",
                 "repo_type": "space",
@@ -112,7 +112,7 @@ ModelRegistry.register(
         "model_builder": ContextDecoder,
         "params": model_config.context_decoder_params,
         "weight": {
-            "type": "huggingface",
+            "type": "hf_file",
             "options": {
                 "repo_id": "KlingTeam/LivePortrait",
                 "repo_type": "space",
@@ -153,7 +153,7 @@ ModelRegistry.register(
         "model_builder": SynthesisDecoder,
         "params": model_config.context_decoder_params,
         "weight": {
-            "type": "huggingface",
+            "type": "hf_file",
             "options": {
                 "repo_id": "KlingTeam/LivePortrait",
                 "repo_type": "space",
@@ -173,12 +173,13 @@ ModelRegistry.register(
         "model_builder": HairFast,
         "params": model_config.hair_gan_params,
         "weight": {
-            "type": "huggingface",
+            "type": "hf_folder",
             "options": {
                 "repo_id": "AIRI-Institute/HairFastGAN",
-                "repo_type": "space",
-                "filename": "pretrained_models",
+                "repo_type": "model",
                 "local_dir": ROOT_DIR / "libs/hair_gan",
+                "revision": "main",
+                "allow_patterns": ["pretrained_models/*"]
             },
         },
         "loader": "pytorch",
@@ -189,6 +190,6 @@ ModelRegistry.register(
 
 if __name__ == "__main__":
     from loaders.downloader import download_weights
-    tmp = ModelRegistry.get_registry("gan_hair")
+    tmp = ModelRegistry.get_registry("gan_har")
     download_weights(tmp["weight"]["type"],
                      tmp["weight"]["options"])

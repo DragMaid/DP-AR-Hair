@@ -33,7 +33,6 @@ pandas = "2.2.2"
 pydantic = "2.7.1"
 pydantic-core = "2.18.2"
 pyyaml = "6.0.1"
-face-alignment = "^1.4.1"
 
 [tool.poetry.group.test]
 optional = true
@@ -46,6 +45,8 @@ pytest-regressions = "2.8.3"
 optional = true
 
 [tool.poetry.group.full.dependencies]
+face-alignment = "^1.4.1"
+matplotlib = "^3.10.7"
 clip = {git = "https://github.com/openai/CLIP.git"}
 regex = "2024.4.16"
 accelerate = "1.0.1"

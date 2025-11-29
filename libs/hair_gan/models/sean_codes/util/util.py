@@ -178,7 +178,7 @@ def str2bool(v):
 
 
 def find_class_in_module(target_cls_name, module):
-    module = f'models.{module}'
+    module = f'hair_gan.models.{module}'
     target_cls_name = target_cls_name.replace('_', '').lower()
     clslib = importlib.import_module(module)
     cls = None

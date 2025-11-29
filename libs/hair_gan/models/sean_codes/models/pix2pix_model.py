@@ -9,6 +9,7 @@ from glob import glob
 import numpy as np
 import torch
 
+from pathlib import Path
 from hair_gan.models.sean_codes.util import util
 from . import networks
 
@@ -59,21 +60,24 @@ class Pix2PixModel(torch.nn.Module):
             with torch.no_grad():
                 # fake_image, _ = self.generate_fake(input_semantics, real_image)
                 obj_dic = data['path']
-                fake_image = self.save_style_codes(input_semantics, real_image, obj_dic)
+                fake_image = self.save_style_codes(
+                    input_semantics, real_image, obj_dic)
             return fake_image
         elif mode == 'UI_mode':
             with torch.no_grad():
                 # fake_image, _ = self.generate_fake(input_semantics, real_image)
 
-                ################### some problems here
+                # some problems here
                 obj_dic = data['obj_dic']
                 # if isinstance(obj_dic, str):
                 #     obj_dic = [obj_dic]
-                fake_image = self.use_style_codes(input_semantics, real_image, obj_dic)
+                fake_image = self.use_style_codes(
+                    input_semantics, real_image, obj_dic)
             return fake_image
         elif mode == 'style_code':
             with torch.no_grad():
-                style_codes = self.netG.Zencoder(input=real_image, segmap=input_semantics)
+                style_codes = self.netG.Zencoder(
+                    input=real_image, segmap=input_semantics)
             return style_codes
         else:
             raise ValueError("|mode| is invalid")
@@ -131,7 +135,8 @@ class Pix2PixModel(torch.nn.Module):
             if 'obj_dic' in data:
                 for idx in range(19):
                     if data['obj_dic'][str(idx)]['ACE'].device.type == 'cpu':
-                        data['obj_dic'][str(idx)]['ACE'] = data['obj_dic'][str(idx)]['ACE'].cuda(non_blocking=True)
+                        data['obj_dic'][str(idx)]['ACE'] = data['obj_dic'][str(
+                            idx)]['ACE'].cuda(non_blocking=True)
         # create one-hot label map
         label_map = data['label']
         bs, _, h, w = label_map.size()
@@ -144,7 +149,8 @@ class Pix2PixModel(torch.nn.Module):
         if not self.opt.no_instance:
             inst_map = data['instance']
             instance_edge_map = self.get_edges(inst_map)
-            input_semantics = torch.cat((input_semantics, instance_edge_map), dim=1)
+            input_semantics = torch.cat(
+                (input_semantics, instance_edge_map), dim=1)
 
         return input_semantics, data['image']
 
@@ -174,7 +180,7 @@ class Pix2PixModel(torch.nn.Module):
 
         if not self.opt.no_vgg_loss:
             G_losses['VGG'] = self.criterionVGG(fake_image, real_image) \
-                              * self.opt.lambda_vgg
+                * self.opt.lambda_vgg
 
         return G_losses, fake_image
 
@@ -256,10 +262,14 @@ class Pix2PixModel(torch.nn.Module):
 
     def get_edges(self, t):
         edge = self.ByteTensor(t.size()).zero_()
-        edge[:, :, :, 1:] = edge[:, :, :, 1:] | (t[:, :, :, 1:] != t[:, :, :, :-1])
-        edge[:, :, :, :-1] = edge[:, :, :, :-1] | (t[:, :, :, 1:] != t[:, :, :, :-1])
-        edge[:, :, 1:, :] = edge[:, :, 1:, :] | (t[:, :, 1:, :] != t[:, :, :-1, :])
-        edge[:, :, :-1, :] = edge[:, :, :-1, :] | (t[:, :, 1:, :] != t[:, :, :-1, :])
+        edge[:, :, :, 1:] = edge[:, :, :, 1:] | (
+            t[:, :, :, 1:] != t[:, :, :, :-1])
+        edge[:, :, :, :-1] = edge[:, :, :, :-
+                                  1] | (t[:, :, :, 1:] != t[:, :, :, :-1])
+        edge[:, :, 1:, :] = edge[:, :, 1:, :] | (
+            t[:, :, 1:, :] != t[:, :, :-1, :])
+        edge[:, :, :-1, :] = edge[:, :, :-1,
+                                  :] | (t[:, :, 1:, :] != t[:, :, :-1, :])
         return edge.float()
 
     def reparameterize(self, mu, logvar):
@@ -272,15 +282,17 @@ class Pix2PixModel(torch.nn.Module):
 
 
 def load_average_feature():
-    ############### load average features
+    # load average features
     # average_style_code_folder = 'styles_test/mean_style_code/mean/'
-    average_style_code_folder = 'models/sean_codes/styles_test/mean_style_code/median/'
+    LOCAL_DIR = Path(__file__).resolve().parents[1]
+    average_style_code_folder = LOCAL_DIR / 'styles_test/mean_style_code/median/'
     input_style_dic = {}
 
-    ############### hard coding for categories
+    # hard coding for categories
     for i in range(19):
         input_style_dic[str(i)] = {}
-        average_category_folder_list = glob(os.path.join(average_style_code_folder, str(i), '*.npy'))
+        average_category_folder_list = glob(os.path.join(
+            average_style_code_folder, str(i), '*.npy'))
         average_category_list = [os.path.splitext(os.path.basename(name))[0] for name in
                                  average_category_folder_list]
 

@@ -1,21 +1,23 @@
-from loaders.downloader import download_weights
-import os
 import sys
-import torch
-import torchvision.transforms as T
 from pathlib import Path
 from PIL import Image
+
+import torch
+import torchvision.transforms.functional as TF
+
+from loaders.downloader import download_weights
 from loaders.loader import load_models, ModelRegistry
 
-input_path = Path(__file__).resolve().parents[1] / "assets/test_images/"
+input_path = Path(__file__).resolve().parents[2] / "assets/test_images/"
 
 face = "phuc.jpeg"
 shape = "ken.png"
 color = "ken.png"
 
-# The model load weights by itself, ensure pretrained is always set to False
-name = "IIHT1"
+ALIGNMENT_MODE = "Auto"  # Auto, On, Off
+SAVE_PATH = "results/output.png"
 
+name = "IIHT1"
 record = ModelRegistry.get_registry(name)
 w_options = record["weight"]["options"]
 dest = w_options["local_dir"] / w_options["allow_patterns"][0].split("/")[0]
@@ -23,51 +25,54 @@ if not dest.exists():
     download_weights(record["weight"]["type"], w_options)
 
 model = load_models(name, pretrained=False)
+path_to_imgs = {}
 
 
-def convert_input(inp: str):
-    """Load an image from assets/test_images/ as a PIL Image."""
-    path = os.path.join(input_path, inp)
+def convert_input(inp):
+    """Load local image from INPUT_DIR. Cache images."""
+    path = input_path / inp
+    if not path.is_file():
+        print(f"[ERROR] File not found: {path}", file=sys.stderr)
+        return None
+    if path in path_to_imgs:
+        return path_to_imgs[path]
     try:
-        if os.path.isfile(path):
-            return Image.open(path)
-        else:
-            print(f"File not found: {path}", file=sys.stderr)
-            return None
+        img = Image.open(path).convert("RGB")
+        path_to_imgs[path] = img
+        return img
     except Exception as e:
-        print(f"Can't open the image {inp}: {e}", file=sys.stderr)
+        print(f"[ERROR] Can't open image {inp}: {e}", file=sys.stderr)
         return None
 
 
-def ensure_pil(img):
-    """Ensure the output is a PIL Image (tensor → PIL)."""
-    if isinstance(img, Image.Image):
-        return img
+def save_output(img, path):
+    """Save PIL.Image or torch.Tensor to file."""
+    import os
+
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     if isinstance(img, torch.Tensor):
-        return T.functional.to_pil_image(img)
-    raise TypeError(f"Unsupported output image type: {type(img)}")
-
-
-def save_image(img, filename="result.png"):
-    """Save an image to ./results/ folder."""
-    out_dir = Path("results")
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    out_path = out_dir / filename
-    img.save(out_path)
-    print(f"Saved result to {out_path}", file=sys.stderr)
+        img = TF.to_pil_image(img.clamp(0, 1))
+    img.save(path)
+    print(f"[INFO] Saved output to {path}", file=sys.stderr)
 
 
 converted_inputs = list(map(convert_input, (face, shape, color)))
-
-# If any image failed to load, stop early
-if any(img is None for img in converted_inputs):
-    print("One or more input images failed to load.", file=sys.stderr)
+if not all(converted_inputs):
+    print("[ERROR] Failed to load input images.", file=sys.stderr)
     sys.exit(1)
 
-face_img, shape_img, color_img = converted_inputs
+face_obj, shape_obj, color_obj = converted_inputs
 
-result_image = model(face_img, shape_img, color_img)
+need_alignment = any(img.size != (1024, 1024) for img in converted_inputs)
+perform_align = ALIGNMENT_MODE == "On" or (
+    ALIGNMENT_MODE == "Auto" and need_alignment)
 
-result_image = ensure_pil(result_image)
-save_image(result_image, "output.png")
+if perform_align:
+    print("[INFO] Running alignment...", file=sys.stderr)
+    result_image, face_obj, shape_obj, color_obj = model(
+        face_obj, shape_obj, color_obj, align=True
+    )
+else:
+    result_image = model(face_obj, shape_obj, color_obj)
+
+save_output(result_image, SAVE_PATH)

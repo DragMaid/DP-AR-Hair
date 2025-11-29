@@ -16,6 +16,7 @@ import numpy as np
 import torch
 
 import my_torchlib
+from pathlib import Path
 from color_texture_branch.solver import Solver as SolveFeature
 from external_code.face_parsing.my_parsing_util import FaceParsing
 from global_value_utils import HAIR_IDX, PARSING_LABEL_LIST
@@ -52,7 +53,8 @@ class HairEditor:
 
         if load_feature_model:
             from color_texture_branch.config import cfg as cfg_feature
-            self.solver_feature = SolveFeature(cfg_feature, device=self.device, local_rank=-1, training=False)
+            self.solver_feature = SolveFeature(
+                cfg_feature, device=self.device, local_rank=-1, training=False)
 
             self.feature_encoder = self.solver_feature.dis
             self.feature_generator = self.solver_feature.gen
@@ -60,14 +62,17 @@ class HairEditor:
             # self.feature_curliness_predictor = self.solver_feature.curliness_model
 
             # ckpt_dir = 'external_model_params/disentangle_checkpoints/' + cfg_app.experiment_name + '/checkpoints'
-            ckpt_dir = 'model_trained/color_texture/' + cfg_feature.experiment_name + '/checkpoints'
+            ckpt_dir = 'model_trained/color_texture/' + \
+                cfg_feature.experiment_name + '/checkpoints'
             ckpt = my_torchlib.load_checkpoint(ckpt_dir)
             for model_name in ['Model_G', 'Model_D']:
                 cur_model = ckpt[model_name]
                 if list(cur_model)[0].startswith('module'):
-                    ckpt[model_name] = {kk[7:]: cur_model[kk] for kk in cur_model}
+                    ckpt[model_name] = {kk[7:]: cur_model[kk]
+                                        for kk in cur_model}
 
-            self.feature_generator.load_state_dict(ckpt['Model_G'], strict=True)
+            self.feature_generator.load_state_dict(
+                ckpt['Model_G'], strict=True)
             self.feature_encoder.load_state_dict(ckpt['Model_D'], strict=True)
 
             # if 'curliness' in cfg_feature.predictor:
@@ -75,8 +80,10 @@ class HairEditor:
             #     self.feature_curliness_predictor.load_state_dict(ckpt['Predictor'], strict=True)
 
             if 'rgb' in cfg_feature.predictor:
-                ckpt = my_torchlib.load_checkpoint(cfg_feature.predictor.rgb.root_dir + '/checkpoints')
-                self.feature_rgb_predictor.load_state_dict(ckpt['Predictor'], strict=True)
+                ckpt = my_torchlib.load_checkpoint(
+                    cfg_feature.predictor.rgb.root_dir + '/checkpoints')
+                self.feature_rgb_predictor.load_state_dict(
+                    ckpt['Predictor'], strict=True)
 
             # load unsupervised direction
             existing_dirs_dir = os.path.join('model_trained/color_texture', cfg_feature.experiment_name,
@@ -92,7 +99,8 @@ class HairEditor:
 
         if load_mask_model:
             from shape_branch.config import cfg as cfg_mask
-            self.solver_mask = SolverMask(cfg_mask, device=self.device, local_rank=-1, training=False)
+            self.solver_mask = SolverMask(
+                cfg_mask, device=self.device, local_rank=-1, training=False)
             self.mask_generator = self.solver_mask.gen
 
             ##############################################
@@ -103,12 +111,14 @@ class HairEditor:
             for model_name in ['Model_G', 'Model_D']:
                 cur_model = ckpt[model_name]
                 if list(cur_model)[0].startswith('module'):
-                    ckpt[model_name] = {kk[7:]: cur_model[kk] for kk in cur_model}
+                    ckpt[model_name] = {kk[7:]: cur_model[kk]
+                                        for kk in cur_model}
 
             self.mask_generator.load_state_dict(ckpt['Model_G'], strict=True)
 
             # load unsupervised direction
-            existing_dirs_dir = os.path.join('model_trained/shape', cfg_mask.experiment_name, 'shape_dir_used')
+            existing_dirs_dir = os.path.join(
+                'model_trained/shape', cfg_mask.experiment_name, 'shape_dir_used')
             if os.path.exists(existing_dirs_dir):
                 existing_dirs_list = os.listdir(existing_dirs_dir)
                 existing_dirs_list.sort()
@@ -129,15 +139,18 @@ class HairEditor:
 
     @staticmethod
     def load_average_feature():
-        ############### load average features
+        # load average features
         # average_style_code_folder = 'styles_test/mean_style_code/mean/'
-        average_style_code_folder = 'sean_codes/styles_test/mean_style_code/median/'
+        LOCAL_DIR = Path(__file__).resolve().parents[1]
+        average_style_code_folder = LOCAL_DIR / \
+            'sean_codes/styles_test/mean_style_code/median/'
         input_style_dic = {}
 
-        ############### hard coding for categories
+        # hard coding for categories
         for i in range(19):
             input_style_dic[str(i)] = {}
-            average_category_folder_list = glob(os.path.join(average_style_code_folder, str(i), '*.npy'))
+            average_category_folder_list = glob(os.path.join(
+                average_style_code_folder, str(i), '*.npy'))
             average_category_list = [os.path.splitext(os.path.basename(name))[0] for name in
                                      average_category_folder_list]
 
@@ -167,7 +180,8 @@ class HairEditor:
             if not torch.all(cur_code == 0):
                 obj_dic[str(idx)]['ACE'] = cur_code
 
-        temp_face_image = torch.zeros((0, 3, self.img_size, self.img_size))  # place holder
+        temp_face_image = torch.zeros(
+            (0, 3, self.img_size, self.img_size))  # place holder
 
         data = {'label': torch.tensor(parsing, dtype=torch.float32),
                 'instance': torch.tensor(0),
@@ -226,14 +240,16 @@ class HairEditor:
         hair_code = hair_img_code[0, HAIR_IDX]
 
         if edit_data is not None:
-            hair_code = self.solver_feature.edit_infer(hair_code[None, ...], edit_data)[0]
+            hair_code = self.solver_feature.edit_infer(
+                hair_code[None, ...], edit_data)[0]
 
         return self.generate_by_sean(face_img_code[0], hair_code, target_seg)
 
     def get_hair_color(self, img):
         parsing, _ = FaceParsing.parsing_img(img)
         parsing = FaceParsing.swap_parsing_label_to_celeba_mask(parsing)
-        parsing = cv2.resize(parsing.astype('uint8'), (1024, 1024), interpolation=cv2.INTER_NEAREST)
+        parsing = cv2.resize(parsing.astype('uint8'),
+                             (1024, 1024), interpolation=cv2.INTER_NEAREST)
         img = cv2.resize(img.astype('uint8'), (1024, 1024))
         hair_mask = (parsing == HAIR_IDX).astype('uint8')
 
@@ -251,7 +267,8 @@ class HairEditor:
             font = cv2.FONT_HERSHEY_SIMPLEX
             pos = (point[0], point[1])
             cv2.circle(img, pos, 2, color=(139, 0, 0))
-            cv2.putText(img, str(idx + 1), pos, font, 0.18, (255, 0, 0), 1, cv2.LINE_AA)
+            cv2.putText(img, str(idx + 1), pos, font,
+                        0.18, (255, 0, 0), 1, cv2.LINE_AA)
         return img
 
     def postprocess_blending(self, face_img, res_img, face_parsing, target_parsing, verbose_print=False, blending=True):
@@ -288,23 +305,32 @@ class HairEditor:
         res_img = res_img.astype('uint8')
         if blending:
 
-            target_parsing = from_tensor_order_to_cv2(target_parsing, is_mask=True)
+            target_parsing = from_tensor_order_to_cv2(
+                target_parsing, is_mask=True)
             face_img = from_tensor_order_to_cv2(face_img)
             face_img = face_img.astype('uint8')
 
             face_parsing = from_tensor_order_to_cv2(face_parsing, is_mask=True)
 
-            res_mask = np.logical_or(target_parsing == HAIR_IDX, face_parsing == HAIR_IDX).astype('uint8')
-            kernel13 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, ksize=(13, 13))
-            kernel5 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, ksize=(5, 5))
-            res_mask_dilated = cv2.dilate(res_mask, kernel13, iterations=1)[..., None]
+            res_mask = np.logical_or(
+                target_parsing == HAIR_IDX, face_parsing == HAIR_IDX).astype('uint8')
+            kernel13 = cv2.getStructuringElement(
+                cv2.MORPH_ELLIPSE, ksize=(13, 13))
+            kernel5 = cv2.getStructuringElement(
+                cv2.MORPH_ELLIPSE, ksize=(5, 5))
+            res_mask_dilated = cv2.dilate(
+                res_mask, kernel13, iterations=1)[..., None]
 
-            res_mask_dilated5 = cv2.dilate(res_mask, kernel5, iterations=1)[..., None]
+            res_mask_dilated5 = cv2.dilate(
+                res_mask, kernel5, iterations=1)[..., None]
 
-            bg_mask = (target_parsing == PARSING_LABEL_LIST.index('background'))
-            res_mask_dilated = res_mask_dilated * (1 - bg_mask) + res_mask_dilated5 * bg_mask
+            bg_mask = (target_parsing ==
+                       PARSING_LABEL_LIST.index('background'))
+            res_mask_dilated = res_mask_dilated * \
+                (1 - bg_mask) + res_mask_dilated5 * bg_mask
 
-            face_to_hair = poisson_blending(face_img, res_img, 1 - res_mask_dilated, with_gamma=True)
+            face_to_hair = poisson_blending(
+                face_img, res_img, 1 - res_mask_dilated, with_gamma=True)
             return face_to_hair, res_mask_dilated
         else:
             return res_img, None
@@ -321,8 +347,10 @@ class HairEditor:
 
         predictor_68 = predictor_dict[68]
         bbox = detector(img_rgb, 0)[0]
-        lm_68 = np.array([[p.x, p.y] for p in predictor_68(img_rgb, bbox).parts()])
-        crop_img_pil, lm_68 = recreate_aligned_images(img_rgb, lm_68, output_size=self.img_size)
+        lm_68 = np.array([[p.x, p.y]
+                         for p in predictor_68(img_rgb, bbox).parts()])
+        crop_img_pil, lm_68 = recreate_aligned_images(
+            img_rgb, lm_68, output_size=self.img_size)
         img_rgb = np.array(crop_img_pil)
         if save_path is not None:
             write_rgb(save_path, img_rgb)
@@ -331,5 +359,6 @@ class HairEditor:
     def get_mask(self, img_rgb):
         parsing, _ = FaceParsing.parsing_img(img_rgb)
         parsing = FaceParsing.swap_parsing_label_to_celeba_mask(parsing)
-        mask_img = cv2.resize(parsing.astype('uint8'), (self.img_size, self.img_size), interpolation=cv2.INTER_NEAREST)
+        mask_img = cv2.resize(parsing.astype(
+            'uint8'), (self.img_size, self.img_size), interpolation=cv2.INTER_NEAREST)
         return mask_img

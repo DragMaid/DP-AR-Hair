@@ -29,7 +29,7 @@ jobs:
       # 4. Install dependencies via Poetry
       - name: Install dependencies
         run: |
-          poetry install --no-interaction --no-ansi
+          poetry install --no-interaction --no-ansi --with test
           #pip install gdown
 
       # 5. Download snapshots from Google Drive

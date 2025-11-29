@@ -14,8 +14,8 @@ The `ModelRegistry` (`src/loaders/registry.py`) is a lightweight registry that c
   - `key_mapper`, `precision`: placeholder fields for future extensions
 
 - Registry internals:
-  - `_registry` stores the mapping keyed by a generated UUID
-  - `_alias_map` maps human-friendly aliases (like `"E_M"`) to the UUID entries
+  - `_registry` stores entries keyed by a generated UUID
+  - `_alias_map` maps human-friendly aliases (like `"E_M"`) to those UUIDs
 
 ## Public API
 
@@ -56,6 +56,21 @@ The repository pre-registers the following models (aliases shown in braces):
   - `params`: `model_config.context_decoder_params`
   - `weight`: HuggingFace Space `KlingTeam/LivePortrait` `spade_generator.pth`
 
+- `BiSeNet` face parsing model ({`Hair Mask`, `M_C`})
+  - `model_builder`: `BiSeNet`
+  - `params`: `model_config.bi_se_net_params`
+  - `weight`: HuggingFace Space `KlingTeam/LivePortrait` `bi_se_net.pth`
+
+- `SynthesisDecoder` ({`synthesis_decoder`, `D_S`})
+  - `model_builder`: `SynthesisDecoder`
+  - `params`: `model_config.synthesis_decoder_params`
+  - `weight`: HuggingFace Space `KlingTeam/LivePortrait` `synthesis_decoder.pth`
+
+- `HairFast` GAN ({`gan_hair`, `IIHT1`})
+  - `model_builder`: `HairFast`
+  - `params`: `model_config.hair_gan_params`
+  - `weight`: HuggingFace Space `KlingTeam/LivePortrait` `hair_gan.pth`
+
 Each registry entry uses a common `WEIGHT_ROOT` on disk (project `weights/` root) where downloaded weights are stored. The repository sets this default via:
 
 ```python
@@ -74,6 +89,12 @@ print(ModelRegistry.list())
 # Lookup a registry entry
 entry = ModelRegistry.get_registry("E_M")
 print(entry["model_builder"])  # MotionExtractor class
+
+# Unknown alias will raise
+try:
+    ModelRegistry.get_registry('not_a_model')
+except KeyError as e:
+    print('Expected error:', e)
 ```
 
 ## Extending the registry

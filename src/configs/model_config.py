@@ -52,6 +52,23 @@ class FaceParsingParams(BaseModel):
     backbone_name: str
 
 
+class HairGanParams(BaseModel):
+    save_all_dir: str
+    size: int
+    ckpt: str
+    channel_multiplier: int
+    latent: int
+    n_mlp: int
+    device: str
+    batch_size: int
+    save_all: bool
+    mixing: float
+    smooth: int
+    rotate_checkpoint: str
+    blending_checkpoint: str
+    pp_checkpoint: str
+
+
 # ---------------------------
 # Top-level config
 # ---------------------------
@@ -62,6 +79,7 @@ class ModelConfig(BaseModel):
     warping_module_params: WarpingModuleParams
     context_decoder_params: ContextDecoderParams
     face_parsing_params: FaceParsingParams
+    hair_gan_params: HairGanParams
 
 
 # ---------------------------

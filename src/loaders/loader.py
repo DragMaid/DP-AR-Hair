@@ -31,7 +31,8 @@ def load_weights(model, name: str, strict: bool = True):
         download_weights(registry["weight"]["type"],
                          registry["weight"]["options"])
 
-    state = torch.load(str(weight_path), map_location="cpu")
+    state = torch.load(
+        str(weight_path), map_location="gpu" if torch.cuda.is_available() else "cpu")
     result = model.load_state_dict(state, strict=strict)
     model.eval()
 

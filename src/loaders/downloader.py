@@ -1,5 +1,5 @@
 from urllib.request import urlretrieve
-from huggingface_hub import hf_hub_download
+from huggingface_hub import hf_hub_download, snapshot_download
 from loaders.utils import move_all_files_to_root
 
 
@@ -17,12 +17,16 @@ def download_weights(dtype, options):
     if not downloader:
         raise ValueError(f"No downloader found for type {dtype}")
     file_path = downloader(**options)
-    move_all_files_to_root(options["local_dir"])
     return file_path
 
 
+def hf_file_download(**options):
+    hf_hub_download(**options)
+    move_all_files_to_root(options["local_dir"])
+
+
 DOWNLOADER_MAPPER = {
-    # TODO: maybe rewrite this to be more readable
-    "huggingface": hf_hub_download,
+    "hf_file": hf_file_download,
+    "hf_folder": snapshot_download,
     "direct_link": direct_link_download,
 }

@@ -9,8 +9,10 @@ from live_portrait.models.appearance_feature_extractor import AppearanceFeatureE
 from live_portrait.models.motion_extractor import MotionExtractor
 from live_portrait.models.warping_network import WarpingNetwork
 from live_portrait.models.context_decoder import ContextDecoder
+from hair_gan.hair_swap import HairFast
 
-WEIGHT_ROOT = Path(__file__).resolve().parents[2] / "weights"
+ROOT_DIR = Path(__file__).resolve().parents[2]
+WEIGHT_ROOT = ROOT_DIR / "weights"
 
 
 class ModelRegistry:
@@ -50,7 +52,7 @@ ModelRegistry.register(
         "model_builder": AppearanceFeatureExtractor,
         "params": model_config.appearance_feature_extractor_params,
         "weight": {
-            "type": "huggingface",
+            "type": "hf_file",
             "options": {
                 "repo_id": "KlingTeam/LivePortrait",
                 "repo_type": "space",
@@ -70,7 +72,7 @@ ModelRegistry.register(
         "model_builder": MotionExtractor,
         "params": model_config.motion_extractor_params,
         "weight": {
-            "type": "huggingface",
+            "type": "hf_file",
             "options": {
                 "repo_id": "KlingTeam/LivePortrait",
                 "repo_type": "space",
@@ -90,7 +92,7 @@ ModelRegistry.register(
         "model_builder": WarpingNetwork,
         "params": model_config.warping_module_params,
         "weight": {
-            "type": "huggingface",
+            "type": "hf_file",
             "options": {
                 "repo_id": "KlingTeam/LivePortrait",
                 "repo_type": "space",
@@ -110,7 +112,7 @@ ModelRegistry.register(
         "model_builder": ContextDecoder,
         "params": model_config.context_decoder_params,
         "weight": {
-            "type": "huggingface",
+            "type": "hf_file",
             "options": {
                 "repo_id": "KlingTeam/LivePortrait",
                 "repo_type": "space",
@@ -151,7 +153,7 @@ ModelRegistry.register(
         "model_builder": SynthesisDecoder,
         "params": model_config.context_decoder_params,
         "weight": {
-            "type": "huggingface",
+            "type": "hf_file",
             "options": {
                 "repo_id": "KlingTeam/LivePortrait",
                 "repo_type": "space",
@@ -165,5 +167,23 @@ ModelRegistry.register(
     }
 )
 
-if __name__ == "__main__":
-    print(ModelRegistry.list())
+ModelRegistry.register(
+    {"gan_hair", "IIHT1"},  # NOTE: This model loads itself
+    {
+        "model_builder": HairFast,
+        "params": model_config.hair_gan_params,
+        "weight": {
+            "type": "hf_folder",
+            "options": {
+                "repo_id": "AIRI-Institute/HairFastGAN",
+                "repo_type": "model",
+                "local_dir": ROOT_DIR,
+                "revision": "main",
+                "allow_patterns": ["pretrained_models/*"]
+            },
+        },
+        "loader": "pytorch",
+        "key_mapper": "default",  # Not implemented yet
+        "precision": "fp32"       # Not implemented yet
+    }
+)

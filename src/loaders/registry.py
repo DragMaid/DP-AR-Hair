@@ -177,7 +177,7 @@ ModelRegistry.register(
             "options": {
                 "repo_id": "AIRI-Institute/HairFastGAN",
                 "repo_type": "model",
-                "local_dir": ROOT_DIR / "libs/hair_gan",
+                "local_dir": ROOT_DIR,
                 "revision": "main",
                 "allow_patterns": ["pretrained_models/*"]
             },
@@ -187,9 +187,3 @@ ModelRegistry.register(
         "precision": "fp32"       # Not implemented yet
     }
 )
-
-if __name__ == "__main__":
-    from loaders.downloader import download_weights
-    tmp = ModelRegistry.get_registry("gan_har")
-    download_weights(tmp["weight"]["type"],
-                     tmp["weight"]["options"])

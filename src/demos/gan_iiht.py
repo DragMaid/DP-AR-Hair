@@ -1,10 +1,11 @@
+from loaders.downloader import download_weights
 import os
 import sys
 import torch
 import torchvision.transforms as T
 from pathlib import Path
 from PIL import Image
-from loaders.loader import load_models
+from loaders.loader import load_models, ModelRegistry
 
 input_path = Path(__file__).resolve().parents[1] / "assets/test_images/"
 
@@ -12,7 +13,16 @@ face = "phuc.jpeg"
 shape = "ken.png"
 color = "ken.png"
 
-model = load_models("IIHT1", pretrained=True)
+# The model load weights by itself, ensure pretrained is always set to False
+name = "IIHT1"
+
+record = ModelRegistry.get_registry(name)
+w_options = record["weight"]["options"]
+dest = w_options["local_dir"] / w_options["allow_patterns"][0].split("/")[0]
+if not dest.exists():
+    download_weights(record["weight"]["type"], w_options)
+
+model = load_models(name, pretrained=False)
 
 
 def convert_input(inp: str):

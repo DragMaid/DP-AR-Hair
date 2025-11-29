@@ -52,7 +52,7 @@ The module contains a small `__main__` block that demonstrates loading multiple 
 
 ## Notes and caveats
 
-- `load_weights` assumes the checkpoint file contains a raw state dictionary that is directly compatible with `load_state_dict`. If the repository provides a wrapper (e.g. a dictionary with a `'model'` key), the registry's downloader or a small adapter may need to be used.
+- `load_weights` assumes the checkpoint file contains a raw state dictionary that is directly compatible with `load_state_dict`. If the repository provides a wrapper (e.g. a dictionary with a `'model'` key), the loader adapts by extracting that key when present.
 - The function currently uses CPU `map_location` to avoid CUDA device issues during unit tests and CI; this decision keeps loading deterministic in mixed-device environments.
-- The `registry` entries contain the `weight` configuration used to locate and download weight files — see `src/loaders/registry.py` for how models are registered and where default `local_dir` paths point to.
-
+- The registry entries contain the `weight` configuration used to locate and download weight files — see `src/loaders/registry.py` for how models are registered and where default `local_dir` paths point to.
+- The downloader backend types used by the project are: `hf_file`, `hf_folder`, and `direct_link` — these map to the callables in `loaders.downloader.DOWNLOADER_MAPPER`.

@@ -4,15 +4,30 @@ from pathlib import Path
 from pydantic import BaseModel
 
 
-class TrainingConfig(BaseModel):
-    epoch_num: int
-    batch_size: int
-    learn_rate: float
+class LossConfig(BaseModel):
     adv_rate: float
     rec_rate: float
     p_rate: float
     h_rate: float
     f_rate: float
+
+
+class GeneratorConfig(BaseModel):
+    learn_rate: float
+    betas: list[float, float]
+
+
+class DiscriminatorConfig(BaseModel):
+    learn_rate: float
+    betas: list[float, float]
+
+
+class TrainingConfig(BaseModel):
+    epoch_num: int
+    batch_size: int
+    loss: LossConfig
+    discriminator: DiscriminatorConfig
+    generator: GeneratorConfig
 
 
 class PipelineConfig(BaseModel):

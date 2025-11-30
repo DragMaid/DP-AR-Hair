@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from loaders.loader import load_models, ModelRegistry
 from loaders.downloader import download_weights
 from losses.perceptual_loss import PerceptualLoss
@@ -44,7 +45,7 @@ class TrainingPipeline:
                                               std=[0.229, 0.224, 0.225])
         self.L_p = PerceptualLoss()
 
-        self.disc_criterion = nn.BCEWithLogitsLoss()
+        self.disc_criterion = F.binary_cross_entropy_with_logits()
         self.L_adv = PatchGANDiscriminator(n_in_channels=3)  # RGB
         self.L_adv.apply(weights_init)
 
@@ -60,13 +61,16 @@ class TrainingPipeline:
         self.generator_trainable_params += self.E_C.parameters()
 
         self.generator_optimizer = torch.optim.Adam(
-            self.generator_trainable_params, lr=pco.training.learn_rate)
+            self.generator_trainable_params,
+            lr=pco.training.generator.learn_rate,
+            betas=pco.training.generator.betas)
 
         self.disc_optimizer = torch.optim.Adam(
-            self.L_adv.parameters(), lr=0.0002, betas=(0.5, 0.999))
+            self.L_adv.parameters(),
+            lr=pco.training.discriminator.learn_rate,
+            betas=pco.training.discriminator.betas)
 
     def forward(self, I_d, I_s, R):
-        self.generator_optimizer.zero_grad()
         I_d_dilde = self.IIHT(I_d, R)
 
         f_c = self.E_C(I_d_dilde)
@@ -81,17 +85,17 @@ class TrainingPipeline:
 
         p_loss = self.L_p(self.normalize(I_p), self.normalize(I_d))
 
-        self.disc_optimizer.zero_grad()
-
         pred_real = self.L_adv(I_d)
         target_real = torch.ones_like(pred_real)
         loss_real = self.disc_criterion(pred_real, target_real)
 
-        pred_fake = self.L_adv(I_p)
+        pred_fake = self.L_adv(I_p.detach())
         target_fake = torch.zeros_like(pred_fake)
         loss_fake = self.disc_criterion(pred_fake, target_fake)
 
         a_loss = (loss_fake + loss_real) / 2
+
+        self.disc_optimizer.zero_grad()
         a_loss.backward()
         self.disc_optimizer.step()
 
@@ -99,9 +103,16 @@ class TrainingPipeline:
         f_loss = self.L_face(I_d, I_p)
         g_loss = self.L_global(I_d, I_p)
 
-        t = pco.training
-        total_loss = t.p_rate * p_loss + t.adv_rate * \
-            a_loss + t.h_rate * h_loss + t.f_rate * f_loss + t.rec_rate * g_loss
-        total_loss.backward()
+        # Generator only cares about disc output for fake image
+        pred_fake_G = self.L_adv(I_p)
+        target_fake_G = torch.zeros_like(pred_fake_G)
+        a_fake_loss = self.disc_criterion(pred_fake_G, target_fake_G)
 
+        t = pco.training.loss
+        total_loss = t.p_rate * p_loss + t.adv_rate * \
+            a_fake_loss + t.h_rate * h_loss + t.f_rate * \
+            f_loss + t.rec_rate * g_loss
+
+        self.generator_optimizer.zero_grad()
+        total_loss.backward()
         self.generator_optimizer.step()

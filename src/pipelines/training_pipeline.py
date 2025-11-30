@@ -7,6 +7,7 @@ from losses.adversarial_loss import PatchGANDiscriminator, weights_init
 from losses.local_loss import HairLoss, FaceLoss
 from models.msg_spade_decoder import MSGSpadeDecoder
 from face_parsing.models.utils import get_mask_by_idx
+from configs.pipeline_config import pipeline_config as pco
 from torchvision import transforms
 
 
@@ -50,6 +51,8 @@ class TrainingPipeline:
         self.L_hair = HairLoss()
         self.L_face = FaceLoss()
 
+        self.L_global = nn.L1Loss()
+
         # Optimizer declarations
         self.generator_trainable_params = []
         self.generator_trainable_params += filter(
@@ -57,7 +60,7 @@ class TrainingPipeline:
         self.generator_trainable_params += self.E_C.parameters()
 
         self.generator_optimizer = torch.optim.Adam(
-            self.generator_trainable_params)
+            self.generator_trainable_params, lr=pco.training.learn_rate)
 
         self.disc_optimizer = torch.optim.Adam(
             self.L_adv.parameters(), lr=0.0002, betas=(0.5, 0.999))
@@ -94,14 +97,11 @@ class TrainingPipeline:
 
         h_loss = self.L_hair(I_d, I_p)
         f_loss = self.L_face(I_d, I_p)
+        g_loss = self.L_global(I_d, I_p)
 
-        total_loss = p_loss + a_loss + h_loss + f_loss
+        t = pco.training
+        total_loss = t.p_rate * p_loss + t.adv_rate * \
+            a_loss + t.h_rate * h_loss + t.f_rate * f_loss + t.rec_rate * g_loss
         total_loss.backward()
 
         self.generator_optimizer.step()
-
-
-if __name__ == "__main__":
-    D_S = load_models("D_S", pretrained=True, strict=False, freeze=True)
-    for name, param in D_S.named_parameters():
-        print(f"{name} has {param.requires_grad}")

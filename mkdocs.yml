@@ -18,3 +18,7 @@ nav:
     - Registry: registry.md
     - Loader: loader.md
     - Downloader: downloader.md
+  - Losses:
+    - Perceptual loss: perceptual_loss.md
+    - Adversarial loss: adversarial_loss.md
+    - Local loss: local_loss.md

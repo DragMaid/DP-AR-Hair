@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch.nn.init as init
 
 
 class PatchGANDiscriminator(nn.Module):
@@ -51,3 +52,13 @@ class PatchGANDiscriminator(nn.Module):
 
     def forward(self, in_image):
         return self.model(in_image)
+
+
+def weights_init(m):
+    classname = m.__class__.__name__
+    if classname.find('Conv') != -1:
+        init.kaiming_normal_(m.weight.data, a=0.2,
+                             mode='fan_in', nonlinearity='leaky_relu')
+    elif classname.find('BatchNorm') != -1:
+        init.normal_(m.weight.data, 1.0, 0.02)
+        init.constant_(m.bias.data, 0)

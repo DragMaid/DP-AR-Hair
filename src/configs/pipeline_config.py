@@ -2,6 +2,7 @@ import os
 from yaml import safe_load
 from pathlib import Path
 from pydantic import BaseModel
+from typing import Tuple
 
 
 class LossConfig(BaseModel):
@@ -14,12 +15,12 @@ class LossConfig(BaseModel):
 
 class GeneratorConfig(BaseModel):
     learn_rate: float
-    betas: list[float, float]
+    betas: Tuple[float, float]
 
 
 class DiscriminatorConfig(BaseModel):
     learn_rate: float
-    betas: list[float, float]
+    betas: Tuple[float, float]
 
 
 class TrainingConfig(BaseModel):
@@ -30,8 +31,18 @@ class TrainingConfig(BaseModel):
     generator: GeneratorConfig
 
 
+class DatasetConfig(BaseModel):
+    processed_video_root: str
+    processed_images_root: str
+    raw_video_root: str
+    json_path: str
+    num_workers: int
+    device: int
+
+
 class PipelineConfig(BaseModel):
     training: TrainingConfig
+    dataset: DatasetConfig
 
 
 def load_config(path: str | Path) -> PipelineConfig:

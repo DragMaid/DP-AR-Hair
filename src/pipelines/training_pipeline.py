@@ -80,6 +80,7 @@ class TrainingPipeline:
         f_w = self.W(f_h, f_m)
 
         m_c = get_mask_by_idx(I_d_dilde, self.M_C)
+        m_f = get_mask_by_idx(I_d_dilde, self.M_C, class_idx=1)  # idx for skin
 
         I_p = self.D(f_c, f_w, m_c)
 
@@ -99,8 +100,8 @@ class TrainingPipeline:
         a_loss.backward()
         self.disc_optimizer.step()
 
-        h_loss = self.L_hair(I_d, I_p)
-        f_loss = self.L_face(I_d, I_p)
+        h_loss = self.L_hair(m_c, I_d, I_p)
+        f_loss = self.L_face(m_f, I_d, I_p)
         g_loss = self.L_global(I_d, I_p)
 
         # Generator only cares about disc output for fake image

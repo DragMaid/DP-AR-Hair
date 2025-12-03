@@ -11,8 +11,9 @@ export default function ImageUploadBox() {
         const data = new FormData();
         data.append("file", image);
 
-        api.post("/image", data)
+        api.post("/upload-image", data)
             .then(res => {
+                console.log(res.data);
                 setCurrentImage(res.data);
             });
     };
@@ -22,7 +23,7 @@ export default function ImageUploadBox() {
             <div>
                 <input type="file" name="file" onChange={uploadHandler} />
             </div>
-            <img src={`http://localhost:8080/image/${currentImage}`} />
+            <img src={`http://localhost:8080/upload-image/${currentImage?.filename}`} />
         </div>
     );
 }

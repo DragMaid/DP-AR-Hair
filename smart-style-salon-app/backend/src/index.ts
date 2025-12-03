@@ -25,21 +25,19 @@ const storage = multer.diskStorage({
     }
 });
 const upload = multer({ storage: storage }).single('file');
+const imageFolderPath = join(__dirname, "..", "hairstyle_image");
 
 // Server init
 app.use(cors());
-app.use(express.static('hairstyle_image'));
+app.use('/upload-image', express.static('hairstyle_image'));
 const PORT = process.env.PORT || 8080;
 app.get('/', (req: Request, res: Response) => {
     res.send(`Hello from ${PORT}`);
 });
 
 
-// POST: send image
-app.post('/image', (req: Request, res: Response) => {
-    console.log("Received image: ", req);
-
-    const imageFolderPath = join(__dirname, "..", "hairstyle_image");
+// POST: upload image
+app.post('/upload-image', (req: Request, res: Response) => {
     readdir(imageFolderPath, (err, files) => {
         if (err) {
             console.error("Error reading folder: ", err);

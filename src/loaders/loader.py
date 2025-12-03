@@ -37,7 +37,7 @@ def load_weights(model, name: str, strict: bool = True):
                          registry["weight"]["options"])
 
     state = torch.load(
-        str(weight_path), map_location="gpu" if torch.cuda.is_available() else "cpu")
+        str(weight_path), map_location="cuda" if torch.cuda.is_available() else "cpu")
     result = model.load_state_dict(state, strict=strict)
     model.eval()
 

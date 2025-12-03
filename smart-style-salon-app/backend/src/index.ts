@@ -3,6 +3,8 @@ import { createServer } from "http";
 import cors from "cors";
 import { Server } from "socket.io";
 import multer from "multer";
+import { readdir, unlink } from "fs";
+import path, { join } from "path";
 
 const app = express();
 const server = createServer(app);
@@ -12,6 +14,8 @@ const io = new Server(server, {
         methods: ["GET", "POST"]
     }
 })
+
+// Setup storage to store the image of the hairstyle
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         cb(null, 'hairstyle_image');
@@ -35,9 +39,28 @@ app.get('/', (req: Request, res: Response) => {
 app.post('/image', (req: Request, res: Response) => {
     console.log("Received image: ", req);
 
-    upload(req, res, err => {
-        if (err) res.sendStatus(500);
-        res.send(req.file);
+    const imageFolderPath = join(__dirname, "..", "hairstyle_image");
+    readdir(imageFolderPath, (err, files) => {
+        if (err) {
+            console.error("Error reading folder: ", err);
+            res.sendStatus(500);
+        }
+
+        // Remove previous image (if any)
+        if (files.length > 0) {
+            unlink(join(imageFolderPath, files[0]), unlinkErr => {
+                if (unlinkErr) console.error("Error deleting:", unlinkErr);
+            })
+        }
+
+        // Save the new image
+        upload(req, res, uploadError => {
+            if (uploadError) {
+                console.error("Upload error:", uploadError);
+                res.sendStatus(500);
+            }
+            res.send(req.file);
+        });
     });
 });
 

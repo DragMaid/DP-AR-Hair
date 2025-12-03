@@ -57,20 +57,23 @@ class VideoProcessor:
         return top, bottom, left, right
 
     @staticmethod
-    def to_square(bbox: Tuple[float, float, float, float]) -> Tuple[float, float, float, float]:
-        """Convert bounding box to square"""
+    def to_square_px(bbox: Tuple[int, int, int, int]) -> Tuple[int, int, int, int]:
+        """Convert pixel bbox to the largest possible square while staying inside image."""
         top, bottom, left, right = bbox
         h = bottom - top
         w = right - left
-        c = min(h, w) / 2
-        c_h = (top + bottom) / 2
-        c_w = (left + right) / 2
+        size = min(h, w)
 
-        top = c_h - c
-        bottom = c_h + c
-        left = c_w - c
-        right = c_w + c
-        return top, bottom, left, right
+        cy = (top + bottom) // 2
+        cx = (left + right) // 2
+
+        half = size // 2
+        new_top = cy - half
+        new_bottom = cy + half
+        new_left = cx - half
+        new_right = cx + half
+
+        return new_top, new_bottom, new_left, new_right
 
     @staticmethod
     def denormalize_bbox(bbox: Tuple[float, float, float, float],
@@ -99,9 +102,8 @@ class VideoProcessor:
 
         # Process bbox
         expanded = self.expand_bbox(bbox)
-        squared = self.to_square(expanded)
-        top, bottom, left, right = self.denormalize_bbox(
-            squared, height, width)
+        denormed = self.denormalize_bbox(expanded, height, width)
+        top, bottom, left, right = self.to_square_px(denormed)
 
         # Calculate frame range
         start_frame = int(start_sec * fps)
@@ -140,7 +142,7 @@ class VideoProcessor:
 class PoseFrameSelector:
     """Selects frames with different poses from video"""
 
-    def __init__(self, model: SixDRepNet, stride: int = 10,
+    def __init__(self, model: SixDRepNet, stride: int = 3,
                  yaw_diff_threshold: float = 20.0,
                  pitch_diff_threshold: float = 15.0,
                  laplacian_threshold: float = 40.0):
@@ -234,7 +236,7 @@ class PoseFrameSelector:
 
 def process_single_clip(args) -> Tuple[str, bool]:
     """Process a single clip (for multiprocessing)"""
-    clip, raw_root, processed_root, model_device = args
+    clip, raw_root, processed_root, driving_img_root, model_device = args
 
     try:
         downloader = VideoDownloader()
@@ -260,8 +262,8 @@ def process_single_clip(args) -> Tuple[str, bool]:
 
         # Save frames
         frontal_path = os.path.join(
-            processed_root, f"{clip.clip_id}_frontal.jpg")
-        side_path = os.path.join(processed_root, f"{clip.clip_id}_side.jpg")
+            driving_img_root, f"{clip.clip_id}_frontal.jpg")
+        side_path = os.path.join(driving_img_root, f"{clip.clip_id}_side.jpg")
         cv2.imwrite(frontal_path, frame_pair.frontal_frame)
         cv2.imwrite(side_path, frame_pair.side_frame)
 
@@ -272,11 +274,12 @@ def process_single_clip(args) -> Tuple[str, bool]:
         return clip.clip_id, False
 
 
-def process_dataset(json_path: str, raw_root: str, processed_root: str,
+def process_dataset(json_path: str, raw_root: str, processed_root: str, processed_img_root: str,
                     num_workers: int = 4, model_device: int = -1):
     """Process entire dataset with multiprocessing"""
     os.makedirs(raw_root, exist_ok=True)
     os.makedirs(processed_root, exist_ok=True)
+    os.makedirs(processed_img_root, exist_ok=True)
 
     # Load clips
     with open(json_path) as f:
@@ -292,9 +295,10 @@ def process_dataset(json_path: str, raw_root: str, processed_root: str,
             bbox=(info['bbox']['top'], info['bbox']['bottom'],
                   info['bbox']['left'], info['bbox']['right'])
         ))
+        break
 
     # Process with multiprocessing
-    args_list = [(clip, raw_root, processed_root, model_device)
+    args_list = [(clip, raw_root, processed_root, processed_img_root, model_device)
                  for clip in clips]
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
@@ -315,10 +319,13 @@ def process_dataset(json_path: str, raw_root: str, processed_root: str,
 
 if __name__ == '__main__':
     from configs.pipeline_config import pipeline_config as pco
+    from pathlib import Path
+    LOCAL_DIR = Path(__file__).resolve().parent
     results = process_dataset(
-        json_path=pco.dataset.json_path,
+        json_path=LOCAL_DIR / pco.dataset.json_path,
         raw_root=pco.dataset.raw_video_root,
         processed_root=pco.dataset.processed_video_root,
+        processed_img_root=pco.dataset.processed_images_root,
         num_workers=pco.dataset.num_workers,
         model_device=pco.dataset.device  # -1 for CPU, 0+ for GPU
     )

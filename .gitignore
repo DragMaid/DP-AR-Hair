@@ -210,3 +210,8 @@ tests/__snapshots__/
 **/weights/
 **/pretrained_weights/
 **/pretrained_models/
+
+
+# Application
+smart-style-salon-app/backend/node_modules
+smart-style-salon-app/frontend/node_modules

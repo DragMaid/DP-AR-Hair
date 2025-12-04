@@ -26,7 +26,7 @@ def main():
             super().__init__(local_rank=0)  # still needs an int for original init
 
     pipeline = TestPipeline(device=device)
-    scaler = torch.cuda.amp.GradScaler() if "cuda" in device else None
+    scaler = torch.cuda.amp.GradScaler() if device.type == "cuda" else None
 
     # Load 3 images: source, driving, reference
     img_paths = [

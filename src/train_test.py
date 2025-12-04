@@ -1,12 +1,17 @@
 import torch
+import os
+import torch.distributed as dist
 from pipelines.training_pipeline import TrainingPipeline
 from torchvision import transforms as T
 from PIL import Image
-import os
 
 
 def main():
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
+    device = torch.device(f"cuda:{local_rank}")
+
+    dist.init_process_group(backend="nccl")
 
     # Minimal transform (resize + to tensor)
     transform = T.Compose([

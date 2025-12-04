@@ -103,7 +103,7 @@ class TrainingPipeline:
         }
 
     @torch.cuda.amp.autocast()
-    def _compute_losses(self, I_d, I_s, I_p, I_d_dilde):
+    def _compute_losses(self, I_d, I_s, I_p, I_d_dilde, m_c, m_f):
         """Compute all losses (returns scalar tensors)"""
         p_loss = self.L_p(self.normalize(I_p), self.normalize(I_d))
         pred_real = self.L_adv(I_d)
@@ -115,8 +115,9 @@ class TrainingPipeline:
         loss_fake = self.disc_criterion(pred_fake, target_fake)
         a_loss = (loss_fake + loss_real) / 2
 
-        h_loss = self.L_hair(I_d, I_p)
-        f_loss = self.L_face(I_d, I_p)
+        # TODO: add the mask here
+        h_loss = self.L_hair(m_c, I_d, I_p)
+        f_loss = self.L_face(m_f, I_d, I_p)
         g_loss = self.L_global(I_d, I_p)
 
         pred_fake_G = self.L_adv(I_p)
@@ -155,12 +156,13 @@ class TrainingPipeline:
         I_d_dilde = I_d_dilde.to(self.device)
         I_d_dilde.requires_grad_(True)
 
-        f_c = self.E_C(I_d_dilde)
+        f_c = self.E_C(I_d_dilde).mean(dim=2)  # Remove depth -> (B, C, H, W)
         f_h = self.E_H(I_s)
         f_m = self.E_M(I_s)["kp"].view(I_s.size(0), -1, 3)
         f_m_d = self.E_M(I_d)["kp"].view(I_s.size(0), -1, 3)
         f_w = self.W(feature_3d=f_h, kp_source=f_m, kp_driving=f_m_d)
         m_c = get_mask_by_idx(I_d_dilde, self.M_C, self.device)
+        m_f = get_mask_by_idx(I_d_dilde, self.M_C, self.device, class_idx=1)
         I_p = self.D(f_c, f_w, m_c)
 
         # --- Discriminator update ---
@@ -187,7 +189,7 @@ class TrainingPipeline:
         # --- Generator update ---
         self.generator_optimizer.zero_grad()
         with torch.cuda.amp.autocast(enabled=(scaler is not None)):
-            losses = self._compute_losses(I_d, I_s, I_p, I_d_dilde)
+            losses = self._compute_losses(I_d, I_s, I_p, I_d_dilde, m_c, m_f)
         gen_loss = losses["total_loss"]
 
         if scaler is not None:

@@ -14,7 +14,8 @@ class MSGSpadeDecoder(nn.Module):
         self.D_S = synthesis_decode
 
     def forward(self, f_c, f_w, m_c):
-        f_n = torch.cat([m_c, f_c], dim=1)
+        m_c_resized = F.interpolate(m_c, size=f_c.shape[-2:], mode='nearest')
+        f_n = torch.cat([m_c_resized, f_c], dim=1)
 
         fc = self.D_C.fc(f_c)
         fw = self.D_S.fc(f_w)

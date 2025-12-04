@@ -1,7 +1,7 @@
+from typing import Union, List, Tuple
 import torch
 import numpy as np
 import torchvision.transforms as transforms
-from typing import Tuple
 from PIL import Image
 
 
@@ -21,33 +21,60 @@ def prepare_image(image: Image.Image,
 
 @torch.no_grad()
 def get_mask_by_idx(
-    image: Image.Image,
-    model: torch.nn.Module,
-    device: torch.device,
-    input_size: Tuple[int, int] = (512, 512),
-    class_idx: int = 17  # BiSeNet class index for hair
-) -> np.ndarray:
+    images,
+    model,
+    device,
+    input_size=(512, 512),
+    class_idx=17
+):
     """
-    Run inference on a single image and return the binary hair mask.
-
-    Returns:
-        np.ndarray: Binary mask of shape (H, W), 1 for hair, 0 for non-hair.
+    Supports:
+    - PIL.Image (single)
+    - torch.Tensor CxHxW (single)
+    - torch.Tensor BxCxHxW (batch)
+    Returns binary mask: BxHxW (torch.uint8)
     """
-    original_size = image.size  # (width, height)
-    image_batch = prepare_image(image, input_size).to(device)
+    if isinstance(images, Image.Image):
+        images = prepare_image(images, input_size)
+    elif isinstance(images, torch.Tensor):
+        if images.ndim == 3:  # C,H,W
+            images = images.unsqueeze(0)
+        elif images.ndim != 4:
+            raise ValueError("Tensor must be CHW or BCHW")
+    else:
+        raise TypeError("Input must be PIL.Image or Tensor")
 
-    output = model(image_batch)[0]  # use main output only
-    predicted_mask = output.squeeze(0).cpu().numpy().argmax(0)
+    images = images.to(device)  # move to GPU
+    B, _, _, _ = images.shape
 
-    # Hair mask only
-    mask = (predicted_mask == class_idx).astype(np.uint8)
+    outputs = model(images)[0]          # outputs: B x num_classes x H x W
 
-    # Resize back to original image resolution
-    mask_pil = Image.fromarray(mask * 255)  # multiply by 255 for PIL
-    mask_resized = mask_pil.resize(
-        original_size, resample=Image.NEAREST)
+    predicted = outputs.argmax(dim=1)   # B x H x W
 
-    return np.array(mask_resized) // 255  # return 0/1 mask
+    mask = (predicted == class_idx).to(torch.uint8)  # B x H x W
+
+    resized_masks = []
+    for i in range(B):
+        orig_w, orig_h = get_image_size(images[i])
+        pil_mask = Image.fromarray(mask[i].cpu().numpy() * 255)
+        resized = pil_mask.resize((orig_w, orig_h), Image.NEAREST)
+        resized_masks.append(torch.from_numpy(
+            np.array(resized) // 255))
+
+    # Stack → B x 1 x H_orig x W_orig
+    return torch.stack(resized_masks, dim=0).unsqueeze(1)
+
+
+def get_image_size(image):
+    if isinstance(image, Image.Image):
+        return image.size  # (W, H)
+
+    if isinstance(image, torch.Tensor):
+        # Tensor layout: C,H,W
+        _, h, w = image.shape
+        return (w, h)
+
+    raise TypeError("Unsupported image type")
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ from configs.pipeline_config import pipeline_config as pco
 from loaders.loader import load_models, ModelRegistry
 from loaders.downloader import download_weights
 from models.msg_spade_decoder import MSGSpadeDecoder
+from pipelines.gan_wrapper import HairFastBatchWrapper
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 
@@ -41,7 +42,7 @@ class TrainingPipeline:
         self.D_C = load_models("D_C", pretrained=True,
                                freeze=True).to(self.device)
 
-        # IIHT loading (keeps your logic)
+        # IIHT loading
         IIHT_NAME = "IIHT1"
         record = ModelRegistry.get_registry(IIHT_NAME)
         w_options = record["weight"]["options"]
@@ -52,7 +53,7 @@ class TrainingPipeline:
         self.IIHT = load_models(IIHT_NAME, pretrained=False)
 
         # automatically uses all available GPUs
-        self.IIHT = nn.DataParallel(self.IIHT)
+        self.IIHT = HairFastBatchWrapper(self.IIHT, device_ids=[0, 1, 2])
         self.D_S = DDP(self.D_S, device_ids=[
                        local_rank], output_device=local_rank)
         self.E_C = DDP(self.E_C, device_ids=[
@@ -148,31 +149,8 @@ class TrainingPipeline:
         I_d = I_d.to(self.device)
         I_r = I_r.to(self.device)
 
-        # TODO: move this to a specific setup function since Stable Hair wouldn't need this
         # I_d, I_r, I_s: 4D tensors (B, C, H, W)
-        I_d_dilde_list = []
-
-        # ALIGNMENT_MODE = "Auto"
-        # need_alignment = any(img.shape[-2:] != (1024, 1024)
-                             # for img in (I_r, I_d))
-        # perform_align = ALIGNMENT_MODE == "On" or (
-            # ALIGNMENT_MODE == "Auto" and need_alignment)
-
-        for b in range(I_d.size(0)):
-            I_d_single = I_d[b]      # (C,H,W)
-            I_r_single = I_r[b]
-
-            # if perform_align:
-                # I_d_out, _, _, _ = self.IIHT(
-                    # I_d_single, I_r_single, I_d_single, align=True)
-            # else:
-                # I_d_out = self.IIHT(I_d_single, I_r_single, I_d_single)
-            I_d_out = self.IIHT(I_d_single, I_r_single, I_d_single)
-
-            I_d_dilde_list.append(I_d_out)
-
-        # Stack back to batch
-        I_d_dilde = torch.stack(I_d_dilde_list, dim=0).to(self.device)
+        I_d_dilde = self.IIHT_batch.batch_swap(I_d, I_r, I_d).to(self.device)
         I_d_dilde.requires_grad_(True)
 
         f_c = self.E_C(I_d_dilde)

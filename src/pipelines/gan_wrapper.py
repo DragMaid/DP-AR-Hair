@@ -23,10 +23,15 @@ class HairFastBatchWrapper:
         """
         results = []
 
+        from torchvision import transforms as T
+        transform = T.Compose([
+            T.Resize((1024, 1024)),
+        ])
+
         for i in range(face_batch.size(0)):
-            face_img = face_batch[i].to(self.device)
-            shape_img = shape_batch[i].to(self.device)
-            color_img = color_batch[i].to(self.device)
+            face_img = transform(face_batch[i]).to(self.device)
+            shape_img = transform(shape_batch[i]).to(self.device)
+            color_img = transform(color_batch[i]).to(self.device)
 
             out = self.model.swap(face_img, shape_img, color_img, **kwargs)
 

@@ -53,7 +53,8 @@ class TrainingPipeline:
         self.IIHT = load_models(IIHT_NAME, pretrained=False)
 
         # automatically uses all available GPUs
-        self.IIHT = HairFastBatchWrapper(self.IIHT, device_ids=[0, 1, 2])
+        # TODO: add a more dynamic way to set the device ids
+        self.IIHT = HairFastBatchWrapper(self.IIHT, device_ids=[0])
         self.D_S = DDP(self.D_S, device_ids=[
                        local_rank], output_device=local_rank)
         self.E_C = DDP(self.E_C, device_ids=[
@@ -150,7 +151,8 @@ class TrainingPipeline:
         I_r = I_r.to(self.device)
 
         # I_d, I_r, I_s: 4D tensors (B, C, H, W)
-        I_d_dilde = self.IIHT.batch_swap(I_d, I_r, I_d).to(self.device)
+        I_d_dilde = self.IIHT.batch_swap(I_d, I_r, I_d)
+        I_d_dilde = I_d_dilde.to(self.device)
         I_d_dilde.requires_grad_(True)
 
         f_c = self.E_C(I_d_dilde)

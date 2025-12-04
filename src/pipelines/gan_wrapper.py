@@ -1,4 +1,5 @@
 import torch
+from torchvision import transforms as T
 
 
 class HairFastBatchWrapper:
@@ -23,19 +24,16 @@ class HairFastBatchWrapper:
         """
         results = []
 
+        transform = T.Compose([
+            T.Resize((1024, 1024)),
+        ])
+
         for i in range(face_batch.size(0)):
-            face_img = face_batch[i].to(self.device)
-            shape_img = shape_batch[i].to(self.device)
-            color_img = color_batch[i].to(self.device)
+            face_img = transform(face_batch[i]).to(self.device)
+            shape_img = transform(shape_batch[i]).to(self.device)
+            color_img = transform(color_batch[i]).to(self.device)
 
-            need_alignment = any(img.size != (1024, 1024)
-                                 for img in (face_img, shape_img, color_img))
-
-            if need_alignment:
-                out, _, _, _ = self.model.swap(
-                    face_img, shape_img, color_img, align=True, **kwargs)
-            else:
-                out = self.model.swap(face_img, shape_img, color_img, **kwargs)
+            out = self.model.swap(face_img, shape_img, color_img, **kwargs)
 
             # handle the rare 4D single-image output
             if out.ndim == 4 and out.size(0) == 1:

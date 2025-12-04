@@ -157,10 +157,10 @@ class TrainingPipeline:
 
         f_c = self.E_C(I_d_dilde)
         f_h = self.E_H(I_s)
-        f_m = self.E_M(I_s)
-        f_m_d = self.E_M(I_d)
-        f_w = self.W(f_m, f_m_d, f_h)
-        m_c = get_mask_by_idx(I_d_dilde, self.M_C)
+        f_m = self.E_M(I_s)["kp"].view(I_s.size(0), -1, 3)
+        f_m_d = self.E_M(I_d)["kp"].view(I_s.size(0), -1, 3)
+        f_w = self.W(feature_3d=f_h, kp_source=f_m, kp_driving=f_m_d)
+        m_c = get_mask_by_idx(I_d_dilde, self.M_C, self.device)
         I_p = self.D(f_c, f_w, m_c)
 
         # --- Discriminator update ---

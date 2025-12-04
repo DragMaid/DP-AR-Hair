@@ -7,7 +7,7 @@ poetry:
 	@command -v poetry >/dev/null 2>&1 || (echo "Installing Poetry..." && curl -sSL https://install.python-poetry.org | python3 -)
 	@echo "Installing project dependencies..."
 	export PATH=$PATH:/root/.local/bin
-	poetry install
+	poetry install --with full
 
 # 2. Install Ninja
 ninja:

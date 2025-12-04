@@ -1,11 +1,12 @@
 import os
 import argparse
 import torch
-from torch.utils.data import DataLoader
+from tqdm import tqdm
+from torch.utils.data import DataLoader, DistributedSampler
 from torchvision import transforms as T
 from data.dataset import CelebVHQDataset
 from pipelines.training_pipeline import TrainingPipeline
-from tqdm import tqdm
+import torch.distributed as dist
 from configs.pipeline_config import pipeline_config as pco
 
 
@@ -37,11 +38,15 @@ def get_args():
 def main():
     args = get_args()
 
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
+    device = torch.device(f"cuda:{local_rank}")
+
+    dist.init_process_group(backend="nccl")
+
     # device
     if args.device:
         device = torch.device(args.device)
-    else:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     transform = T.Compose([
         T.ToPILImage(),
@@ -54,11 +59,13 @@ def main():
                               transform=transform,
                               preload=False)
 
-    dataloader = DataLoader(dataset, batch_size=args.batch_size,
-                            shuffle=True, num_workers=args.num_workers,
-                            pin_memory=True, drop_last=True)
+    sampler = DistributedSampler(dataset)
 
-    pipeline = TrainingPipeline(device=device)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size,
+                            num_workers=args.num_workers,
+                            pin_memory=True, drop_last=True, sampler=sampler)
+
+    pipeline = TrainingPipeline(local_rank=local_rank)
 
     scaler = torch.cuda.amp.GradScaler(
     ) if args.mixed_precision and device.type == "cuda" else None
@@ -73,6 +80,7 @@ def main():
     os.makedirs(args.save_dir, exist_ok=True)
 
     for epoch in range(start_epoch, args.epochs):
+        sampler.set(epoch)
         epoch_iterator = tqdm(enumerate(dataloader), total=len(dataloader),
                               desc=f"Epoch {epoch+1}/{args.epochs}")
         running = {"total_loss": 0.0, "disc_loss": 0.0, "steps": 0}
@@ -80,6 +88,9 @@ def main():
             # dataset returns (I_s, I_d, I_r)
             I_s, I_d, I_r = batch
             logs = pipeline.train_step(I_s, I_d, I_r, scaler=scaler)
+
+            if dist.get_rank() != 0:
+                continue
 
             running["total_loss"] += logs.get("total_loss", 0.0)
             running["disc_loss"] += logs.get("disc_loss", 0.0)
@@ -92,9 +103,10 @@ def main():
 
         # epoch end — checkpoint
         if ((epoch + 1) % args.save_every) == 0:
-            ck_path = os.path.join(args.save_dir, f"epoch_{epoch+1:04d}.pt")
-            pipeline.save_checkpoint(ck_path, epoch=epoch)
-            print(f"Saved checkpoint: {ck_path}")
+            if dist.get_rank() == 0:
+                ck_path = os.path.join(args.save_dir, f"epoch_{epoch+1:04d}.pt")
+                pipeline.save_checkpoint(ck_path, epoch=epoch)
+                print(f"Saved checkpoint: {ck_path}")
 
     print("Training complete.")
 

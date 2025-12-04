@@ -1,4 +1,4 @@
-# training/pipeline_ext.py
+import os
 import torch
 import torch.nn as nn
 from torchvision import transforms
@@ -10,7 +10,7 @@ from configs.pipeline_config import pipeline_config as pco
 from loaders.loader import load_models, ModelRegistry
 from loaders.downloader import download_weights
 from models.msg_spade_decoder import MSGSpadeDecoder
-import os
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 
 class TrainingPipeline:
@@ -21,8 +21,8 @@ class TrainingPipeline:
     - collects a minimal set of modules to save
     """
 
-    def __init__(self, device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
-        self.device = device
+    def __init__(self, local_rank):
+        self.device = torch.device(f"cuda:{local_rank}")
 
         # --- load models (kept same as your snippet) ---
         self.E_H = load_models("E_H", pretrained=True,
@@ -40,7 +40,6 @@ class TrainingPipeline:
                                strict=False, freeze=True).to(self.device)
         self.D_C = load_models("D_C", pretrained=True,
                                freeze=True).to(self.device)
-        self.D = MSGSpadeDecoder(self.D_C, self.D_S)
 
         # IIHT loading (keeps your logic)
         IIHT_NAME = "IIHT1"
@@ -51,6 +50,16 @@ class TrainingPipeline:
         if not dest.exists():
             download_weights(record["weight"]["type"], w_options)
         self.IIHT = load_models(IIHT_NAME, pretrained=False)
+
+        # automatically uses all available GPUs
+        self.IIHT = nn.DataParallel(self.IIHT)
+        self.D_S = DDP(self.D_S, device_ids=[
+                       local_rank], output_device=local_rank)
+        self.E_C = DDP(self.E_C, device_ids=[
+                       local_rank], output_device=local_rank)
+
+        self.D = MSGSpadeDecoder(self.D_C, self.D_S)
+        self.D = DDP(self.D, device_ids=[local_rank], output_device=local_rank)
 
         # Losses and normalizer
         self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -135,17 +144,37 @@ class TrainingPipeline:
         Returns dict of scalars (floats) for logging.
         """
 
-        ALIGNMENT_MODE = "Auto"  # Auto, On, Off
-        need_alignment = any(img.size != (1024, 1024) for img in (I_r, I_d))
-        perform_align = ALIGNMENT_MODE == "On" or (
-            ALIGNMENT_MODE == "Auto" and need_alignment)
+        I_s = I_s.to(self.device)
+        I_d = I_d.to(self.device)
+        I_r = I_r.to(self.device)
 
-        if perform_align:
-            I_d_dilde, _, _, _ = self.IIHT(I_d, I_r, I_d, align=True)
-        else:
-            I_d_dilde = self.IIHT(I_d, I_r, I_d)
+        # TODO: move this to a specific setup function since Stable Hair wouldn't need this
+        # I_d, I_r, I_s: 4D tensors (B, C, H, W)
+        I_d_dilde_list = []
 
-        I_d_dilde = I_d_dilde.clone().detach().requires_grad_(True)
+        # ALIGNMENT_MODE = "Auto"
+        # need_alignment = any(img.shape[-2:] != (1024, 1024)
+                             # for img in (I_r, I_d))
+        # perform_align = ALIGNMENT_MODE == "On" or (
+            # ALIGNMENT_MODE == "Auto" and need_alignment)
+
+        for b in range(I_d.size(0)):
+            I_d_single = I_d[b]      # (C,H,W)
+            I_r_single = I_r[b]
+
+            # if perform_align:
+                # I_d_out, _, _, _ = self.IIHT(
+                    # I_d_single, I_r_single, I_d_single, align=True)
+            # else:
+                # I_d_out = self.IIHT(I_d_single, I_r_single, I_d_single)
+            I_d_out = self.IIHT(I_d_single, I_r_single, I_d_single)
+
+            I_d_dilde_list.append(I_d_out)
+
+        # Stack back to batch
+        I_d_dilde = torch.stack(I_d_dilde_list, dim=0).to(self.device)
+        I_d_dilde.requires_grad_(True)
+
         f_c = self.E_C(I_d_dilde)
         f_h = self.E_H(I_s)
         f_m = self.E_M(I_s)

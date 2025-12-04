@@ -54,7 +54,7 @@ class TrainingPipeline:
 
         # automatically uses all available GPUs
         # TODO: add a more dynamic way to set the device ids
-        self.IIHT = HairFastBatchWrapper(self.IIHT, device_ids=[0])
+        self.IIHT = HairFastBatchWrapper(self.IIHT)
         self.D_S = DDP(self.D_S, device_ids=[
                        local_rank], output_device=local_rank)
         self.E_C = DDP(self.E_C, device_ids=[

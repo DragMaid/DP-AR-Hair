@@ -150,7 +150,7 @@ class TrainingPipeline:
         I_r = I_r.to(self.device)
 
         # I_d, I_r, I_s: 4D tensors (B, C, H, W)
-        I_d_dilde = self.IIHT_batch.batch_swap(I_d, I_r, I_d).to(self.device)
+        I_d_dilde = self.IIHT.batch_swap(I_d, I_r, I_d).to(self.device)
         I_d_dilde.requires_grad_(True)
 
         f_c = self.E_C(I_d_dilde)

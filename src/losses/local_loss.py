@@ -10,9 +10,9 @@ class HairLoss(nn.Module):
         return torch.norm((m_h * (I_d - I_p)), p=1)
 
 
-class ContextLoss(nn.Module):
+class FaceLoss(nn.Module):
     def __init__(self):
-        super(ContextLoss, self).__init__()
+        super(FaceLoss, self).__init__()
 
-    def forward(self, m_c, I_p, I_d):
-        return torch.norm((m_c * (I_d - I_p)), p=1)
+    def forward(self, m_f, I_p, I_d):
+        return torch.norm((m_f * (I_d - I_p)), p=1)

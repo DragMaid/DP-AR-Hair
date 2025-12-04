@@ -210,3 +210,5 @@ tests/__snapshots__/
 **/weights/
 **/pretrained_weights/
 **/pretrained_models/
+downloaded_celebvhq/
+driving_images/

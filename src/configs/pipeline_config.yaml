@@ -1,0 +1,23 @@
+training:
+  epoch_num: 100
+  batch_size: 4
+  discriminator:
+    learn_rate: 2e-4
+    betas: [0.5, 0.999]
+  generator:
+    learn_rate: 2e-5
+    betas: [0.5, 0.999]
+  loss:
+    adv_rate: 1
+    rec_rate: 1
+    p_rate: 1
+    h_rate: 1
+    f_rate: 1
+  save_dir: './checkpoints/'
+  epochs_till_save: 10
+
+dataset:
+    refrence_dir: './assets/reference_images/'
+    driving_dir: './assets/driving_images/'
+    num_workers: 1
+    device: -1

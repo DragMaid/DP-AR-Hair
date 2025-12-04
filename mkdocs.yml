@@ -22,3 +22,6 @@ nav:
     - Perceptual loss: perceptual_loss.md
     - Adversarial loss: adversarial_loss.md
     - Local loss: local_loss.md
+  - Dataset:
+    - Pre-processing: preprocess.md
+    - Dataset loader: dataset.md

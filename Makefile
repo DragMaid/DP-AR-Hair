@@ -1,11 +1,12 @@
-.PHONY: install poetry ninja submodules test
+.PHONY: install poetry ninja submodules test download
 
-install: poetry ninja submodules
+install: poetry ninja submodules download
 
 # 1. Install Poetry if not present
 poetry:
 	@command -v poetry >/dev/null 2>&1 || (echo "Installing Poetry..." && curl -sSL https://install.python-poetry.org | python3 -)
 	@echo "Installing project dependencies..."
+	export PATH=$PATH:/root/.local/bin
 	poetry install
 
 # 2. Install Ninja
@@ -26,4 +27,10 @@ submodules:
 test:
 	export PYTHONPATH=src:libs
 	poetry run pytest
+
+# 4. Download all weights for dataset
+download:
+	git clone https://huggingface.co/AIRI-Institute/HairFastGAN
+	mv HairFastGAN/pretrained_models/ .
+	rm -rf HairFastGAN
 

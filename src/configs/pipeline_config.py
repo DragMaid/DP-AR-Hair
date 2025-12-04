@@ -29,13 +29,13 @@ class TrainingConfig(BaseModel):
     loss: LossConfig
     discriminator: DiscriminatorConfig
     generator: GeneratorConfig
+    save_dir: str
+    epochs_till_save: int
 
 
 class DatasetConfig(BaseModel):
-    processed_video_root: str
-    processed_images_root: str
-    raw_video_root: str
-    json_path: str
+    reference_dir: str
+    driving_dir: str
     num_workers: int
     device: int
 

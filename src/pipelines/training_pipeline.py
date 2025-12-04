@@ -145,6 +145,7 @@ class TrainingPipeline:
         else:
             I_d_dilde = self.IIHT(I_d, I_r, I_d)
 
+        I_d_dilde = I_d_dilde.clone().detach().requires_grad_(True)
         f_c = self.E_C(I_d_dilde)
         f_h = self.E_H(I_s)
         f_m = self.E_M(I_s)

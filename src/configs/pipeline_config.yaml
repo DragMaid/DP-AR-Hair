@@ -13,11 +13,11 @@ training:
     p_rate: 1
     h_rate: 1
     f_rate: 1
+  save_dir: './checkpoints/'
+  epochs_till_save: 10
 
 dataset:
-    json_path: 'celebvhq_info.json'
-    raw_video_root: './downloaded_celebvhq/raw/'
-    processed_video_root: './downloaded_celebvhq/processed/'
-    processed_images_root: './driving_images/'
+    refrence_dir: './assets/reference_images/'
+    driving_dir: './assets/driving_images/'
     num_workers: 1
     device: -1

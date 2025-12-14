@@ -9,7 +9,7 @@ class PerceptualLoss(nn.Module):
         self.vgg = vgg16(pretrained=True).features
 
         # Freeze the weight of the VGG
-        for param in self.vgg.parameers():
+        for param in self.vgg.parameters():
             param.requires_grad = False
 
     def forward(self, generated, target):

@@ -75,9 +75,17 @@ tensorboard = "2.16.2"
 tensorboard-data-server = "0.7.2"
 tifffile = "2024.4.24"
 tokenizers = "0.20.1"
-tqdm = "4.66.2"
 transformers = "4.45.2"
 dlib = "^20.0.0"
+
+
+[tool.poetry.group.data]
+optional = true
+
+[tool.poetry.group.data.dependencies]
+tqdm = "4.66.2"
+sixdrepnet = "^0.1.6"
+yt-dlp = "^2025.11.12"
 
 [tool.poetry.group.dev]
 optional = true

@@ -9,6 +9,7 @@ class MSGSpadeDecoder(nn.Module):
     def __init__(self,
                  context_decoder: ContextDecoder,
                  synthesis_decode: SynthesisDecoder):
+        super(MSGSpadeDecoder, self).__init__()
         self.D_C = context_decoder
         self.D_S = synthesis_decode
 

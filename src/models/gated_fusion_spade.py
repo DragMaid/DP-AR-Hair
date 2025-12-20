@@ -80,7 +80,8 @@ class GFSPADE(nn.Module):
         # NOTE: opting for the conv split to save memory is good or not ?
         gamma = self.mlp_gamma(actv)
         beta = self.mlp_beta(actv)
-        # TODO: why is it 1 + gamma
+
+        print(normed.size(), gamma.size(), beta.size())
         h_c_tilde = normed * (1 + gamma) + beta  # Eq.1 Page 5
 
         # 3. Compute spatial gate
@@ -97,7 +98,7 @@ class GFSPADE(nn.Module):
 
 
 class GFSPADEResnetBlock(nn.Module):
-    def __init__(self, fin, fout, norm_G, label_nc, use_se=False, dilation=1):
+    def __init__(self, fin, fout, norm_G, label_nc, concat_nc, use_se=False, dilation=1):
         super().__init__()
 
         # Attributes
@@ -127,8 +128,19 @@ class GFSPADEResnetBlock(nn.Module):
             self.norm_s = SPADE(fin, label_nc)
 
         # define GF-SPADEs
-        self.gf_spade_1 = GFSPADE(fin, label_nc)
-        self.gf_spade_2 = GFSPADE(fmiddle, label_nc)
+        self.gf_spade_1 = GFSPADE(fin, concat_nc)
+        self.gf_spade_2 = GFSPADE(fmiddle, concat_nc)
+
+    def forward(self, f_n, x, seg1):
+        x_s = self.shortcut(x, seg1)
+        dx = self.norm_0(x, seg1)
+        dx = self.gf_spade_1(f_n, dx)
+        dx = self.conv_0(self.actvn(dx))
+        dx = self.norm_1(dx, seg1)
+        dx = self.gf_spade_2(f_n, dx)
+        dx = self.conv_1(self.actvn(dx))
+        out = x_s + dx
+        return out
 
     def shortcut(self, x, seg1):
         if self.learned_shortcut:

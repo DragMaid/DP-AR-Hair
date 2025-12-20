@@ -47,6 +47,13 @@ class ContextDecoderParams(BaseModel):
     num_down_blocks: int
 
 
+class SynthesisDecoderParams(BaseModel):
+    upscale: int
+    block_expansion: int
+    max_features: int
+    num_down_blocks: int
+
+
 class FaceParsingParams(BaseModel):
     num_classes: int
     backbone_name: str
@@ -80,6 +87,7 @@ class ModelConfig(BaseModel):
     context_decoder_params: ContextDecoderParams
     face_parsing_params: FaceParsingParams
     hair_gan_params: HairGanParams
+    synthesis_decoder_params: SynthesisDecoderParams
 
 
 # ---------------------------

@@ -18,6 +18,14 @@ class AppearanceFeatureExtractorParams(BaseModel):
     num_resblocks: int
 
 
+class ContextEncoderParams(BaseModel):
+    image_channel: int
+    block_expansion: int
+    num_down_blocks: int
+    max_features: int
+    out_channels: int
+
+
 class MotionExtractorParams(BaseModel):
     num_kp: int
 
@@ -82,6 +90,7 @@ class HairGanParams(BaseModel):
 
 class ModelConfig(BaseModel):
     appearance_feature_extractor_params: AppearanceFeatureExtractorParams
+    context_encoder_params: ContextEncoderParams
     motion_extractor_params: MotionExtractorParams
     warping_module_params: WarpingModuleParams
     context_decoder_params: ContextDecoderParams

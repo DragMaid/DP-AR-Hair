@@ -5,9 +5,8 @@ from live_portrait.models.utils import SameBlock2d, DownBlock2d, ResBlock3d
 
 class AppearanceFeatureExtractor(nn.Module):
     """
-    Network Encoder implemented for the 2 following modules in Hair-Shifter paper:
+    Network Encoder implemented for the 1 following modules in Hair-Shifter paper:
         1. Hair Apearance Encoder (E_h)
-        2. Non-hair Contenxt Encoder (E_c)
     """
 
     def __init__(self,

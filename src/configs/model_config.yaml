@@ -7,6 +7,13 @@ appearance_feature_extractor_params:
   reshape_depth: 16
   num_resblocks: 6
 
+context_encoder_params:
+  image_channel: 3
+  block_expansion: 64
+  num_down_blocks: 2
+  max_features: 512
+  out_channels: 256
+
 motion_extractor_params:
   num_kp: 21
 

@@ -1,4 +1,4 @@
-# training/pipeline_ext.py
+import os
 import torch
 import torch.nn as nn
 from torchvision import transforms
@@ -10,7 +10,8 @@ from configs.pipeline_config import pipeline_config as pco
 from loaders.loader import load_models, ModelRegistry
 from loaders.downloader import download_weights
 from models.msg_spade_decoder import MSGSpadeDecoder
-import os
+from pipelines.gan_wrapper import HairFastBatchWrapper
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 
 class TrainingPipeline:
@@ -21,8 +22,8 @@ class TrainingPipeline:
     - collects a minimal set of modules to save
     """
 
-    def __init__(self, device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
-        self.device = device
+    def __init__(self, local_rank):
+        self.device = torch.device(f"cuda:{local_rank}")
 
         # --- load models (kept same as your snippet) ---
         self.E_H = load_models("E_H", pretrained=True,
@@ -40,9 +41,8 @@ class TrainingPipeline:
                                strict=False, freeze=True).to(self.device)
         self.D_C = load_models("D_C", pretrained=True,
                                freeze=True).to(self.device)
-        self.D = MSGSpadeDecoder(self.D_C, self.D_S)
 
-        # IIHT loading (keeps your logic)
+        # IIHT loading
         IIHT_NAME = "IIHT1"
         record = ModelRegistry.get_registry(IIHT_NAME)
         w_options = record["weight"]["options"]
@@ -51,6 +51,17 @@ class TrainingPipeline:
         if not dest.exists():
             download_weights(record["weight"]["type"], w_options)
         self.IIHT = load_models(IIHT_NAME, pretrained=False)
+
+        # automatically uses all available GPUs
+        # TODO: add a more dynamic way to set the device ids
+        self.IIHT = HairFastBatchWrapper(self.IIHT)
+        self.D_S = DDP(self.D_S, device_ids=[
+                       local_rank], output_device=local_rank)
+        self.E_C = DDP(self.E_C, device_ids=[
+                       local_rank], output_device=local_rank)
+
+        self.D = MSGSpadeDecoder(self.D_C, self.D_S)
+        self.D = DDP(self.D, device_ids=[local_rank], output_device=local_rank)
 
         # Losses and normalizer
         self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -92,7 +103,7 @@ class TrainingPipeline:
         }
 
     @torch.cuda.amp.autocast()
-    def _compute_losses(self, I_d, I_s, I_p, I_d_dilde):
+    def _compute_losses(self, I_d, I_s, I_p, I_d_dilde, m_c, m_f):
         """Compute all losses (returns scalar tensors)"""
         p_loss = self.L_p(self.normalize(I_p), self.normalize(I_d))
         pred_real = self.L_adv(I_d)
@@ -104,8 +115,9 @@ class TrainingPipeline:
         loss_fake = self.disc_criterion(pred_fake, target_fake)
         a_loss = (loss_fake + loss_real) / 2
 
-        h_loss = self.L_hair(I_d, I_p)
-        f_loss = self.L_face(I_d, I_p)
+        # TODO: add the mask here
+        h_loss = self.L_hair(m_c, I_d, I_p)
+        f_loss = self.L_face(m_f, I_d, I_p)
         g_loss = self.L_global(I_d, I_p)
 
         pred_fake_G = self.L_adv(I_p)
@@ -135,22 +147,22 @@ class TrainingPipeline:
         Returns dict of scalars (floats) for logging.
         """
 
-        ALIGNMENT_MODE = "Auto"  # Auto, On, Off
-        need_alignment = any(img.size != (1024, 1024) for img in (I_r, I_d))
-        perform_align = ALIGNMENT_MODE == "On" or (
-            ALIGNMENT_MODE == "Auto" and need_alignment)
+        I_s = I_s.to(self.device)
+        I_d = I_d.to(self.device)
+        I_r = I_r.to(self.device)
 
-        if perform_align:
-            I_d_dilde, _, _, _ = self.IIHT(I_d, I_r, I_d, align=True)
-        else:
-            I_d_dilde = self.IIHT(I_d, I_r, I_d)
+        # I_d, I_r, I_s: 4D tensors (B, C, H, W)
+        I_d_dilde = self.IIHT.batch_swap(I_d, I_r, I_d)
+        I_d_dilde = I_d_dilde.to(self.device)
+        I_d_dilde.requires_grad_(True)
 
-        I_d_dilde = I_d_dilde.clone().detach().requires_grad_(True)
-        f_c = self.E_C(I_d_dilde)
+        f_c = self.E_C(I_d_dilde).mean(dim=2)  # Remove depth -> (B, C, H, W)
         f_h = self.E_H(I_s)
-        f_m = self.E_M(I_s)
-        f_w = self.W(f_h, f_m)
-        m_c = get_mask_by_idx(I_d_dilde, self.M_C)
+        f_m = self.E_M(I_s)["kp"].view(I_s.size(0), -1, 3)
+        f_m_d = self.E_M(I_d)["kp"].view(I_s.size(0), -1, 3)
+        f_w = self.W(feature_3d=f_h, kp_source=f_m, kp_driving=f_m_d)
+        m_c = get_mask_by_idx(I_d_dilde, self.M_C, self.device)
+        m_f = get_mask_by_idx(I_d_dilde, self.M_C, self.device, class_idx=1)
         I_p = self.D(f_c, f_w, m_c)
 
         # --- Discriminator update ---
@@ -177,7 +189,7 @@ class TrainingPipeline:
         # --- Generator update ---
         self.generator_optimizer.zero_grad()
         with torch.cuda.amp.autocast(enabled=(scaler is not None)):
-            losses = self._compute_losses(I_d, I_s, I_p, I_d_dilde)
+            losses = self._compute_losses(I_d, I_s, I_p, I_d_dilde, m_c, m_f)
         gen_loss = losses["total_loss"]
 
         if scaler is not None:

@@ -17,7 +17,7 @@ training:
   epochs_till_save: 10
 
 dataset:
-    refrence_dir: './assets/reference_images/'
+    reference_dir: './assets/reference_images/'
     driving_dir: './assets/driving_images/'
     num_workers: 1
     device: -1

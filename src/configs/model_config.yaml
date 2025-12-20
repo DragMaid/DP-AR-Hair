@@ -37,13 +37,19 @@ context_decoder_params:
   max_features: 512
   num_down_blocks: 2
 
+synthesis_decoder_params:
+  upscale: 2
+  block_expansion: 64
+  max_features: 512
+  num_down_blocks: 2
+
 face_parsing_params:
   num_classes: 19
   backbone_name: "resnet18"
 
 hair_gan_params:
     save_all_dir: "output"
-    size: 1024
+    size: 512
     ckpt: "pretrained_models/StyleGAN/ffhq.pt"
     channel_multiplier: 2
     latent: 512

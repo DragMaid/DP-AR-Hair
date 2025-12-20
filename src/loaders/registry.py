@@ -47,7 +47,7 @@ class ModelRegistry:
 
 
 ModelRegistry.register(
-    {"appearance_feature_extractor", "E_H", "E_C"},
+    {"appearance_feature_extractor", "E_H"},
     {
         "model_builder": AppearanceFeatureExtractor,
         "params": model_config.appearance_feature_extractor_params,
@@ -154,7 +154,7 @@ ModelRegistry.register(
         "params": model_config.context_decoder_params,
         "weight": {
             "type": "hf_file",
-            "options": {
+            "options": {  # Weights here are not strictly loaded
                 "repo_id": "KlingTeam/LivePortrait",
                 "repo_type": "space",
                 "filename": "pretrained_weights/liveportrait/base_models/spade_generator.pth",
@@ -168,20 +168,15 @@ ModelRegistry.register(
 )
 
 ModelRegistry.register(
-    {"gan_hair", "IIHT1"},  # NOTE: This model loads itself
+    {"context_encoder", "E_C"},
     {
         "model_builder": HairFast,
         "params": model_config.hair_gan_params,
-        "weight": {
-            "type": "hf_folder",
-            "options": {
-                "repo_id": "AIRI-Institute/HairFastGAN",
-                "repo_type": "model",
-                "local_dir": ROOT_DIR,
-                "revision": "main",
-                "allow_patterns": ["pretrained_models/*"]
-            },
-        },
+        # TODO: implement the weight dowbloader later
+        # "weight": {
+        # "type": "hf_folder",
+        # "options": { },
+        # },
         "loader": "pytorch",
         "key_mapper": "default",  # Not implemented yet
         "precision": "fp32"       # Not implemented yet

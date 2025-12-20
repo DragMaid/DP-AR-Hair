@@ -50,7 +50,7 @@ def load_weights(model, name: str, strict: bool = True):
 
 
 if __name__ == "__main__":
-    model_names = ["E_C", "E_M", "W", "G"]
+    model_names = ["E_H", "E_M", "W", "G"]
 
     def test_load_models(models):
         for model_name in model_names:

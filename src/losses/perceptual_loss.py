@@ -18,5 +18,5 @@ class PerceptualLoss(nn.Module):
             sub_vgg = self.vgg[:layer + 1]
             gen_features = sub_vgg(generated)
             target_features = sub_vgg(target)
-            loss += nn.function.mse_loss(gen_features, target_features)
+            loss += nn.functional.mse_loss(gen_features, target_features)
         return loss

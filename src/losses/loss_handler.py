@@ -41,8 +41,8 @@ class LossHandler:
         Args:
             I_d: destination image (B, C, H, W)
             I_p: prediction (B, C, H, W)
-            m_c: color mask (B, C, H, W)
-            m_f: face mask (B, C, H, W)
+            m_c: Hair mask (B, 1, H, W)
+            m_f: Non hair mask (B, 1, H, W)
             discriminator: discriminator network (for adversarial loss)
 
         Returns:

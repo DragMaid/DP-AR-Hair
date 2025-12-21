@@ -146,7 +146,7 @@ class TrainingPipeline:
         self.generator_optimizer.zero_grad()
         with torch.cuda.amp.autocast(enabled=(scaler is not None)):
             losses = self.losses.compute_generator_losses(
-                I_d, I_p, I_d_dilde, m_c, m_f, self.L_adv)
+                I_d, I_p, m_c, m_f, self.L_adv)
         gen_loss = losses["total_loss"]
 
         # Backward the generator

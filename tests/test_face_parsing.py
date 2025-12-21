@@ -11,19 +11,19 @@ def parser():
 
 @pytest.fixture
 def sample_single_image():
-    return torch.randn(1, 3, 256, 256)
+    return torch.randn(1, 3, 512, 512)
 
 
 @pytest.fixture
 def sample_batch_image():
-    return torch.randn(5, 3, 256, 256)
+    return torch.randn(5, 3, 512, 512)
 
 
 def test_single_inference(parser, sample_single_image):
     mask = get_mask_by_idx(sample_single_image, parser)
-    assert mask.size() == (1, 1, 256, 256)
+    assert mask.size() == (1, 1, 512, 512)
 
 
 def test_batch_inference(parser, sample_batch_image):
     mask = get_mask_by_idx(sample_batch_image, parser)
-    assert mask.size() == (5, 1, 256, 256)
+    assert mask.size() == (5, 1, 512, 512)

@@ -101,6 +101,8 @@ def main():
             epoch_iterator.set_postfix(
                 {"avg_loss": f"{avg_loss:.4f}", "avg_disc": f"{avg_disc:.4f}"})
 
+            # TODO: add mlfow logging here
+
         # epoch end — checkpoint
         if ((epoch + 1) % args.save_every) == 0:
             if dist.get_rank() == 0:

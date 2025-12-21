@@ -4,6 +4,7 @@ from uuid import uuid4
 from collections import defaultdict
 from configs.model_config import model_config
 from models.synthesis_decoder import SynthesisDecoder
+from models.context_decoder import ContextEncoder
 from face_parsing.models.bisenet import BiSeNet
 from live_portrait.models.appearance_feature_extractor import AppearanceFeatureExtractor
 from live_portrait.models.motion_extractor import MotionExtractor
@@ -170,8 +171,8 @@ ModelRegistry.register(
 ModelRegistry.register(
     {"context_encoder", "E_C"},
     {
-        "model_builder": HairFast,
-        "params": model_config.hair_gan_params,
+        "model_builder": ContextEncoder,
+        "params": model_config.context_encoder_params,
         # TODO: implement the weight dowbloader later
         # "weight": {
         # "type": "hf_folder",

@@ -14,7 +14,7 @@ def test_msg_spade_decoder_forward():
 
     model = MSGSpadeDecoder(D_C, D_S)
 
-    # Prepare inputs: batch=2, channels>=3, H=W=8
+    # Prepare inputs: batch=2
     f_c = torch.randn(2, 256, 64, 64)
     f_w = torch.randn(2, 256, 64, 64)
     m_c = torch.randn(2, 1, 512, 512)  # Input Image will be 512x512

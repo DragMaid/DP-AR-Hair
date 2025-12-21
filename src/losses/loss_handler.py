@@ -34,13 +34,12 @@ class LossHandler:
         self.weights = pco.training.loss
 
     @torch.cuda.amp.autocast()
-    def compute_generator_losses(self, I_d, I_s, I_p, m_c, m_f, discriminator):
+    def compute_generator_losses(self, I_d, I_p, m_c, m_f, discriminator):
         """
         Compute all generator losses.
 
         Args:
             I_d: destination image (B, C, H, W)
-            I_s: source image (B, C, H, W)
             I_p: prediction (B, C, H, W)
             m_c: color mask (B, C, H, W)
             m_f: face mask (B, C, H, W)

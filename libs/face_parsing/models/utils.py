@@ -29,8 +29,3 @@ def get_mask_by_idx(
         masks.append(mask)
 
     return torch.stack(masks, dim=0)  # B x 1 x H x W
-
-
-if __name__ == "__main__":
-    from loaders.loader import load_models
-    M_C = load_models("M_C", pretrained=True)

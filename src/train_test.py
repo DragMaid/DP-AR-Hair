@@ -1,38 +1,39 @@
 import torch
 import os
-import torch.distributed as dist
+# import torch.distributed as dist
 from pipelines.training_pipeline import TrainingPipeline
 from torchvision import transforms as T
 from PIL import Image
 
 
 def main():
-    local_rank = int(os.environ["LOCAL_RANK"])
-    torch.cuda.set_device(local_rank)
-    device = torch.device(f"cuda:{local_rank}")
+    device = torch.device("cpu")
+    # local_rank = int(os.environ["LOCAL_RANK"])
+    # torch.cuda.set_device(local_rank)
+    # device = torch.device(f"cuda:{local_rank}")
 
-    dist.init_process_group(backend="nccl")
+    # dist.init_process_group(backend="nccl")
 
     # Minimal transform (resize + to tensor)
     transform = T.Compose([
         T.Resize((512, 512)),
-        T.ToTensor()
+        T.ToTensor(),
     ])
 
     # Initialize pipeline (bypass local_rank / DDP for test)
     class TestPipeline(TrainingPipeline):
         def __init__(self, device):
             self.device = torch.device(device)
-            super().__init__(local_rank=0)  # still needs an int for original init
+            super().__init__(loaded=False, generate_on_go=False)
 
     pipeline = TestPipeline(device=device)
     scaler = torch.cuda.amp.GradScaler() if device.type == "cuda" else None
 
     # Load 3 images: source, driving, reference
     img_paths = [
-        "./assets/test_images/phuc.jpeg",
-        "./assets/test_images/phuc.jpeg",
-        "./assets/test_images/ken.png"
+        "./assets/test_images/cropped.png",
+        "./assets/test_images/cropped.png",
+        "./assets/test_images/output.png"
     ]
     images = []
     for path in img_paths:

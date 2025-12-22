@@ -16,7 +16,7 @@ def main():
 
     # Minimal transform (resize + to tensor)
     transform = T.Compose([
-        T.Resize((512, 512)),
+        T.Resize((256, 256)),
         T.ToTensor(),
     ])
 

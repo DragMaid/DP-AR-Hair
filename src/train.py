@@ -50,7 +50,7 @@ def main():
 
     transform = T.Compose([
         T.ToPILImage(),
-        T.Resize((512, 512)),
+        T.Resize((256, 256)),
         T.ToTensor(),
     ])
 

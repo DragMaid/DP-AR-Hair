@@ -3,25 +3,27 @@ import torch
 from losses.loss_handler import LossHandler
 from losses.adversarial_loss import PatchGANDiscriminator
 
+size = 256
+
 
 @pytest.fixture
 def I_d():
-    return torch.randn([5, 3, 512, 512])
+    return torch.randn([5, 3, size, size])
 
 
 @pytest.fixture
 def I_p():
-    return torch.randn([5, 3, 512, 512])
+    return torch.randn([5, 3, size, size])
 
 
 @pytest.fixture
 def m_c():
-    return torch.randn([5, 1, 512, 512])
+    return torch.randn([5, 1, size, size])
 
 
 @pytest.fixture
 def m_f():
-    return torch.randn([5, 1, 512, 512])
+    return torch.randn([5, 1, size, size])
 
 
 @pytest.fixture

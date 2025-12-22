@@ -152,7 +152,7 @@ ModelRegistry.register(
     {"synthesis_decoder", "D_S"},
     {
         "model_builder": SynthesisDecoder,
-        "params": model_config.context_decoder_params,
+        "params": model_config.synthesis_decoder_params,
         "weight": {
             "type": "hf_file",
             "options": {  # Weights here are not strictly loaded

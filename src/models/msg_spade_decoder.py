@@ -38,7 +38,7 @@ class MSGSpadeDecoder(nn.Module):
             fc, fw = self.resblock_forward(f"up_{i}",
                                            f_c, fc, f_w, fw, f_n)
 
-        # Bx64x256x256 -> Bx3xHxW
+        # Bx64x256x256 -> Bx3xHxW (based on upscale)
         fw = self.D_S.conv_img(F.leaky_relu(fw, 2e-1))
         fw = torch.sigmoid(fw)
 

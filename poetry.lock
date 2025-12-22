@@ -1796,7 +1796,7 @@ version = "7.1.3"
 description = "Cross-platform lib for process and system monitoring."
 optional = false
 python-versions = ">=3.6"
-groups = ["full"]
+groups = ["full", "test"]
 files = [
     {file = "psutil-7.1.3-cp313-cp313t-macosx_10_13_x86_64.whl", hash = "sha256:0005da714eee687b4b8decd3d6cc7c6db36215c9e74e5ad2264b90c3df7d92dc"},
     {file = "psutil-7.1.3-cp313-cp313t-macosx_11_0_arm64.whl", hash = "sha256:19644c85dcb987e35eeeaefdc3915d059dac7bd1167cdcdbf27e0ce2df0c08c0"},
@@ -2043,6 +2043,24 @@ dataframe = ["numpy", "pandas"]
 dev = ["matplotlib", "mypy", "numpy", "pandas", "pillow", "pre-commit", "pyarrow", "restructuredtext-lint", "tox"]
 image = ["numpy", "pillow"]
 num = ["numpy", "pandas"]
+
+[[package]]
+name = "pytest-resource-usage"
+version = "1.0.0"
+description = "Pytest plugin for reporting running time and peak memory usage"
+optional = false
+python-versions = ">=3.8"
+groups = ["test"]
+files = [
+    {file = "pytest-resource-usage-1.0.0.tar.gz", hash = "sha256:3a200cee007fc3e7496ff34620b2841494356c92063aa6fa79e9201fd1e583cc"},
+    {file = "pytest_resource_usage-1.0.0-py3-none-any.whl", hash = "sha256:94534f378c13ccdf1413d461f0d780ff2cebf45f07de1622d6e1c07f0a86154b"},
+]
+
+[package.dependencies]
+pytest = ">=7.0.0"
+
+[package.extras]
+report-uss = ["psutil (>=4.0.0)"]
 
 [[package]]
 name = "python-dateutil"
@@ -3162,4 +3180,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10.5,<3.11"
-content-hash = "a6f95a33542e84757453d13cd3e3cca465b0e68095f8788875ff83f708ea8b04"
+content-hash = "86d2032bfbe145e05f1d547422072476e1ceed56577c92b6af3ea32602b686d7"

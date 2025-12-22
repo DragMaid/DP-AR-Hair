@@ -65,6 +65,9 @@ def test_no_nans(warping_network, sample_data):
 # Gradient Test
 # -----------------------------------------------------------
 
+@pytest.mark.report_uss
+@pytest.mark.report_tracemalloc
+@pytest.mark.report_duration
 def test_gradients_flow(warping_network, sample_data):
     feature_3d, kp_driving, kp_source = sample_data
 
@@ -95,4 +98,3 @@ def test_gradients_flow(warping_network, sample_data):
     # }
 
     # data_regression.check(snapshot)
-

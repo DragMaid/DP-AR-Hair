@@ -33,6 +33,9 @@ def test_context_decoder_no_nans(context_decoder, sample_feature):
     assert not torch.isnan(out).any(), "Output contains NaNs"
 
 
+@pytest.mark.report_uss
+@pytest.mark.report_tracemalloc
+@pytest.mark.report_duration
 def test_context_decoder_gradients(context_decoder, sample_feature):
     out = context_decoder(sample_feature)
     out.sum().backward()

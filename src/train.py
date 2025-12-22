@@ -50,7 +50,7 @@ def main():
 
     transform = T.Compose([
         T.ToPILImage(),
-        T.Resize((512, 512)),
+        T.Resize((256, 256)),
         T.ToTensor(),
     ])
 
@@ -100,6 +100,8 @@ def main():
             avg_disc = running["disc_loss"] / running["steps"]
             epoch_iterator.set_postfix(
                 {"avg_loss": f"{avg_loss:.4f}", "avg_disc": f"{avg_disc:.4f}"})
+
+            # TODO: add mlfow logging here
 
         # epoch end — checkpoint
         if ((epoch + 1) % args.save_every) == 0:

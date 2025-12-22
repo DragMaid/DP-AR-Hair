@@ -47,6 +47,9 @@ def test_spade_gamma_beta_shapes():
     assert gamma_beta['beta'].shape == x.shape, "beta must match input spatial shape"
 
 
+@pytest.mark.report_uss
+@pytest.mark.report_tracemalloc
+@pytest.mark.report_duration
 def test_spade_backward():
     x = torch.randn(1, 64, 16, 16, requires_grad=True)
     seg = torch.randn(1, 20, 16, 16)

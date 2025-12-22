@@ -32,13 +32,13 @@ warping_module_params:
     compress: 4
 
 context_decoder_params:
-  upscale: 2
+  upscale: 2 # This one doesn't really matter as we won't use its final output
   block_expansion: 64
   max_features: 512
   num_down_blocks: 2
 
 synthesis_decoder_params:
-  upscale: 2
+  upscale: 1 # 256 stays 256. Inference will do 512 entirely
   block_expansion: 64
   max_features: 512
   num_down_blocks: 2
@@ -49,7 +49,7 @@ face_parsing_params:
 
 hair_gan_params:
     save_all_dir: "output"
-    size: 512
+    size: 1024
     ckpt: "pretrained_models/StyleGAN/ffhq.pt"
     channel_multiplier: 2
     latent: 512

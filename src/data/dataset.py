@@ -1,9 +1,7 @@
 from functools import lru_cache
-from typing import Dict, Optional
+from typing import Dict
 import random
-import os
 import torch
-import json
 import cv2
 import numpy as np
 from tqdm import tqdm

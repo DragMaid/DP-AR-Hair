@@ -26,6 +26,9 @@ def test_appearance_extractor_no_nans(appearance_extractor, sample_image):
     assert not torch.isnan(out).any(), "Output contains NaNs"
 
 
+@pytest.mark.report_uss
+@pytest.mark.report_tracemalloc
+@pytest.mark.report_duration
 def test_appearance_extractor_gradients(appearance_extractor, sample_image):
     out = appearance_extractor(sample_image)
     out.sum().backward()

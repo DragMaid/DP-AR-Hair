@@ -2,23 +2,26 @@ from pathlib import Path
 from typing import Set, Dict
 from uuid import uuid4
 from collections import defaultdict
+import importlib
+
 from configs.model_config import model_config
-from models.synthesis_decoder import SynthesisDecoder
-from models.context_decoder import ContextEncoder
-from face_parsing.models.bisenet import BiSeNet
-from live_portrait.models.appearance_feature_extractor import AppearanceFeatureExtractor
-from live_portrait.models.motion_extractor import MotionExtractor
-from live_portrait.models.warping_network import WarpingNetwork
-from live_portrait.models.context_decoder import ContextDecoder
-from hair_gan.hair_swap import HairFast
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 WEIGHT_ROOT = ROOT_DIR / "weights"
 
 
+def _resolve_builder(path: str):
+    """
+    Lazily resolve a class from a string import path.
+    """
+    module_path, cls_name = path.rsplit(".", 1)
+    module = importlib.import_module(module_path)
+    return getattr(module, cls_name)
+
+
 class ModelRegistry:
-    _registry = {}
-    _alias_map = {}
+    _registry: Dict = {}
+    _alias_map: Dict = {}
 
     @classmethod
     def register(cls, names: Set[str], data: Dict):
@@ -29,28 +32,41 @@ class ModelRegistry:
 
     @classmethod
     def get_registry(cls, name: str) -> dict:
-        if name not in cls._alias_map.keys():
+        if name not in cls._alias_map:
             raise KeyError(f"Model '{name}' not found in registry.")
 
-        registry = cls._registry.get(cls._alias_map[name], None)
-        # Second check just to be sure
-        if not registry:
+        registry = cls._registry.get(cls._alias_map[name])
+        if registry is None:
             raise ValueError(f"Expected model registry, got {registry}")
+
+        # Resolve model builder lazily (only once)
+        builder = registry.get("model_builder")
+        if isinstance(builder, str):
+            resolved = _resolve_builder(builder)
+            registry["model_builder"] = resolved
+
         return registry
 
     @classmethod
     def list(cls):
         reference = defaultdict(list)
-        for k, v in cls._alias_map.items():
-            reference[v].append(k)
+        for alias, r_id in cls._alias_map.items():
+            reference[r_id].append(alias)
 
-        return {str(v): str(cls._registry[k]) for k, v in reference.items()}
+        return {
+            str(r_id): str(cls._registry[r_id])
+            for r_id in reference
+        }
 
+
+# -----------------------
+# Registrations
+# -----------------------
 
 ModelRegistry.register(
     {"appearance_feature_extractor", "E_H"},
     {
-        "model_builder": AppearanceFeatureExtractor,
+        "model_builder": "live_portrait.models.appearance_feature_extractor.AppearanceFeatureExtractor",
         "params": model_config.appearance_feature_extractor_params,
         "weight": {
             "type": "hf_file",
@@ -62,15 +78,15 @@ ModelRegistry.register(
             },
         },
         "loader": "pytorch",
-        "key_mapper": "default",  # Not implemented yet
-        "precision": "fp32"       # Not implemented yet
-    }
+        "key_mapper": "default",
+        "precision": "fp32",
+    },
 )
 
 ModelRegistry.register(
     {"motion_extractor", "E_M"},
     {
-        "model_builder": MotionExtractor,
+        "model_builder": "live_portrait.models.motion_extractor.MotionExtractor",
         "params": model_config.motion_extractor_params,
         "weight": {
             "type": "hf_file",
@@ -82,15 +98,15 @@ ModelRegistry.register(
             },
         },
         "loader": "pytorch",
-        "key_mapper": "default",  # Not implemented yet
-        "precision": "fp32"       # Not implemented yet
-    }
+        "key_mapper": "default",
+        "precision": "fp32",
+    },
 )
 
 ModelRegistry.register(
     {"warping_module", "W"},
     {
-        "model_builder": WarpingNetwork,
+        "model_builder": "live_portrait.models.warping_network.WarpingNetwork",
         "params": model_config.warping_module_params,
         "weight": {
             "type": "hf_file",
@@ -102,15 +118,15 @@ ModelRegistry.register(
             },
         },
         "loader": "pytorch",
-        "key_mapper": "default",  # Not implemented yet
-        "precision": "fp32"       # Not implemented yet
-    }
+        "key_mapper": "default",
+        "precision": "fp32",
+    },
 )
 
 ModelRegistry.register(
     {"spade_generator", "context_decoder", "D_C"},
     {
-        "model_builder": ContextDecoder,
+        "model_builder": "live_portrait.models.context_decoder.ContextDecoder",
         "params": model_config.context_decoder_params,
         "weight": {
             "type": "hf_file",
@@ -122,40 +138,38 @@ ModelRegistry.register(
             },
         },
         "loader": "pytorch",
-        "key_mapper": "default",  # Not implemented yet
-        "precision": "fp32"       # Not implemented yet
-    }
+        "key_mapper": "default",
+        "precision": "fp32",
+    },
 )
-
 
 ModelRegistry.register(
     {"Hair Mask", "M_C"},
     {
-        "model_builder": BiSeNet,
+        "model_builder": "face_parsing.models.bisenet.BiSeNet",
         "params": model_config.face_parsing_params,
         "weight": {
             "type": "direct_link",
             "options": {
-                # Will only do ResNet18 for now
                 "link": "https://github.com/yakhyo/face-parsing/releases/download/v0.0.1/resnet18.pt",
                 "filename": "resnet18.pt",
                 "local_dir": WEIGHT_ROOT,
             },
         },
         "loader": "pytorch",
-        "key_mapper": "default",  # Not implemented yet
-        "precision": "fp32"       # Not implemented yet
-    }
+        "key_mapper": "default",
+        "precision": "fp32",
+    },
 )
 
 ModelRegistry.register(
     {"synthesis_decoder", "D_S"},
     {
-        "model_builder": SynthesisDecoder,
+        "model_builder": "models.synthesis_decoder.SynthesisDecoder",
         "params": model_config.synthesis_decoder_params,
         "weight": {
             "type": "hf_file",
-            "options": {  # Weights here are not strictly loaded
+            "options": {
                 "repo_id": "KlingTeam/LivePortrait",
                 "repo_type": "space",
                 "filename": "pretrained_weights/liveportrait/base_models/spade_generator.pth",
@@ -163,23 +177,36 @@ ModelRegistry.register(
             },
         },
         "loader": "pytorch",
-        "key_mapper": "default",  # Not implemented yet
-        "precision": "fp32"       # Not implemented yet
-    }
+        "key_mapper": "default",
+        "precision": "fp32",
+    },
 )
 
 ModelRegistry.register(
     {"context_encoder", "E_C"},
     {
-        "model_builder": ContextEncoder,
+        "model_builder": "models.context_decoder.ContextEncoder",
         "params": model_config.context_encoder_params,
-        # TODO: implement the weight dowbloader later
-        # "weight": {
-        # "type": "hf_folder",
-        # "options": { },
-        # },
         "loader": "pytorch",
-        "key_mapper": "default",  # Not implemented yet
-        "precision": "fp32"       # Not implemented yet
-    }
+        "key_mapper": "default",
+        "precision": "fp32",
+    },
+)
+
+ModelRegistry.register(
+    {"gan_hair", "IIHT1"},
+    {
+        "model_builder": "hairfastgan.models.hairfast.HairFast",
+        "params": model_config.hair_gan_params,
+        "weight": {
+            "type": "hf_folder",
+            "options": {
+                "repo_id": "AIRI-Institute/HairFastGAN",
+                "repo_type": "model",
+                "local_dir": ROOT_DIR,
+                "revision": "main",
+                "allow_patterns": ["pretrained_models/*"],
+            },
+        },
+    },
 )

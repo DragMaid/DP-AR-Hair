@@ -26,7 +26,6 @@ def test_single_inference(parser, sample_single_image):
     assert mask.size() == (1, 1, size, size)
 
 
-@pytest.mark.skip
 @pytest.mark.report_uss
 @pytest.mark.report_tracemalloc
 @pytest.mark.report_duration

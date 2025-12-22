@@ -1,10 +1,15 @@
 import torch
+import pytest
 from models.msg_spade_decoder import MSGSpadeDecoder
 from models.synthesis_decoder import SynthesisDecoder
 from configs.model_config import model_config
 from live_portrait.models.context_decoder import ContextDecoder
 
 
+# @pytest.mark.skip
+@pytest.mark.report_uss
+@pytest.mark.report_tracemalloc
+@pytest.mark.report_duration
 def test_msg_spade_decoder_forward():
     # Create dummy decoders
     D_S = SynthesisDecoder(

@@ -26,6 +26,9 @@ def test_single_inference(parser, sample_single_image):
     assert mask.size() == (1, 1, size, size)
 
 
+@pytest.mark.report_uss
+@pytest.mark.report_tracemalloc
+@pytest.mark.report_duration
 def test_batch_inference(parser, sample_batch_image):
     mask = get_mask_by_idx(sample_batch_image, parser)
     assert mask.size() == (5, 1, size, size)

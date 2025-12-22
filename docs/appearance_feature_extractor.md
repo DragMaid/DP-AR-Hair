@@ -2,10 +2,9 @@
 
 ## Overview
 
-The `AppearanceFeatureExtractor` is a neural network encoder that extracts appearance features from input images. It serves dual purposes in the Hair-Shifter pipeline:
+The `AppearanceFeatureExtractor` is a neural network encoder that extracts appearance features from input images.
 
 1. **Hair Appearance Encoder (E_h)**: Extracts hair-specific visual features
-2. **Non-hair Context Encoder (E_c)**: Extracts contextual information from non-hair regions
 
 ## Architecture
 

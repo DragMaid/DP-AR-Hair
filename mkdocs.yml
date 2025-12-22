@@ -10,7 +10,8 @@ nav:
     - Dependency Management: dependencies.md
   - Models:
     - Motion Extractor (E_M): motion_extractor.md
-    - Appeareance Extractor (E_H & E_C): appearance_feature_extractor.md
+    - Appeareance Extractor (E_H): appearance_feature_extractor.md
+    - Context Encoder (E_C): context_encoder.md
     - Warping Module (W): warping_network.md
     - Spade & SpadeResnet: spade.md
     - MSG Spade Decoder (G): msg_spade_decoder.md

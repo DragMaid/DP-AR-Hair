@@ -7,6 +7,13 @@ appearance_feature_extractor_params:
   reshape_depth: 16
   num_resblocks: 6
 
+context_encoder_params:
+  image_channel: 3
+  block_expansion: 64
+  num_down_blocks: 2
+  max_features: 512
+  out_channels: 256
+
 motion_extractor_params:
   num_kp: 21
 
@@ -30,13 +37,19 @@ context_decoder_params:
   max_features: 512
   num_down_blocks: 2
 
+synthesis_decoder_params:
+  upscale: 2
+  block_expansion: 64
+  max_features: 512
+  num_down_blocks: 2
+
 face_parsing_params:
   num_classes: 19
   backbone_name: "resnet18"
 
 hair_gan_params:
     save_all_dir: "output"
-    size: 1024
+    size: 512
     ckpt: "pretrained_models/StyleGAN/ffhq.pt"
     channel_multiplier: 2
     latent: 512

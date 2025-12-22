@@ -84,6 +84,7 @@ def main():
         epoch_iterator = tqdm(enumerate(dataloader), total=len(dataloader),
                               desc=f"Epoch {epoch+1}/{args.epochs}")
         running = {"total_loss": 0.0, "disc_loss": 0.0, "steps": 0}
+        # WARNING: if we use pre-generated dataset then isn't this same shit
         for step, batch in epoch_iterator:
             # dataset returns (I_s, I_d, I_r)
             I_s, I_d, I_r = batch

@@ -1,7 +1,9 @@
 from functools import lru_cache
-from typing import Dict
+from typing import Dict, Optional
 import random
+import os
 import torch
+import json
 import cv2
 import numpy as np
 from tqdm import tqdm
@@ -11,42 +13,18 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-@dataclass
-class VideoClip:
-    """Data class for video clip information"""
-    clip_id: str
-    ytb_id: str
-    start_sec: float
-    end_sec: float
-    # top, bottom, left, right (normalized)
-    bbox: Tuple[float, float, float, float]
-
-
-@dataclass
-class FramePair:
-    """Data class for selected frame pair"""
-    frontal_frame: np.ndarray
-    frontal_yaw: float
-    frontal_pitch: float
-    frontal_idx: int
-    side_frame: np.ndarray
-    side_yaw: float
-    side_pitch: float
-    side_idx: int
-
-
 class CelebVHQDataset(Dataset):
     """
     Optimized Dataset for:
       - driving_images/{id}_front.jpeg
       - driving_images/{id}_side.jpeg
-      - reference_images/<random>.jpg
+      - generated_images/{id}.jpg
 
     Returns:
       {
           "front": Tensor[C,H,W],
           "side": Tensor[C,H,W],
-          "reference": Tensor[C,H,W]
+          "generated": Tensor[C,H,W]
       }
     """
 
@@ -82,54 +60,9 @@ class CelebVHQDataset(Dataset):
         if len(self.reference_paths) == 0:
             raise RuntimeError("No reference images found!")
 
-        # ----------------------------------------------------------
-        # 3. Optional preload
-        # ----------------------------------------------------------
-        self.preloaded_driving = None
-        if preload:
-            self.preloaded_driving = self._preload_driving_images()
-
-        # ----------------------------------------------------------
-        # 4. LRU cache for reference images
-        # ----------------------------------------------------------
-        @lru_cache(maxsize=cache_size)
-        def _cache_ref(path_str):
-            img = cv2.imread(path_str)
-            if img is None:
-                raise FileNotFoundError(
-                    f"Failed to load reference image: {path_str}")
-            return img
-
-        self._cache_ref = _cache_ref
-
     # ==========================================================
     # UTILS
     # ==========================================================
-
-    def _scan_driving_images(self):
-        """
-        Detects valid {id}_front and {id}_side pairs.
-        """
-        entries = set()
-        for p in self.driving_dir.iterdir():
-            name = p.name
-            entries.add("_".join(name.split("_")[:-1]))
-
-        samples = [{
-            "id": id_,
-            "front": Path.joinpath(self.driving_dir, id_ + "_frontal.jpg"),
-            "side": Path.joinpath(self.driving_dir, id_ + "_side.jpg"),
-        } for id_ in entries]
-
-        return samples
-
-    def _preload_driving_images(self):
-        cache = {}
-        for s in self.samples:
-            front = cv2.imread(str(s["front"]))
-            side = cv2.imread(str(s["side"]))
-            cache[s["id"]] = (front, side)
-        return cache
 
     def _load_image(self, path: Path):
         img = cv2.imread(str(path))
@@ -190,27 +123,3 @@ class CelebVHQDataset(Dataset):
             "side": side_img,
             "reference": ref_img
         }
-
-
-if __name__ == "__main__":
-    from torch.utils.data import DataLoader
-    from torchvision import transforms as T
-
-    transform = T.Compose([
-        # T.ToPILImage(),
-        # T.Resize((256, 256)),
-        # T.ToTensor(),
-    ])
-
-    dataset = CelebVHQDataset(driving_dir="./assets/driving_images",
-                              reference_dir="./assets/reference_images",
-                              transform=transform,
-                              preload=False)  # This is too self-destructive
-
-    dataloader = DataLoader(dataset, batch_size=1,
-                            shuffle=True, num_workers=2,
-                            pin_memory=True, drop_last=True)
-
-    epoch_iterator = tqdm(enumerate(dataloader), total=len(dataloader))
-    for step, batch in epoch_iterator:
-        print(batch["front"].dim())

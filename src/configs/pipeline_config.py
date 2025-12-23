@@ -31,6 +31,7 @@ class TrainingConfig(BaseModel):
     generator: GeneratorConfig
     save_dir: str
     epochs_till_save: int
+    steps_till_save: int
 
 
 class DatasetConfig(BaseModel):

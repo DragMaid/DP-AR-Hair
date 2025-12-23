@@ -15,6 +15,7 @@ training:
     f_rate: 1
   save_dir: './checkpoints/'
   epochs_till_save: 10
+  steps_till_save: 1000
 
 dataset:
     reference_dir: './assets/reference_images/'

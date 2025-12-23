@@ -4,9 +4,17 @@ import os
 from pipelines.training_pipeline import TrainingPipeline
 from torchvision import transforms as T
 from PIL import Image
+import pytest
+
+pytestmark = pytest.mark.benchmark_only
+
+# import torch.distributed as dist
 
 
-def main():
+@pytest.mark.report_uss
+@pytest.mark.report_tracemalloc
+@pytest.mark.report_duration
+def test_pipeline():
     device = torch.device("cpu")
     # local_rank = int(os.environ["LOCAL_RANK"])
     # torch.cuda.set_device(local_rank)
@@ -29,6 +37,12 @@ def main():
     pipeline = TestPipeline(device=device)
     scaler = torch.cuda.amp.GradScaler() if device.type == "cuda" else None
 
+    from pathlib import Path
+    ck_dir = "./checkpoints_test"
+    ck_path = os.path.join(ck_dir, "epoch_0001.pt")
+    if Path(ck_path).exists():
+        pipeline.load_checkpoint(ck_path, load_optimizers=True)
+
     # Load 3 images: source, driving, reference
     img_paths = [
         "./assets/test_images/cropped.png",
@@ -49,12 +63,6 @@ def main():
     print("Train step logs:", logs)
 
     # Save minimal checkpoint
-    ck_dir = "./checkpoints_test"
     os.makedirs(ck_dir, exist_ok=True)
-    ck_path = os.path.join(ck_dir, "epoch_0001.pt")
     pipeline.save_checkpoint(ck_path, epoch=1)
     print(f"Checkpoint saved to {ck_path}")
-
-
-if __name__ == "__main__":
-    main()

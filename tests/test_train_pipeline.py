@@ -1,13 +1,15 @@
-import torch
-import os
-# import torch.distributed as dist
-import pytest
-from pipelines.training_pipeline import TrainingPipeline
-from torchvision import transforms as T
 from PIL import Image
+from torchvision import transforms as T
+from pipelines.training_pipeline import TrainingPipeline
+import os
+import torch
+import pytest
+
+pytestmark = pytest.mark.benchmark_only
+
+# import torch.distributed as dist
 
 
-@pytest.mark.skip
 @pytest.mark.report_uss
 @pytest.mark.report_tracemalloc
 @pytest.mark.report_duration

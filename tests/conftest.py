@@ -35,3 +35,20 @@ def pytest_addoption(parser):
     parser.addini("lazy_datadir", "my own datadir for pytest-regressions")
     parser.addini("original_datadir",
                   "my own original_datadir for pytest-regressions")
+    parser.addoption(
+        "--run-benchmarks",
+        action="store_true",
+        default=False,
+        help="Run benchmark-only tests"
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--run-benchmarks"):
+        return
+
+    skip = pytest.mark.skip(
+        reason="Benchmark tests disabled (use --run-benchmarks)")
+    for item in items:
+        if "benchmark_only" in item.keywords:
+            item.add_marker(skip)

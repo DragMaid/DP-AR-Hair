@@ -4,10 +4,6 @@ import os
 from pipelines.training_pipeline import TrainingPipeline
 from torchvision import transforms as T
 from PIL import Image
-from torchvision import transforms as T
-from pipelines.training_pipeline import TrainingPipeline
-import os
-import torch
 import pytest
 
 pytestmark = pytest.mark.benchmark_only

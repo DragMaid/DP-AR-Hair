@@ -36,6 +36,7 @@ class TrainingConfig(BaseModel):
 class DatasetConfig(BaseModel):
     reference_dir: str
     driving_dir: str
+    generated_dir: str
     num_workers: int
     device: int
 

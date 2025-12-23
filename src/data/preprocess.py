@@ -1,15 +1,39 @@
 import os
-import json
 import cv2
 import yt_dlp
 import numpy as np
 import logging
-from data.dataset import FramePair, VideoClip
 from typing import Tuple, Optional, Dict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from sixdrepnet import SixDRepNet
 from tqdm import tqdm
 from pathlib import Path
+from dataclasses import dataclass
+
+
+@dataclass
+class VideoClip:
+    """Data class for video clip information"""
+    clip_id: str
+    ytb_id: str
+    start_sec: float
+    end_sec: float
+    # top, bottom, left, right (normalized)
+    bbox: Tuple[float, float, float, float]
+
+
+@dataclass
+class FramePair:
+    """Data class for selected frame pair"""
+    frontal_frame: np.ndarray
+    frontal_yaw: float
+    frontal_pitch: float
+    frontal_idx: int
+    side_frame: np.ndarray
+    side_yaw: float
+    side_pitch: float
+    side_idx: int
+
 
 # Configure logging
 logging.basicConfig(

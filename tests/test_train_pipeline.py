@@ -1,6 +1,7 @@
 import torch
 import os
-# import torch.distributed as dist
+import torch.multiprocessing as mp
+import torch.distributed as dist
 from pipelines.training_pipeline import TrainingPipeline
 from torchvision import transforms as T
 from PIL import Image
@@ -15,6 +16,21 @@ pytestmark = pytest.mark.benchmark_only
 @pytest.mark.report_tracemalloc
 @pytest.mark.report_duration
 def test_pipeline():
+    mp.spawn(ddp_worker, args=(1,), nprocs=1)
+
+
+def ddp_worker(rank, world_size):
+    os.environ["RANK"] = str(rank)
+    os.environ["WORLD_SIZE"] = str(world_size)
+    os.environ["MASTER_ADDR"] = "127.0.0.1"
+    os.environ["MASTER_PORT"] = "29500"
+
+    dist.init_process_group("gloo")
+    run_pipeline()
+    dist.destroy_process_group()
+
+
+def run_pipeline():
     device = torch.device("cpu")
 
     # Minimal transform (resize + to tensor)
@@ -27,10 +43,10 @@ def test_pipeline():
     class TestPipeline(TrainingPipeline):
         def __init__(self, device):
             self.device = torch.device(device)
-            super().__init__(loaded=False, generate_on_go=False)
+            super().__init__(device, loaded=False, generate_on_go=False)
 
     pipeline = TestPipeline(device=device)
-    scaler = torch.cuda.amp.GradScaler() if device.type == "cuda" else None
+    scaler = torch.cuda.amp.GradScaler(enabled=device.type == "cuda")
 
     from pathlib import Path
     ck_dir = "./checkpoints_test"
@@ -55,8 +71,9 @@ def test_pipeline():
     I_s, I_d, I_r = images
 
     # Run a single train step
-    logs = pipeline.train_step(I_s, I_d, I_r, scaler=scaler,
-                               save_debug=True, save_path=Path("./assets/debug_images/"))
+    with torch.autograd.set_detect_anomaly(True):
+        logs = pipeline.train_step(I_s, I_d, I_r, scaler=scaler,
+                                   save_debug=True, save_path=Path("./assets/debug_images/"))
     print("Train step logs:", logs)
 
     # Save minimal checkpoint

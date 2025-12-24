@@ -1,7 +1,6 @@
 import os
 import torch
 import datetime
-import torch.distributed as dist
 from pathlib import Path
 from torchvision.utils import save_image
 from losses.adversarial_loss import PatchGANDiscriminator, weights_init

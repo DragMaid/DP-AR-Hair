@@ -1,6 +1,7 @@
 import os
 import torch
 import datetime
+import torch.distributed as dist
 from pathlib import Path
 from torchvision.utils import save_image
 from losses.adversarial_loss import PatchGANDiscriminator, weights_init
@@ -11,7 +12,7 @@ from loaders.downloader import download_weights
 from models.msg_spade_decoder import MSGSpadeDecoder
 from pipelines.gan_wrapper import HairFastBatchWrapper
 from losses.loss_handler import LossHandler
-# from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 
 class TrainingPipeline:
@@ -22,9 +23,8 @@ class TrainingPipeline:
     - collects a minimal set of modules to save
     """
 
-    def __init__(self, loaded=True, generate_on_go=False):
-        # self.device = torch.device(f"cuda:{local_rank}")
-        self.device = torch.device("cpu")
+    def __init__(self, device, local_rank=None, loaded=True, generate_on_go=False):
+        self.device = device
 
         # --- Generator (G) ---
         self.E_H = load_models("E_H", pretrained=loaded,
@@ -42,14 +42,13 @@ class TrainingPipeline:
                                strict=False, freeze=True).to(self.device)
         self.D_C = load_models("D_C", pretrained=loaded,
                                freeze=True).to(self.device)
-        # TODO: implement the distributed processing later
-        # automatically uses all available GPUs
-        # self.D_S = DDP(self.D_S, device_ids=[
-        # local_rank], output_device=local_rank)
-        # self.E_C = DDP(self.E_C, device_ids=[
-        # local_rank], output_device=local_rank)
         self.D = MSGSpadeDecoder(self.D_C, self.D_S)
-        # self.D = DDP(self.D, device_ids=[local_rank], output_device=local_rank)
+
+        # Wrapped in DDP for distributed parallel training
+        self.E_C = DDP(self.E_C, device_ids=[local_rank], output_device=local_rank) if (
+            device.type == "cuda") else DDP(self.E_C)
+        self.D = DDP(self.D, device_ids=[local_rank], output_device=local_rank) if (
+            device.type == "cuda") else DDP(self.D)
 
         self.generator_trainable_params = []
         # include any parameters that require grad from D_S and E_C
@@ -81,6 +80,8 @@ class TrainingPipeline:
         # --- Adversarial discriminator ---
         self.L_adv = PatchGANDiscriminator(n_in_channels=3).to(self.device)
         self.L_adv.apply(weights_init)
+        self.L_adv = DDP(self.L_adv, device_ids=[local_rank], output_device=local_rank) if (
+            device.type == "cuda") else DDP(self.L_adv)
 
         # Discrimination optmizer
         self.disc_optimizer = torch.optim.Adam(

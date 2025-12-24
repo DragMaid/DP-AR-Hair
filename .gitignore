@@ -213,5 +213,6 @@ tests/__snapshots__/
 downloaded_celebvhq/
 driving_images/
 reference_images/
+generated_images/
 *.rar
 *.pt

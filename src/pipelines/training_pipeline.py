@@ -1,5 +1,8 @@
 import os
 import torch
+import datetime
+from pathlib import Path
+from torchvision.utils import save_image
 from losses.adversarial_loss import PatchGANDiscriminator, weights_init
 from face_parsing.models.utils import get_mask_by_idx
 from configs.pipeline_config import pipeline_config as pco
@@ -95,7 +98,10 @@ class TrainingPipeline:
             "L_adv": self.L_adv
         }
 
-    def train_step(self, I_s, I_d, I_r, scaler=None):
+    def train_step(self, I_s, I_d, I_r,
+                   scaler=None,
+                   save_debug=False,
+                   save_path=Path(".")):
         """
         Perform a single training step (one batch).
         - I_s, I_d, I_r: tensors (BCHW) on CPU or device
@@ -127,6 +133,15 @@ class TrainingPipeline:
                               device=self.device, class_idx=17)
         m_f = 1 - m_c  # Inverted m_c or non-hair binary mask
         I_p = self.D(f_c, f_w, m_c)
+
+        # Save image for debug purposes
+        if save_debug:
+            img = I_p[0].detach()
+            img = (img + 1) / 2
+            os.makedirs(save_path, exist_ok=True)
+            path = Path.joinpath(save_path, f"{datetime.datetime.now()}.png")
+            save_image(img, path)
+            print(f"Debug image saved to {path}")
 
         # --- Discriminator update ---
         self.disc_optimizer.zero_grad()

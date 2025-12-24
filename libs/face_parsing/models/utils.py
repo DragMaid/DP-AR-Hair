@@ -6,7 +6,6 @@ normalize_image = T.Compose([
 ])
 
 
-# TODO: add test this for this heplper function
 @torch.no_grad()
 def get_mask_by_idx(
     images: torch.Tensor,      # B x 3 x H x W

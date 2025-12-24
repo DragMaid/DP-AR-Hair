@@ -42,6 +42,7 @@ def test_pipeline():
     ck_path = os.path.join(ck_dir, "epoch_0001.pt")
     if Path(ck_path).exists():
         pipeline.load_checkpoint(ck_path, load_optimizers=True)
+        print(f"Loaded last checkpoint from {ck_path}")
 
     # Load 3 images: source, driving, reference
     img_paths = [
@@ -59,7 +60,8 @@ def test_pipeline():
     I_s, I_d, I_r = images
 
     # Run a single train step
-    logs = pipeline.train_step(I_s, I_d, I_r, scaler=scaler)
+    logs = pipeline.train_step(I_s, I_d, I_r, scaler=scaler,
+                               save_debug=True, save_path=Path("./assets/debug_images/"))
     print("Train step logs:", logs)
 
     # Save minimal checkpoint

@@ -53,7 +53,7 @@ class ContextEncoder(nn.Module):
                 kernel_size=1,
                 stride=1
             ),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.LeakyReLU(0.2, inplace=False),
             nn.Conv2d(
                 max_features,
                 out_channels,

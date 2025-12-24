@@ -149,14 +149,6 @@ class TrainingPipeline:
             disc_loss = self.losses.compute_discriminator_loss(
                 I_d, I_p, self.L_adv)
 
-        # backprop discriminator
-        if scaler is not None:
-            scaler.scale(disc_loss).backward()
-            scaler.step(self.disc_optimizer)
-        else:
-            disc_loss.backward()
-            self.disc_optimizer.step()
-
         # --- Generator update ---
         self.generator_optimizer.zero_grad()
         with torch.cuda.amp.autocast(enabled=(scaler is not None)):
@@ -172,6 +164,14 @@ class TrainingPipeline:
         else:
             gen_loss.backward()
             self.generator_optimizer.step()
+
+        # backprop discriminator
+        if scaler is not None:
+            scaler.scale(disc_loss).backward()
+            scaler.step(self.disc_optimizer)
+        else:
+            disc_loss.backward()
+            self.disc_optimizer.step()
 
         # return python scalars for logging
         logs = {k: float(v.detach().cpu()) for k, v in losses.items()}

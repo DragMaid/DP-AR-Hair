@@ -11,7 +11,7 @@ class PatchGANDiscriminator(nn.Module):
         sequence = [
             nn.Conv2d(n_in_channels, n_filters,
                       kernel_size=kernel_size, stride=2, padding=pad_width),
-            nn.LeakyReLU(0.2, True)
+            nn.LeakyReLU(0.2, False)
         ]
 
         filter_multiplier = 1
@@ -26,7 +26,7 @@ class PatchGANDiscriminator(nn.Module):
                           stride=2,
                           padding=pad_width),
                 nn.BatchNorm2d(n_filters * filter_multiplier),
-                nn.LeakyReLU(0.2, True)
+                nn.LeakyReLU(0.2, False)
             ]
 
         filter_multiplier_prev = filter_multiplier
@@ -38,7 +38,7 @@ class PatchGANDiscriminator(nn.Module):
                       stride=1,
                       padding=pad_width),
             nn.BatchNorm2d(n_filters * filter_multiplier),
-            nn.LeakyReLU(0.2, True)
+            nn.LeakyReLU(0.2, False)
         ]
 
         sequence += [nn.Conv2d(n_filters * filter_multiplier,

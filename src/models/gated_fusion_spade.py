@@ -41,7 +41,7 @@ class GFSPADE(nn.Module):
         self.mlp_shared = nn.Sequential(
             nn.Conv2d(cond_channels, hidden_channels,
                       kernel_size=kernel_size, padding=padding),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=False)
         )
         self.mlp_gamma = nn.Conv2d(
             hidden_channels, num_channels, kernel_size=kernel_size, padding=padding)
@@ -62,7 +62,7 @@ class GFSPADE(nn.Module):
         # Optional conv + activation after fusion
         self.post_conv = nn.Sequential(
             nn.Conv2d(num_channels, num_channels, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=False)
         ) if post_conv else nn.Identity()
 
     def forward(self, f_n, h_c, h_w):

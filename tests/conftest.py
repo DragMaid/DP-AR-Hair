@@ -43,12 +43,20 @@ def pytest_addoption(parser):
     )
 
 
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers", "benchmark: tests that must be enabled to be ran"
+    )
+
+
 def pytest_collection_modifyitems(config, items):
     if config.getoption("--run-benchmarks"):
         return
 
-    skip = pytest.mark.skip(
-        reason="Benchmark tests disabled (use --run-benchmarks)")
+    skip_benchmark = pytest.mark.skip(
+        reason="Benchmark tests must be enabled with --run-benchmarks"
+    )
+
     for item in items:
-        if "benchmark_only" in item.keywords:
-            item.add_marker(skip)
+        if any(item.iter_markers(name="benchmark")):
+            item.add_marker(skip_benchmark)

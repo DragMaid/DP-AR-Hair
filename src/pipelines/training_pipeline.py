@@ -98,8 +98,7 @@ class TrainingPipeline:
             "L_adv": self.L_adv
         }
 
-    def train_step(self, I_s, I_d, I_r,
-                   scaler=None,
+    def train_step(self, I_s, I_d, I_r, scaler,
                    save_debug=False,
                    save_path=Path(".")):
         """
@@ -113,30 +112,38 @@ class TrainingPipeline:
         I_d = I_d.to(self.device)
         I_r = I_r.to(self.device)
 
+        # TODO: add resizing to 1024x1024 for HairFastGan
         # I_d, I_r, I_s: 4D tensors (B, C, H, W)
         if self.IIHT:
             I_d_dilde = self.IIHT.batch_swap(I_d, I_r, I_d)
             I_d_dilde = I_d_dilde.to(self.device)
-            I_d_dilde.requires_grad_(True)
         else:
             # If the generate_on_go mode is not set then
             # passed in value for I_r would be generated I_d_dilde
             I_d_dilde = I_r
 
         f_c = self.E_C(I_d_dilde)
-        f_h = self.E_H(I_s)
-        f_m = self.E_M(I_s)["kp"].view(I_s.size(0), -1, 3)
-        f_m_d = self.E_M(I_d)["kp"].view(I_s.size(0), -1, 3)
-        f_w = self.W(feature_3d=f_h, kp_source=f_m, kp_driving=f_m_d)['out']
-        # Get mask for hair segment
-        m_c = get_mask_by_idx(I_d_dilde, self.M_C,
-                              device=self.device, class_idx=17)
-        m_f = 1 - m_c  # Inverted m_c or non-hair binary mask
+        # Other components are just for inference
+        with torch.no_grad():
+            f_h = self.E_H(I_s)
+            f_m = self.E_M(I_s)["kp"].view(I_s.size(0), -1, 3)
+            f_m_d = self.E_M(I_d)["kp"].view(I_s.size(0), -1, 3)
+            f_w = self.W(feature_3d=f_h, kp_source=f_m,
+                         kp_driving=f_m_d)['out']
+            # Get mask for hair segment
+            m_c = get_mask_by_idx(I_d_dilde, self.M_C,
+                                  device=self.device, class_idx=17)
+            m_f = 1 - m_c  # Inverted m_c or non-hair binary mask
+        del I_r, I_d_dilde
+
+        # Final predicted image tensor
+        # with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):
         I_p = self.D(f_c, f_w, m_c)
+        I_p_detached = I_p.detach()
 
         # Save image for debug purposes
         if save_debug:
-            img = I_p[0].detach()
+            img = I_p_detached[0]
             img = (img + 1) / 2
             os.makedirs(save_path, exist_ok=True)
             path = Path.joinpath(save_path, f"{datetime.datetime.now()}.png")
@@ -144,38 +151,36 @@ class TrainingPipeline:
             print(f"Debug image saved to {path}")
 
         # --- Discriminator update ---
-        self.disc_optimizer.zero_grad()
-        with torch.cuda.amp.autocast(enabled=(scaler is not None)):
+        self.disc_optimizer.zero_grad(set_to_none=True)
+        with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):
             disc_loss = self.losses.compute_discriminator_loss(
-                I_d, I_p, self.L_adv)
+                I_d, I_p_detached, self.L_adv)
+
+        # backprop discriminator
+        scaler.scale(disc_loss).backward()
+        scaler.step(self.disc_optimizer)
 
         # --- Generator update ---
-        self.generator_optimizer.zero_grad()
-        with torch.cuda.amp.autocast(enabled=(scaler is not None)):
+        self.generator_optimizer.zero_grad(set_to_none=True)
+        with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):
             losses = self.losses.compute_generator_losses(
                 I_d, I_p, m_c, m_f, self.L_adv)
         gen_loss = losses["total_loss"]
 
-        # Backward the generator
-        if scaler is not None:
-            scaler.scale(gen_loss).backward()
-            scaler.step(self.generator_optimizer)
-            scaler.update()
-        else:
-            gen_loss.backward()
-            self.generator_optimizer.step()
+        logs = {k: float(v.detach().cpu()) for k, v in losses.items()}
+        del I_d, I_p
 
-        # backprop discriminator
-        if scaler is not None:
-            scaler.scale(disc_loss).backward()
-            scaler.step(self.disc_optimizer)
-        else:
-            disc_loss.backward()
-            self.disc_optimizer.step()
+        # Backward the generator
+        scaler.scale(gen_loss).backward()
+        scaler.step(self.generator_optimizer)
+
+        # Update the scaler
+        scaler.update()
+
+        logs["disc_loss"] = float(disc_loss.detach().cpu())
+        del losses, disc_loss
 
         # return python scalars for logging
-        logs = {k: float(v.detach().cpu()) for k, v in losses.items()}
-        logs["disc_loss"] = float(disc_loss.detach().cpu())
         return logs
 
     def save_checkpoint(self, path: str, epoch: int, extra: dict = None):

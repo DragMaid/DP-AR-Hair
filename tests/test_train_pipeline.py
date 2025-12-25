@@ -7,16 +7,15 @@ from torchvision import transforms as T
 from PIL import Image
 import pytest
 
+# Mark so test only gets executed if specfied (takes 11.4 * 2 GB of ram)
 pytestmark = pytest.mark.benchmark_only
-
-# import torch.distributed as dist
 
 
 @pytest.mark.report_uss
 @pytest.mark.report_tracemalloc
 @pytest.mark.report_duration
 def test_pipeline():
-    mp.spawn(ddp_worker, args=(1,), nprocs=1)
+    mp.spawn(ddp_worker, args=(1,), nprocs=2)
 
 
 def ddp_worker(rank, world_size):
@@ -26,11 +25,11 @@ def ddp_worker(rank, world_size):
     os.environ["MASTER_PORT"] = "29500"
 
     dist.init_process_group("gloo")
-    run_pipeline()
+    run_pipeline(real_sample=False)
     dist.destroy_process_group()
 
 
-def run_pipeline():
+def run_pipeline(real_sample=False):
     device = torch.device("cpu")
 
     # Minimal transform (resize + to tensor)
@@ -49,24 +48,28 @@ def run_pipeline():
     scaler = torch.cuda.amp.GradScaler(enabled=device.type == "cuda")
 
     from pathlib import Path
-    ck_dir = "./checkpoints_test"
-    ck_path = os.path.join(ck_dir, "epoch_0001.pt")
+    ck_dir = "./checkpoints/"
+    ck_path = os.path.join(ck_dir, "test.pt")
     if Path(ck_path).exists():
         pipeline.load_checkpoint(ck_path, load_optimizers=True)
         print(f"Loaded last checkpoint from {ck_path}")
 
     # Load 3 images: source, driving, reference
-    img_paths = [
-        "./assets/test_images/cropped.png",
-        "./assets/test_images/cropped.png",
-        "./assets/test_images/output.png"
-    ]
-    images = []
-    for path in img_paths:
-        img = Image.open(path).convert("RGB")
-        img = transform(img)
-        img = img.unsqueeze(0).to(device)  # add batch dimension
-        images.append(img)
+    if real_sample:
+        img_paths = [
+            "./assets/test_images/cropped.png",
+            "./assets/test_images/cropped.png",
+            "./assets/test_images/output.png"
+        ]
+        images = []
+        for path in img_paths:
+            img = Image.open(path).convert("RGB")
+            img = transform(img)
+            img = img.unsqueeze(0).to(device)  # add batch dimension
+            images.append(img)
+    else:
+        for i in range(3):
+            images.append(torch.randn([2, 3, 256, 256]))
 
     I_s, I_d, I_r = images
 

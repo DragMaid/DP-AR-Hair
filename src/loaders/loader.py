@@ -19,7 +19,7 @@ def load_models(name: str, pretrained: bool = False,
         results = load_weights(model, name, strict=strict)
         if freeze:
             for name, param in model.named_parameters():
-                param.requires_grad = name in results["loaded_keys"]
+                param.requires_grad = name not in results["loaded_keys"]
 
     return model
 

@@ -55,7 +55,9 @@ class LossHandler:
                 a_gen_loss: adversarial loss for generator
         """
         # Perceptual loss
-        p_loss = self.L_p(self.normalize(I_p_detached), self.normalize(I_d))
+        with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):
+            p_loss = self.L_p(self.normalize(
+                I_p_detached), self.normalize(I_d))
 
         # Local losses
         h_loss = self.L_hair(m_c, I_d, I_p_detached)

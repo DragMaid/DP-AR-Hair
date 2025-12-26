@@ -115,8 +115,9 @@ class TrainingPipeline:
         # TODO: add resizing to 1024x1024 for HairFastGan
         # I_d, I_r, I_s: 4D tensors (B, C, H, W)
         if self.IIHT:
-            I_d_dilde = self.IIHT.batch_swap(I_d, I_r, I_d)
-            I_d_dilde = I_d_dilde.to(self.device)
+            with torch.no_grad():
+                I_d_dilde = self.IIHT.batch_swap(I_d, I_r, I_d)
+                I_d_dilde = I_d_dilde.to(self.device)
         else:
             # If the generate_on_go mode is not set then
             # passed in value for I_r would be generated I_d_dilde
@@ -125,20 +126,21 @@ class TrainingPipeline:
         f_c = self.E_C(I_d_dilde)
         # Other components are just for inference
         with torch.no_grad():
-            f_h = self.E_H(I_s)
-            f_m = self.E_M(I_s)["kp"].view(I_s.size(0), -1, 3)
-            f_m_d = self.E_M(I_d)["kp"].view(I_s.size(0), -1, 3)
-            f_w = self.W(feature_3d=f_h, kp_source=f_m,
-                         kp_driving=f_m_d)['out']
-            # Get mask for hair segment
-            m_c = get_mask_by_idx(I_d_dilde, self.M_C,
-                                  device=self.device, class_idx=17)
-            m_f = 1 - m_c  # Inverted m_c or non-hair binary mask
+            with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):
+                f_h = self.E_H(I_s)
+                f_m = self.E_M(I_s)["kp"].view(I_s.size(0), -1, 3)
+                f_m_d = self.E_M(I_d)["kp"].view(I_s.size(0), -1, 3)
+                f_w = self.W(feature_3d=f_h, kp_source=f_m,
+                             kp_driving=f_m_d)['out']
+                # Get mask for hair segment
+                m_c = get_mask_by_idx(I_d_dilde, self.M_C,
+                                      device=self.device, class_idx=17)
+                m_f = 1 - m_c  # Inverted m_c or non-hair binary mask
         del I_r, I_d_dilde
 
         # Final predicted image tensor
-        # with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):
-        I_p = self.D(f_c, f_w, m_c)
+        with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):
+            I_p = self.D(f_c, f_w, m_c)
         I_p_detached = I_p.detach()
 
         # Save image for debug purposes
@@ -152,9 +154,8 @@ class TrainingPipeline:
 
         # --- Discriminator update ---
         self.disc_optimizer.zero_grad(set_to_none=True)
-        with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):
-            disc_loss = self.losses.compute_discriminator_loss(
-                I_d, I_p_detached, self.L_adv)
+        disc_loss = self.losses.compute_discriminator_loss(
+            I_d, I_p_detached, self.L_adv)
 
         # backprop discriminator
         scaler.scale(disc_loss).backward()
@@ -162,9 +163,8 @@ class TrainingPipeline:
 
         # --- Generator update ---
         self.generator_optimizer.zero_grad(set_to_none=True)
-        with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):
-            losses = self.losses.compute_generator_losses(
-                I_d, I_p, m_c, m_f, self.L_adv)
+        losses = self.losses.compute_generator_losses(
+            I_d, I_p, m_c, m_f, self.L_adv)
         gen_loss = losses["total_loss"]
 
         logs = {k: float(v.detach().cpu()) for k, v in losses.items()}

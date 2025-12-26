@@ -14,12 +14,13 @@ def load_models(name: str, pretrained: bool = False,
     if not registry:
         raise ValueError(f"No model found for name {name}")
     model = registry["model_builder"](**registry["params"].model_dump())
+
     if pretrained:
         results = load_weights(model, name, strict=strict)
-    if freeze:
-        for name, param in model.named_parameters():
-            if name in results["loaded_keys"]:
-                param.requires_grad = False
+        if freeze:
+            for name, param in model.named_parameters():
+                param.requires_grad = name in results["loaded_keys"]
+
     return model
 
 

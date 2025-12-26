@@ -1,3 +1,4 @@
+import pytest
 import importlib.util
 import pathlib
 import sys
@@ -12,6 +13,9 @@ def load_module_from_path(path: pathlib.Path, name: str):
     return module
 
 
+@pytest.mark.report_uss
+@pytest.mark.report_tracemalloc
+@pytest.mark.report_duration
 def test_gfspade_smoke_and_regression(data_regression):
     """Smoke test for GFSPADE and simple regression check.
 

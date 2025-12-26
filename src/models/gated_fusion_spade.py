@@ -81,7 +81,6 @@ class GFSPADE(nn.Module):
         gamma = self.mlp_gamma(actv)
         beta = self.mlp_beta(actv)
 
-        print(normed.size(), gamma.size(), beta.size())
         h_c_tilde = normed * (1 + gamma) + beta  # Eq.1 Page 5
 
         # 3. Compute spatial gate

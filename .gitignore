@@ -217,3 +217,7 @@ smart-style-salon-app/backend/node_modules
 smart-style-salon-app/frontend/node_modules
 downloaded_celebvhq/
 driving_images/
+reference_images/
+generated_images/
+*.rar
+*.pt

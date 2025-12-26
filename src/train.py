@@ -2,6 +2,7 @@ import os
 import argparse
 import torch
 from tqdm import tqdm
+from pathlib import Path
 from torch.utils.data import DataLoader, DistributedSampler
 from torchvision import transforms as T
 from data.dataset import CelebVHQDataset
@@ -26,8 +27,10 @@ def get_args():
                    default=pco.dataset.num_workers)
     p.add_argument("--save_dir", type=str,
                    default=pco.training.save_dir)
-    p.add_argument("--save_every", type=int, help="save every N epochs",
+    p.add_argument("--save_weight_every", type=int, help="save weight every N epochs",
                    default=pco.training.epochs_till_save)
+    p.add_argument("--save_image_every", type=int, help="save debug image every N steps",
+                   default=pco.training.steps_till_save)
     p.add_argument("--resume", type=str, default=None,
                    help="path to checkpoint to resume")
     p.add_argument("--device", type=str, default=None)
@@ -50,7 +53,7 @@ def main():
 
     transform = T.Compose([
         T.ToPILImage(),
-        T.Resize((512, 512)),
+        T.Resize((256, 256)),
         T.ToTensor(),
     ])
 
@@ -79,15 +82,23 @@ def main():
 
     os.makedirs(args.save_dir, exist_ok=True)
 
+    # TODO: check if the input retrieval actually works or not
+    # TODO: check if epochs is saved automatically
+    # TODO: check the unbalanced weight impact
     for epoch in range(start_epoch, args.epochs):
         sampler.set(epoch)
         epoch_iterator = tqdm(enumerate(dataloader), total=len(dataloader),
                               desc=f"Epoch {epoch+1}/{args.epochs}")
         running = {"total_loss": 0.0, "disc_loss": 0.0, "steps": 0}
         for step, batch in epoch_iterator:
+            save_image = (running["steps"]+1) % args.save_image_every == 0
             # dataset returns (I_s, I_d, I_r)
             I_s, I_d, I_r = batch
-            logs = pipeline.train_step(I_s, I_d, I_r, scaler=scaler)
+            logs = pipeline.train_step(
+                I_s, I_d, I_r,
+                scaler=scaler,
+                save_debug=save_image,
+                save_path=Path("./assets/debug_images/"))
 
             if dist.get_rank() != 0:
                 continue
@@ -101,10 +112,13 @@ def main():
             epoch_iterator.set_postfix(
                 {"avg_loss": f"{avg_loss:.4f}", "avg_disc": f"{avg_disc:.4f}"})
 
+            # TODO: add mlfow logging here
+
         # epoch end — checkpoint
-        if ((epoch + 1) % args.save_every) == 0:
+        if ((epoch + 1) % args.save_weight_every) == 0:
             if dist.get_rank() == 0:
-                ck_path = os.path.join(args.save_dir, f"epoch_{epoch+1:04d}.pt")
+                ck_path = os.path.join(
+                    args.save_dir, f"epoch_{epoch+1:04d}.pt")
                 pipeline.save_checkpoint(ck_path, epoch=epoch)
                 print(f"Saved checkpoint: {ck_path}")
 

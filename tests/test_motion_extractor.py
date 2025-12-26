@@ -30,6 +30,9 @@ def test_motion_extractor_kp_shape(motion_extractor, sample_image):
     assert kp.shape[1] == 3 * model_config.motion_extractor_params.num_kp
 
 
+@pytest.mark.report_uss
+@pytest.mark.report_tracemalloc
+@pytest.mark.report_duration
 def test_motion_extractor_no_nans(motion_extractor, sample_image):
     out = motion_extractor(sample_image)
     assert not torch.isnan(out['kp']).any(), "Output contains NaNs"

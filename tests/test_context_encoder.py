@@ -27,6 +27,9 @@ def test_context_encoder_no_nans(context_encoder, sample_image):
     assert not torch.isnan(out).any(), "Output contains NaNs"
 
 
+@pytest.mark.report_uss
+@pytest.mark.report_tracemalloc
+@pytest.mark.report_duration
 def test_context_encoder_gradients(context_encoder, sample_image):
     out = context_encoder(sample_image)
     out.sum().backward()

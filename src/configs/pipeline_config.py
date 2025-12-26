@@ -31,11 +31,13 @@ class TrainingConfig(BaseModel):
     generator: GeneratorConfig
     save_dir: str
     epochs_till_save: int
+    steps_till_save: int
 
 
 class DatasetConfig(BaseModel):
     reference_dir: str
     driving_dir: str
+    generated_dir: str
     num_workers: int
     device: int
 

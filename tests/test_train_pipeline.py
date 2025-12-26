@@ -42,7 +42,7 @@ def ddp_worker(rank, world_size, batch_size):
         backend = "gloo"
 
     dist.init_process_group(backend=backend)
-    run_pipeline(device, real_sample=False, batch_size=batch_size)
+    run_pipeline(device, real_sample=True, batch_size=batch_size)
     dist.destroy_process_group()
 
 
@@ -89,10 +89,11 @@ def run_pipeline(device, real_sample=False, batch_size=1):
 
     I_s, I_d, I_r = images
 
-    # Run a single train step
     with torch.autograd.set_detect_anomaly(True):
         logs = pipeline.train_step(I_s, I_d, I_r, scaler,
-                                   save_debug=True, save_path=Path("./assets/debug_images/"))
+                                   mini_batch_size=1,
+                                   save_debug=True,
+                                   save_path=Path("./assets/debug_images/"))
     print("Train step logs:", logs)
 
     # Save minimal checkpoint

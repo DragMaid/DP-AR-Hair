@@ -24,6 +24,8 @@ def get_args():
                    default=pco.dataset.generated_dir)
     p.add_argument("--batch_size", type=int,
                    default=pco.training.batch_size)
+    p.add_argument("--mini_batch_size", type=int,
+                   default=pco.training.mini_batch_size)
     p.add_argument("--epochs", type=int,
                    default=pco.training.epoch_num)
     p.add_argument("--num_workers", type=int,
@@ -44,6 +46,7 @@ def get_args():
 def main():
     args = get_args()
 
+    # TODO: allow user to select a specific device
     local_rank = int(os.environ["LOCAL_RANK"])
     if torch.cuda.is_available():
         torch.cuda.set_device(local_rank)
@@ -101,6 +104,7 @@ def main():
             I_r = batch["reference"]["content"]
             logs = pipeline.train_step(
                 I_s, I_d, I_r,
+                mini_batch_size=args.mini_batch_size,
                 scaler=scaler,
                 save_debug=save_image,
                 save_path=Path("./assets/debug_images/"))

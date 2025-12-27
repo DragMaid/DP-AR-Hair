@@ -1,6 +1,7 @@
 training:
   epoch_num: 100
   batch_size: 4
+  mini_batch_size: 2
   discriminator:
     learn_rate: 2e-4
     betas: [0.5, 0.999]

@@ -5,7 +5,7 @@ from tqdm import tqdm
 from pathlib import Path
 from torch.utils.data import DataLoader, DistributedSampler
 from torchvision import transforms as T
-from data.dataset import CelebVHQDataset
+from data.celebvhq_generated import CelebVHQGeneratedDataset
 from pipelines.training_pipeline import TrainingPipeline
 import torch.distributed as dist
 from configs.pipeline_config import pipeline_config as pco
@@ -13,14 +13,19 @@ from configs.pipeline_config import pipeline_config as pco
 
 def get_args():
     p = argparse.ArgumentParser()
-    p.add_argument("--ref_dir", required=True,
+    p.add_argument("--ref_dir", type=str,
                    help="Folder to find reference hair styles",
                    default=pco.dataset.reference_dir)
-    p.add_argument("--drive_dir", required=True,
+    p.add_argument("--driving_dir", type=str,
                    help="Folder to find varied pose faces",
                    default=pco.dataset.driving_dir)
+    p.add_argument("--generated_dir", type=str,
+                   help="Folder to find generated hair faces",
+                   default=pco.dataset.generated_dir)
     p.add_argument("--batch_size", type=int,
                    default=pco.training.batch_size)
+    p.add_argument("--mini_batch_size", type=int,
+                   default=pco.training.mini_batch_size)
     p.add_argument("--epochs", type=int,
                    default=pco.training.epoch_num)
     p.add_argument("--num_workers", type=int,
@@ -33,7 +38,7 @@ def get_args():
                    default=pco.training.steps_till_save)
     p.add_argument("--resume", type=str, default=None,
                    help="path to checkpoint to resume")
-    p.add_argument("--device", type=str, default=None)
+    # p.add_argument("--device", type=str, default=None)
     p.add_argument("--mixed_precision", action="store_true")
     return p.parse_args()
 
@@ -41,15 +46,17 @@ def get_args():
 def main():
     args = get_args()
 
+    # TODO: allow user to select a specific device
     local_rank = int(os.environ["LOCAL_RANK"])
-    torch.cuda.set_device(local_rank)
-    device = torch.device(f"cuda:{local_rank}")
+    if torch.cuda.is_available():
+        torch.cuda.set_device(local_rank)
+        device = torch.device(f"cuda:{local_rank}")
+        backend = "nccl"
+    else:
+        device = torch.device("cpu")
+        backend = "gloo"
 
-    dist.init_process_group(backend="nccl")
-
-    # device
-    if args.device:
-        device = torch.device(args.device)
+    dist.init_process_group(backend=backend)
 
     transform = T.Compose([
         T.ToPILImage(),
@@ -57,10 +64,9 @@ def main():
         T.ToTensor(),
     ])
 
-    dataset = CelebVHQDataset(driving_dir=args.driving_dir,
-                              reference_dir=args.reference_dir,
-                              transform=transform,
-                              preload=False)
+    dataset = CelebVHQGeneratedDataset(driving_dir=args.driving_dir,
+                                       generated_dir=args.generated_dir,
+                                       transform=transform)
 
     sampler = DistributedSampler(dataset)
 
@@ -68,10 +74,11 @@ def main():
                             num_workers=args.num_workers,
                             pin_memory=True, drop_last=True, sampler=sampler)
 
-    pipeline = TrainingPipeline(local_rank=local_rank)
+    # TODO: implement generate on go later, for now its too inefficient
+    pipeline = TrainingPipeline(device, local_rank, generate_on_go=False)
 
     scaler = torch.cuda.amp.GradScaler(
-    ) if args.mixed_precision and device.type == "cuda" else None
+        enabled=args.mixed_precision and device.type == "cuda")
 
     start_epoch = 0
     if args.resume:
@@ -86,16 +93,18 @@ def main():
     # TODO: check if epochs is saved automatically
     # TODO: check the unbalanced weight impact
     for epoch in range(start_epoch, args.epochs):
-        sampler.set(epoch)
+        sampler.set_epoch(epoch)
         epoch_iterator = tqdm(enumerate(dataloader), total=len(dataloader),
                               desc=f"Epoch {epoch+1}/{args.epochs}")
         running = {"total_loss": 0.0, "disc_loss": 0.0, "steps": 0}
         for step, batch in epoch_iterator:
             save_image = (running["steps"]+1) % args.save_image_every == 0
-            # dataset returns (I_s, I_d, I_r)
-            I_s, I_d, I_r = batch
+            I_s = batch["front"]["content"]
+            I_d = batch["side"]["content"]
+            I_r = batch["reference"]["content"]
             logs = pipeline.train_step(
                 I_s, I_d, I_r,
+                mini_batch_size=args.mini_batch_size,
                 scaler=scaler,
                 save_debug=save_image,
                 save_path=Path("./assets/debug_images/"))
@@ -122,6 +131,7 @@ def main():
                 pipeline.save_checkpoint(ck_path, epoch=epoch)
                 print(f"Saved checkpoint: {ck_path}")
 
+    dist.destroy_process_group()
     print("Training complete.")
 
 

@@ -26,3 +26,7 @@ nav:
   - Dataset:
     - Pre-processing: preprocess.md
     - Dataset loader: dataset.md
+  - Pipeline:
+    - Training pipeline: training_pipeline.md
+  - Scripts:
+    - Train script: train.md

@@ -1,4 +1,5 @@
 # Motion Extractor
+Location: `libs/live_portrait/motion_extractor.py`
 
 ## Overview
 

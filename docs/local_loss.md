@@ -1,32 +1,26 @@
-Local Losses (HairLoss, ContextLoss)
+# Local Losses (HairLoss, ContextLoss)
+Location: `src/losses/local_loss.py`
 
-Summary
--------
+## Overview
 This module implements two small, focused L1-based losses that are applied
 locally by masks: `HairLoss` and `ContextLoss`.
 
-Source
-------
-`src/losses/local_loss.py`
 
-Public API
-----------
+## Components
 - class HairLoss(nn.Module)
 - class ContextLoss(nn.Module)
 
-Description
------------
+## Description
 Both classes are thin wrappers around a masked L1 (L1-norm) difference between
 predicted and target images. The inputs follow the convention used throughout
 this repository:
-- m_h / m_c: mask tensors (same spatial size as images)
+- m_h / m_c: mask tensors for hair and context (same spatial size as images)
 - I_p: predicted image tensor
 - I_d: desired/target image tensor
 
 Each loss computes: torch.norm(mask * (I_d - I_p), p=1)
 
-Example usage
--------------
+## Example
 ```python
 import torch
 from src.losses.local_loss import HairLoss, ContextLoss
@@ -38,10 +32,8 @@ target = torch.randn(1, 3, 256, 256)
 loss = loss_fn(mask, pred, target)
 ```
 
-Notes
------
+## Notes
 - Both losses return the L1 norm over masked pixel differences. If your mask
   has multiple channels, broadcasting rules apply.
 - These modules are intentionally small and work as drop-in components in
   training loops.
-

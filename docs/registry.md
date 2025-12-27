@@ -1,8 +1,9 @@
 # Model Registry
+Location: `src/loaders/registry.py`
 
-## Purpose
+## Overview
 
-The `ModelRegistry` (`src/loaders/registry.py`) is a lightweight registry that centralizes model constructors, default parameters, and weight download metadata for the project. It serves as the single source of truth mapping small string aliases (like `E_M`, `W`, `G`) to concrete model builders and their associated weight locations.
+The `ModelRegistry` is a lightweight registry that centralizes model constructors, default parameters, and weight download metadata for the project. It serves as the single source of truth mapping small string aliases (like `E_M`, `W`, `G`) to concrete model builders and their associated weight locations.
 
 ## Key concepts
 
@@ -17,7 +18,7 @@ The `ModelRegistry` (`src/loaders/registry.py`) is a lightweight registry that c
   - `_registry` stores entries keyed by a generated UUID
   - `_alias_map` maps human-friendly aliases (like `"E_M"`) to those UUIDs
 
-## Public API
+## Usage
 
 - `ModelRegistry.register(names: Set[str], data: Dict)` (class method)
   - Registers a new model with one or more canonical aliases.

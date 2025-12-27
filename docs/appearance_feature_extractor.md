@@ -1,4 +1,5 @@
 # Appearance Feature Extractor
+Location: `libs/live_portrait/appearance_feature_extractor.py`
 
 ## Overview
 
@@ -106,7 +107,6 @@ output f_s (B, 32, 16, 64, 64)
 - **Compact Representation**: Reduces computational complexity for downstream tasks
 
 ## Usage Example
-
 ```python
 from models.appearance_feature_extractor import AppearanceFeatureExtractor
 import torch

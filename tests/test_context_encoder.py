@@ -1,7 +1,7 @@
 import torch
 import pytest
 from configs.model_config import model_config
-from models.context_decoder import ContextEncoder
+from models.context_encoder import ContextEncoder
 
 
 @pytest.fixture

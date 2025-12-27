@@ -1,4 +1,5 @@
 # Context Decoder
+Location: `libs/live_portrait/context_decoder.py`
 
 ## Overview
 

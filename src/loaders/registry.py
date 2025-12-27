@@ -185,7 +185,7 @@ ModelRegistry.register(
 ModelRegistry.register(
     {"context_encoder", "E_C"},
     {
-        "model_builder": "models.context_decoder.ContextEncoder",
+        "model_builder": "models.context_encoder.ContextEncoder",
         "params": model_config.context_encoder_params,
         "loader": "pytorch",
         "key_mapper": "default",

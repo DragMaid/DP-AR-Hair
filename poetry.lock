@@ -128,7 +128,7 @@ version = "16.0.1"
 description = "Pythonic bindings for FFmpeg's libraries."
 optional = false
 python-versions = ">=3.10"
-groups = ["main"]
+groups = ["stablehair"]
 files = [
     {file = "av-16.0.1-cp310-cp310-macosx_11_0_x86_64.whl", hash = "sha256:8b141aaa29a3afc96a1d467d106790782c1914628b57309eaadb8c10c299c9c0"},
     {file = "av-16.0.1-cp310-cp310-macosx_14_0_arm64.whl", hash = "sha256:4b8a08a59a5be0082af063d3f4b216e3950340121c6ea95b505a3f5f5cc8f21d"},
@@ -3768,4 +3768,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10.5,<3.11"
-content-hash = "5acd974259d08db96d6fa93ee9d5120821e9f31724feb2a498b26fc324619b5c"
+content-hash = "403da129262c426097bf7c0c602f17440cafba57fca0e53611e85299240cf00f"

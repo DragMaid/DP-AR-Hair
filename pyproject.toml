@@ -79,6 +79,10 @@ tifffile = "2024.4.24"
 tokenizers = "0.20.1"
 transformers = "4.45.2"
 dlib = "^20.0.0"
+scikit-image = "0.24.0"
+kornia = "^0.8.2"
+packaging = "^25.0"
+triton = "2.2.0"
 
 
 [tool.poetry.group.data]

@@ -56,24 +56,26 @@ def log_validation(
     x_tensor = torch.zeros(video_length, 1, dtype=torch.float32, device=device)
     y_tensor = torch.zeros(video_length, 1, dtype=torch.float32, device=device)
 
+    size = 256
+
     # ------------------------------------------------------------
     # Load reference images
     # ------------------------------------------------------------
     id_image = cv2.cvtColor(
         cv2.imread(args.validation_ids[0]), cv2.COLOR_BGR2RGB
     )
-    id_image = cv2.resize(id_image, (512, 512))
+    id_image = cv2.resize(id_image, (size, size))
     id_list = [id_image for _ in range(video_length)]
 
     hair_image = cv2.cvtColor(
         cv2.imread(args.validation_hairs[0]), cv2.COLOR_BGR2RGB
     )
-    hair_image = cv2.resize(hair_image, (512, 512))
+    hair_image = cv2.resize(hair_image, (size, size))
 
     prompt_img = cv2.cvtColor(
         cv2.imread(args.validation_ids[0]), cv2.COLOR_BGR2RGB
     )
-    prompt_img = cv2.resize(prompt_img, (512, 512))
+    prompt_img = cv2.resize(prompt_img, (size, size))
     prompt_img = [prompt_img]
 
     # ------------------------------------------------------------
@@ -85,8 +87,8 @@ def log_validation(
             negative_prompt="",
             num_inference_steps=30,
             guidance_scale=1.5,
-            width=512,
-            height=512,
+            width=size,
+            height=size,
             controlnet_condition=id_list,
             controlnet_conditioning_scale=1.0,
             generator=torch.Generator(device).manual_seed(args.seed),

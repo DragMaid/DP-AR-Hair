@@ -15,28 +15,18 @@ import torchvision
 
 
 def log_validation(
-    vae,
-    tokenizer,
-    image_encoder,
-    denoising_unet,
-    args,
-    device,
-    logger,
-    cc_projection,
-    controlnet,
-    hair_encoder,
-    feature_extractor=None,
+    vae, tokenizer, image_encoder, denoising_unet,
+    args, device, logger, cc_projection,
+    controlnet, hair_encoder, feature_extractor=None
 ):
     """
-    Run single-image hair transfer inference.
-    Original image + reference hair → output image
+    Run StableHairV2 validation inference using video_length=2
+    and save ONLY the first frame (identity-locked).
     """
+    logger.info(
+        "Starting validation inference (video_length=2, first-frame only)...")
 
-    logger.info("Starting image-only hair transfer inference...")
-
-    # -----------------------------
-    # Initialize pipeline
-    # -----------------------------
+    # Initialize inference pipeline
     pipeline = Hair3dPipeline.from_pretrained(
         args.pretrained_model_name_or_path,
         image_encoder=image_encoder,
@@ -55,69 +45,79 @@ def log_validation(
     )
     pipeline.set_progress_bar_config(disable=True)
 
-    # -----------------------------
     # Output directory
-    # -----------------------------
-    output_dir = os.path.join(args.output_dir, "validation_images")
+    output_dir = os.path.join(args.output_dir, "validation")
     os.makedirs(output_dir, exist_ok=True)
 
-    # -----------------------------
-    # Load images
-    # -----------------------------
-    size = 256
+    # ------------------------------------------------------------
+    # FIXED CAMERA TRAJECTORY (NO MOTION)
+    # ------------------------------------------------------------
+    video_length = 2
+    x_tensor = torch.zeros(video_length, 1, dtype=torch.float32, device=device)
+    y_tensor = torch.zeros(video_length, 1, dtype=torch.float32, device=device)
 
-    # identity / target image
+    # ------------------------------------------------------------
+    # Load reference images
+    # ------------------------------------------------------------
     id_image = cv2.cvtColor(
         cv2.imread(args.validation_ids[0]), cv2.COLOR_BGR2RGB
     )
-    id_image = cv2.resize(id_image, (size, size))
+    id_image = cv2.resize(id_image, (512, 512))
+    id_list = [id_image for _ in range(video_length)]
 
-    # reference hair image
     hair_image = cv2.cvtColor(
         cv2.imread(args.validation_hairs[0]), cv2.COLOR_BGR2RGB
     )
-    hair_image = cv2.resize(hair_image, (size, size))
+    hair_image = cv2.resize(hair_image, (512, 512))
 
-    # ControlNet expects a list
-    id_list = [id_image]
+    prompt_img = cv2.cvtColor(
+        cv2.imread(args.validation_ids[0]), cv2.COLOR_BGR2RGB
+    )
+    prompt_img = cv2.resize(prompt_img, (512, 512))
+    prompt_img = [prompt_img]
 
-    # prompt image (same as identity)
-    prompt_img = [id_image]
-
-    # -----------------------------
-    # Inference
-    # -----------------------------
-    with torch.no_grad():
+    # ------------------------------------------------------------
+    # Inference loop
+    # ------------------------------------------------------------
+    for idx in range(args.num_validation_images):
         result = pipeline(
             prompt="",
             negative_prompt="",
             num_inference_steps=30,
             guidance_scale=1.5,
-            width=size,
-            height=size,
+            width=512,
+            height=512,
             controlnet_condition=id_list,
             controlnet_conditioning_scale=1.0,
             generator=torch.Generator(device).manual_seed(args.seed),
             ref_image=hair_image,
             prompt_img=prompt_img,
             reference_encoder=hair_encoder,
-            poses=None,               # no pose conditioning
-            x=None,                   # no camera motion
-            y=None,
-            video_length=1,           # 🔑 image = T=1
-            context_frames=1,
-            output_type="tensor",
+            poses=None,
+            x=x_tensor,
+            y=y_tensor,
+            video_length=video_length,
+            context_frames=video_length,
         )
 
-        # result.videos: (B, 3, 1, H, W)
-        image = result.videos[0, :, 0]  # (3, H, W)
+        # --------------------------------------------------------
+        # Extract FIRST FRAME ONLY
+        # result.videos: (B, C, F, H, W)
+        # --------------------------------------------------------
+        first_frame = result.videos[0, :, 0]  # (C, H, W)
 
-        # save image
-        image = image.clamp(0, 1).cpu()
-        image_path = os.path.join(output_dir, f"hair_shift.png")
-        torchvision.utils.save_image(image, image_path)
+        output_path = os.path.join(
+            output_dir, f"generated_image_{idx}.png"
+        )
 
-        logger.info(f"Saved image: {image_path}")
+        torchvision.utils.save_image(
+            first_frame,
+            output_path,
+            normalize=True,
+            value_range=(0, 1),
+        )
+
+        logger.info(f"Saved generated image: {output_path}")
 
 
 def parse_args():
@@ -230,7 +230,8 @@ def main():
 
     # TODO: fix this weird path resolving implementation
     from pathlib import Path
-    cache_path = Path("/root/.cache/huggingface/hub/models--stable-diffusion-v1-5--stable-diffusion-v1-5/snapshots/451f4fe16113bff5a5d2269ed5ad43b0592e9a14/")
+    cache_path = Path(
+        "/root/.cache/huggingface/hub/models--stable-diffusion-v1-5--stable-diffusion-v1-5/snapshots/451f4fe16113bff5a5d2269ed5ad43b0592e9a14/")
     denoising_unet = UNet3DConditionModel.from_pretrained_2d(
         cache_path,
         save_path,

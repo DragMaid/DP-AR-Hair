@@ -12,6 +12,7 @@ from ref_encoder.latent_controlnet import ControlNetModel
 from src.pipelines.pipeline_pose2vid_long import Pose2VideoPipeline as Hair3dPipeline
 from omegaconf import OmegaConf
 import torchvision
+import torch.nn.functional as F
 
 
 def log_validation(
@@ -37,13 +38,20 @@ def log_validation(
         denoising_unet=denoising_unet,
         safety_checker=None,
         revision=args.revision,
-        torch_dtype=torch.float16 if args.use_fp16 else torch.float32,
+        torch_dtype=torch.float32
     ).to(device)
 
     pipeline.scheduler = UniPCMultistepScheduler.from_config(
         pipeline.scheduler.config
     )
     pipeline.set_progress_bar_config(disable=True)
+    pipeline.enable_vae_slicing()
+    pipeline.enable_attention_slicing()
+
+    hair_encoder.to(torch.float16)
+    pipeline.denoising_unet.to(torch.float16)
+    pipeline.controlnet.to(torch.float16)  # This one maybe set to float32
+    pipeline.vae.to(torch.float32)
 
     # Output directory
     output_dir = os.path.join(args.output_dir, "validation")
@@ -56,7 +64,7 @@ def log_validation(
     x_tensor = torch.zeros(video_length, 1, dtype=torch.float32, device=device)
     y_tensor = torch.zeros(video_length, 1, dtype=torch.float32, device=device)
 
-    size = 256
+    size = 512
 
     # ------------------------------------------------------------
     # Load reference images
@@ -107,6 +115,8 @@ def log_validation(
         # result.videos: (B, C, F, H, W)
         # --------------------------------------------------------
         first_frame = result.videos[0, :, 0]  # (C, H, W)
+        first_frame = F.interpolate(first_frame.unsqueeze(0), size=(
+            256, 256), mode="bilinear", align_corners=False).squeeze(0)
 
         output_path = os.path.join(
             output_dir, f"generated_image_{idx}.png"

@@ -75,6 +75,13 @@ class Pose2VideoPipeline(DiffusionPipeline):
     def disable_vae_slicing(self):
         self.vae.disable_slicing()
 
+    @classmethod
+    def from_pretrained(cls, *args, **kwargs):
+        """Forcing model to be the subclass type."""
+        instance = super().from_pretrained(*args, **kwargs)
+        instance.__class__ = cls
+        return instance
+
     def enable_sequential_cpu_offload(self, gpu_id=0):
         if is_accelerate_available():
             from accelerate import cpu_offload
@@ -84,15 +91,15 @@ class Pose2VideoPipeline(DiffusionPipeline):
 
         device = torch.device(f"cuda:{gpu_id}")
 
-        for cpu_offloaded_model in [self.unet, self.text_encoder, self.vae]:
+        for cpu_offloaded_model in [self.text_encoder]:
             if cpu_offloaded_model is not None:
                 cpu_offload(cpu_offloaded_model, device)
 
     @property
     def _execution_device(self):
-        if self.device != torch.device("meta") or not hasattr(self.unet, "_hf_hook"):
+        if self.device != torch.device("meta") or not hasattr(self.denoising_unet, "_hf_hook"):
             return self.device
-        for module in self.unet.modules():
+        for module in self.denoising_unet.modules():
             if (
                 hasattr(module, "_hf_hook")
                 and hasattr(module._hf_hook, "execution_device")
@@ -355,15 +362,20 @@ class Pose2VideoPipeline(DiffusionPipeline):
         Convert RGB image to VAE latents
         """
         device = self._execution_device
+
         if isinstance(images, torch.Tensor):
             # suppose input is [-1, 1]
-            images = images.to(dtype)
+            images = images.float()
             if images.ndim == 3:
                 images = images.unsqueeze(0)
+
         elif isinstance(images, np.ndarray):
             # suppose input is [0, 255]
-            images = torch.from_numpy(images).float().to(dtype) / 127.5 - 1
+            images = torch.from_numpy(images).float() / 127.5 - 1
             images = rearrange(images, "h w c -> c h w").to(device)[None, :]
+
+        images = images.to(device=device, dtype=torch.float32)
+        # NOTE: vae right now only accepts float32
         latents = self.vae.encode(
             images)['latent_dist'].mean * self.vae.config.scaling_factor
         return latents
@@ -447,21 +459,6 @@ class Pose2VideoPipeline(DiffusionPipeline):
 
         batch_size = 1
 
-        # Prepare clip image embeds
-        # clip_image = self.clip_image_processor.preprocess(
-        #     ref_image.resize((224, 224)), return_tensors="pt"
-        # ).pixel_values
-        # clip_image_embeds = self.image_encoder(
-        #     clip_image.to(device, dtype=self.image_encoder.dtype)
-        # ).image_embeds
-        # encoder_hidden_states = clip_image_embeds.unsqueeze(1)
-        # uncond_encoder_hidden_states = torch.zeros_like(encoder_hidden_states)
-
-        # if do_classifier_free_guidance:
-        #     encoder_hidden_states = torch.cat(
-        #         [uncond_encoder_hidden_states, encoder_hidden_states], dim=0
-        #     )
-
         reference_control_writer = ReferenceAttentionControl(
             reference_encoder,
             do_classifier_free_guidance=do_classifier_free_guidance,
@@ -481,6 +478,7 @@ class Pose2VideoPipeline(DiffusionPipeline):
             prompt, device, context_frames, do_classifier_free_guidance, negative_prompt,
         )
 
+        text_embeddings = text_embeddings.to(torch.float16)
         text_embeddings = torch.cat([text_embeddings])
 
         num_channels_latents = self.denoising_unet.in_channels
@@ -490,14 +488,17 @@ class Pose2VideoPipeline(DiffusionPipeline):
             width,
             height,
             video_length,
-            text_embeddings.dtype,
+            # text_embeddings.dtype,
+            torch.float16,
             device,
             generator,
         )
 
         # Prepare extra step kwargs.
         extra_step_kwargs = self.prepare_extra_step_kwargs(generator, eta)
-        latents_dtype = latents.dtype
+
+        # latents_dtype = latents.dtype
+        latents_dtype = torch.float32
 
         if isinstance(ref_image, str):
             ref_image_latents = self.images2latents(np.array(Image.open(ref_image).resize((width, height))),
@@ -509,33 +510,16 @@ class Pose2VideoPipeline(DiffusionPipeline):
             ref_image_latents = self.images2latents(
                 ref_image, latents_dtype).cuda()
 
-        ref_padding_latents = torch.ones_like(ref_image_latents) * -1
-        ref_image_latents = torch.cat(
-            [ref_padding_latents, ref_image_latents]) if do_classifier_free_guidance else ref_image_latents
+        if do_classifier_free_guidance:
+            ref_padding_latents = torch.ones_like(ref_image_latents) * -1
+            ref_image_latents = torch.cat(
+                [ref_padding_latents, ref_image_latents])
 
-        # Prepare ref image latents
-        # ref_image_tensor = self.ref_image_processor.preprocess(
-        #     ref_image, height=height, width=width
-        # )  # (bs, c, width, height)
-        # ref_image_tensor = ref_image_tensor.to(
-        #     dtype=self.vae.dtype, device=self.vae.device
-        # )
-        # ref_image_latents = self.vae.encode(ref_image_tensor).latent_dist.mean
-        # ref_image_latents = ref_image_latents * 0.18215  # (b, 4, h, w)
-
-        # Prepare a list of pose condition images
-        # pose_cond_tensor_list = []
-        # for pose_image in pose_images:
-        #     pose_cond_tensor = self.cond_image_processor.preprocess(
-        #         pose_image, height=height, width=width
-        #     )
-        #     pose_cond_tensor = pose_cond_tensor.unsqueeze(2)  # (bs, c, 1, h, w)
-        #     pose_cond_tensor_list.append(pose_cond_tensor)
-        # pose_cond_tensor = torch.cat(pose_cond_tensor_list, dim=2)  # (bs, c, t, h, w)
-        # pose_cond_tensor = pose_cond_tensor.to(
-        #     device=device, dtype=self.pose_guider.dtype
-        # )
-        # pose_fea = self.pose_guider(pose_cond_tensor)
+        latents = latents.to(self.denoising_unet.dtype)
+        ref_image_latents = ref_image_latents.to(self.denoising_unet.dtype)
+        text_embeddings = text_embeddings.to(self.denoising_unet.dtype)
+        text_embeddings_ref = text_embeddings.clone()[[0, -1], :, :].to(reference_encoder.dtype)
+        control = control.to(self.denoising_unet.dtype)
 
         context_scheduler = get_context_scheduler(context_schedule)
 
@@ -552,143 +536,120 @@ class Pose2VideoPipeline(DiffusionPipeline):
         # denoising loop
         num_warmup_steps = len(timesteps) - \
             num_inference_steps * self.scheduler.order
+
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
+                # Initialize noise prediction and counters in U-Net dtype
                 noise_pred = torch.zeros(
-                    (
-                        latents.shape[0] *
-                        (2 if do_classifier_free_guidance else 1),
-                        *latents.shape[1:],
-                    ),
+                    (latents.shape[0] * (2 if do_classifier_free_guidance else 1),
+                     *latents.shape[1:]),
                     device=latents.device,
-                    dtype=latents.dtype,
+                    dtype=self.denoising_unet.dtype
                 )
                 counter = torch.zeros(
                     (1, 1, latents.shape[2], 1, 1),
                     device=latents.device,
-                    dtype=latents.dtype,
+                    dtype=self.denoising_unet.dtype
                 )
 
-                # 1. Forward reference image
-                # if i == 0:
-                #     self.reference_unet(
-                #         ref_image_latents.repeat(
-                #             (2 if do_classifier_free_guidance else 1), 1, 1, 1
-                #         ),
-                #         torch.zeros_like(t),
-                #         # t,
-                #         encoder_hidden_states=encoder_hidden_states,
-                #         return_dict=False,
-                #     )
-                #     reference_control_reader.update(reference_control_writer)
-
-                # if i == 0:
-
-                ref_latents_input = ref_image_latents
+                # Forward reference encoder in U-Net dtype
                 reference_encoder(
-                    ref_latents_input,
+                    ref_image_latents,
                     t,
-                    encoder_hidden_states=text_embeddings[[0, -1], :, :],
-                    return_dict=False,
+                    encoder_hidden_states=text_embeddings_ref,
+                    return_dict=False
                 )
                 reference_control_reader.update(reference_control_writer)
 
-                context_queue = list(
-                    context_scheduler(
-                        0,
-                        num_inference_steps,
-                        latents.shape[2],
-                        context_frames,
-                        context_stride,
-                        0,
-                    )
-                )
+                # Context scheduling
+                context_queue = list(context_scheduler(
+                    0, num_inference_steps, latents.shape[2], context_frames, context_stride, context_overlap
+                ))
                 num_context_batches = math.ceil(
                     len(context_queue) / context_batch_size)
 
-                context_queue = list(
-                    context_scheduler(
-                        0,
-                        num_inference_steps,
-                        latents.shape[2],
-                        context_frames,
-                        context_stride,
-                        context_overlap,
-                    )
-                )
-
-                num_context_batches = math.ceil(
-                    len(context_queue) / context_batch_size)
-                global_context = []
-                for i in range(num_context_batches):
-                    global_context.append(
-                        context_queue[
-                            i * context_batch_size: (i + 1) * context_batch_size
-                        ]
-                    )
+                global_context = [
+                    context_queue[i *
+                                  context_batch_size:(i + 1) * context_batch_size]
+                    for i in range(num_context_batches)
+                ]
 
                 for context in global_context:
-                    # 3.1 expand the latents if we are doing classifier free guidance
-                    latent_model_input = (
-                        torch.cat([latents[:, :, c] for c in context])
-                        .to(device)
-                        .repeat(2 if do_classifier_free_guidance else 1, 1, 1, 1, 1)
+                    # Gather context latents
+                    latent_model_input = torch.cat(
+                        [latents[:, :, c] for c in context])
+                    latent_model_input = latent_model_input.repeat(
+                        2 if do_classifier_free_guidance else 1, 1, 1, 1, 1
                     )
+                    latent_model_input = latent_model_input.to(
+                        self.denoising_unet.dtype)
                     latent_model_input = self.scheduler.scale_model_input(
-                        latent_model_input, t
-                    )
-                    b, c, f, h, w = latent_model_input.shape
-                    # latent_pose_input = torch.cat(
-                    #     [pose_fea[:, :, c] for c in context]
-                    # ).repeat(2 if do_classifier_free_guidance else 1, 1, 1, 1, 1)
-                    # Add_time_ids = torch.cat(add_time_ids[c,:].unsqueeze(0))
+                        latent_model_input, t)
+
+                    # Compute time embeddings for conditioning
                     add_time_ids = self._get_add_time_ids(
-                        noise_aug_strength, x[context[0]], y[context[0]], do_classifier_free_guidance)
-                    noisy_latents_control = rearrange(
-                        latent_model_input, "b c f h w -> (b f) c h w"
+                        noise_aug_strength, x[context[0]
+                                              ], y[context[0]], do_classifier_free_guidance
                     )
 
+                    # Flatten for ControlNet
+                    noisy_latents_control = rearrange(
+                        latent_model_input, "b c f h w -> (b f) c h w")
+                    noisy_latents_control = noisy_latents_control.to(
+                        self.denoising_unet.dtype)
+                    text_embeddings_control = text_embeddings.to(
+                        self.denoising_unet.dtype)
+                    control = control.to(self.denoising_unet.dtype)
+
+                    # ControlNet forward
                     down_block_res_samples, mid_block_res_sample = self.controlnet(
-                        noisy_latents_control,
-                        t,
-                        encoder_hidden_states=text_embeddings,
+                        noisy_latents_control, t,
+                        encoder_hidden_states=text_embeddings_control,
                         controlnet_cond=control,
                         return_dict=False,
-                        add_time_ids=add_time_ids,
+                        add_time_ids=add_time_ids
                     )
-                    down_block_res_samples = [
-                        sample * controlnet_conditioning_scale for sample in down_block_res_samples]
-                    mid_block_res_sample = mid_block_res_sample * controlnet_conditioning_scale
 
+                    # Scale residuals after dtype conversion
+                    down_block_res_samples = [
+                        r.to(self.denoising_unet.dtype) *
+                        controlnet_conditioning_scale
+                        for r in down_block_res_samples
+                    ]
+                    mid_block_res_sample = mid_block_res_sample.to(
+                        self.denoising_unet.dtype) * controlnet_conditioning_scale
+
+                    # U-Net forward
                     pred = self.denoising_unet(
                         latent_model_input,
                         t,
                         encoder_hidden_states=text_embeddings,
                         down_block_additional_residuals=down_block_res_samples,
                         mid_block_additional_residual=mid_block_res_sample,
-                        return_dict=False,
+                        return_dict=False
                     )[0]
 
+                    # Aggregate predictions
                     for j, c in enumerate(context):
-                        noise_pred[:, :, c] = noise_pred[:, :, c] + pred
-                        counter[:, :, c] = counter[:, :, c] + 1
+                        noise_pred[:, :, c] += pred
+                        counter[:, :, c] += 1
 
-                # perform guidance
+                # Classifier-free guidance
                 if do_classifier_free_guidance:
                     noise_pred_uncond, noise_pred_text = (
                         noise_pred / counter).chunk(2)
-                    noise_pred = noise_pred_uncond + guidance_scale * (
-                        noise_pred_text - noise_pred_uncond
-                    )
+                    noise_pred = noise_pred_uncond + guidance_scale * \
+                        (noise_pred_text - noise_pred_uncond)
+                else:
+                    noise_pred = noise_pred / counter
 
+                # Scheduler step
                 latents = self.scheduler.step(
                     noise_pred, t, latents, **extra_step_kwargs
                 ).prev_sample
 
-                if i == len(timesteps) - 1 or (
-                    (i + 1) > num_warmup_steps and (i +
-                                                    1) % self.scheduler.order == 0
-                ):
+                # Update progress
+                if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
                     progress_bar.update()
                     if callback is not None and i % callback_steps == 0:
                         step_idx = i // getattr(self.scheduler, "order", 1)
@@ -697,11 +658,9 @@ class Pose2VideoPipeline(DiffusionPipeline):
                 reference_control_reader.clear()
                 reference_control_writer.clear()
 
-        if interpolation_factor > 0:
-            latents = self.interpolate_latents(
-                latents, interpolation_factor, device)
-        # Post-processing
-        images = self.decode_latents(latents)  # (b, c, f, h, w)
+# Decode latents in float32 for final image
+        latents = latents.to(torch.float32)
+        images = self.decode_latents(latents)
 
         # Convert to tensor
         if output_type == "tensor":
@@ -1168,7 +1127,8 @@ class Pose2VideoPipeline2(DiffusionPipeline):
             width,
             height,
             video_length,
-            text_embeddings.dtype,
+            # text_embeddings.dtype,
+            torch.float16,
             device,
             generator,
         )
@@ -2619,11 +2579,12 @@ class Pose2VideoPipeline_controlnet_with_temporal(DiffusionPipeline):
                 #     reference_control_reader.update(reference_control_writer)
 
                 # if i == 0:
-                ref_latents_input = ref_image_latents
+                ref_latents_input = ref_image_latents.to(torch.float32)
                 reference_encoder(
                     ref_latents_input,
                     t,
-                    encoder_hidden_states=text_embeddings[[0, -1], :, :],
+                    encoder_hidden_states=text_embeddings[[
+                        0, -1], :, :].to(torch.float32),
                     return_dict=False,
                 )
                 reference_control_reader.update(reference_control_writer)

@@ -219,5 +219,6 @@ downloaded_celebvhq/
 driving_images/
 reference_images/
 generated_images/
+debug_images/
 *.rar
 *.pt

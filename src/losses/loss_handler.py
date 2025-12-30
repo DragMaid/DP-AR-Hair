@@ -33,14 +33,14 @@ class LossHandler:
         # Loss weights from config
         self.weights = pco.training.loss
 
-    @torch.cuda.amp.autocast()
-    def compute_generator_losses(self, I_d, I_p, m_c, m_f, discriminator):
+    # TODO: change this for non cuda run tests
+    def compute_generator_losses(self, I_d, I_p_detached, m_c, m_f, discriminator):
         """
         Compute all generator losses.
 
         Args:
             I_d: destination image (B, C, H, W)
-            I_p: prediction (B, C, H, W)
+            I_p_detached: prediction (B, C, H, W)
             m_c: Hair mask (B, 1, H, W)
             m_f: Non hair mask (B, 1, H, W)
             discriminator: discriminator network (for adversarial loss)
@@ -55,17 +55,19 @@ class LossHandler:
                 a_gen_loss: adversarial loss for generator
         """
         # Perceptual loss
-        p_loss = self.L_p(self.normalize(I_p), self.normalize(I_d))
+        with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):
+            p_loss = self.L_p(self.normalize(
+                I_p_detached), self.normalize(I_d))
 
         # Local losses
-        h_loss = self.L_hair(m_c, I_d, I_p)
-        f_loss = self.L_face(m_f, I_d, I_p)
+        h_loss = self.L_hair(m_c, I_d, I_p_detached)
+        f_loss = self.L_face(m_f, I_d, I_p_detached)
 
         # Global reconstruction
-        g_loss = self.L_global(I_d, I_p)
+        g_loss = self.L_global(I_d, I_p_detached)
 
         # Adversarial loss (generator tries to fool discriminator)
-        pred_fake = discriminator(I_p)
+        pred_fake = discriminator(I_p_detached)
         target_real = torch.ones_like(pred_fake)
         a_gen_loss = self.disc_criterion(pred_fake, target_real)
 
@@ -104,8 +106,9 @@ class LossHandler:
         target_real = torch.ones_like(pred_real)
         loss_real = self.disc_criterion(pred_real, target_real)
 
+        # Make sure that I_p is detached first
         # Fake images should be classified as 0
-        pred_fake = discriminator(I_p.detach())
+        pred_fake = discriminator(I_p)
         target_fake = torch.zeros_like(pred_fake)
         loss_fake = self.disc_criterion(pred_fake, target_fake)
 

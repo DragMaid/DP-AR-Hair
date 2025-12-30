@@ -1,10 +1,11 @@
 # Loader
+Location: `src/loaders/loader.py`
 
 ## Purpose
 
-The `loader` module (`src/loaders/loader.py`) provides convenient, high-level functions to instantiate models registered in the local `ModelRegistry` and optionally load pretrained weights into them. It uses the registry to look up a model builder and parameter configuration, creates the model, and can fetch and load weights when requested.
+The `loader` module provides convenient, high-level functions to instantiate models registered in the local `ModelRegistry` and optionally load pretrained weights into them. It uses the registry to look up a model builder and parameter configuration, creates the model, and can fetch and load weights when requested.
 
-## Public API
+## Usage
 
 - `load_models(name: str, pretrained: bool = False)`
   - `name` (str): alias or key for a registered model (see `ModelRegistry` in `registry.py`).

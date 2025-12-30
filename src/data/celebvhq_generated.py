@@ -7,7 +7,7 @@ class CelebVHQGeneratedDataset(_CelebVHQBase):
     Optimized Dataset for:
       - driving_images/{id}_frontal.jpg
       - driving_images/{id}_side.jpg
-      - reference_images/{id}_generated.*
+      - generated_images/{id}_generated.*
 
     Returns:
       {
@@ -56,9 +56,9 @@ class CelebVHQGeneratedDataset(_CelebVHQBase):
         generated = self._apply(self._load_image(sample["generated"]))
 
         return {
-            "front": front,
-            "side": side,
-            "generated": generated
+            "front": {"path": str(sample["front"]), "content": front},
+            "side": {"path": str(sample["side"]), "content": side},
+            "reference": {"path": str(sample["generated"]), "content": generated},
         }
 
 

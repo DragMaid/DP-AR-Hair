@@ -26,6 +26,7 @@ class DiscriminatorConfig(BaseModel):
 class TrainingConfig(BaseModel):
     epoch_num: int
     batch_size: int
+    mini_batch_size: int
     loss: LossConfig
     discriminator: DiscriminatorConfig
     generator: GeneratorConfig

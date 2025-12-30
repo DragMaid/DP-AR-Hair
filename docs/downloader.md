@@ -1,10 +1,11 @@
 # Downloader
+Location: `src/loaders/downloader.py`
 
-## Purpose
+## Overview
 
-The `downloader` module (source: `src/loaders/downloader.py`) centralizes the logic used by the project to fetch remote weight files and place them into the local `weights/` directory tree. It provides a small mapping of downloader backends and a convenience function `download_weights` used by the higher-level loader utilities.
+The `downloader` module centralizes the logic used by the project to fetch remote weight files and place them into the local `weights/` directory tree. It provides a small mapping of downloader backends and a convenience function `download_weights` used by the higher-level loader utilities.
 
-## Public API
+## Usage
 
 - `download_weights(dtype, options) -> str`:
   - `dtype` (str): key for the downloader backend. Supported values in this repo: `hf_file`, `hf_folder`, `direct_link`.

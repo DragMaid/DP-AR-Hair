@@ -33,7 +33,7 @@ def discriminator():
 
 @pytest.fixture
 def losses():
-    return LossHandler("cpu")
+    return LossHandler(torch.device("cpu"))
 
 
 @pytest.mark.report_uss

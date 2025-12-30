@@ -49,9 +49,9 @@ class CelebVHQReferenceDataset(_CelebVHQBase):
         ref = self._apply(self._load_image(ref_path))
 
         return {
-            "front": front,
-            "side": side,
-            "reference": ref
+            "front": {"path": str(sample["front"]), "content": front},
+            "side": {"path": str(sample["side"]), "content": side},
+            "reference": {"path": str(ref_path), "content": ref},
         }
 
 

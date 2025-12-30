@@ -1,4 +1,5 @@
 # SPADE: Spatially-Adaptive Normalization
+Location: `src/models/spade.py`
 
 ## Overview
 

@@ -80,7 +80,6 @@ tokenizers = "0.20.1"
 transformers = "4.45.2"
 dlib = "^20.0.0"
 
-
 [tool.poetry.group.data]
 optional = true
 
@@ -88,6 +87,13 @@ optional = true
 tqdm = "4.66.2"
 sixdrepnet = "^0.1.6"
 yt-dlp = "^2025.11.12"
+
+[tool.poetry.group.dqs]
+optional = true
+
+[tool.poetry.group.dqs.dependencies]
+fastapi = "^0.128.0"
+psycopg2-binary = "^2.9.11"
 
 [tool.poetry.group.dev]
 optional = true

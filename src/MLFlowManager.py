@@ -5,9 +5,9 @@ class MLFlowManager:
     """
     Manages MLFlow experiment tracking.
     """
-    def __init__(self, config, experiment_name: str = "dp-hair-training"):
+    # TODO: Add config (if neccessary)
+    def __init__(self, experiment_name: str = "dp-hair-training"):
         self.experiment_name = experiment_name
-        self.cfg = config
         self._setup_mlflow()
         
     def _setup_mlflow(self):

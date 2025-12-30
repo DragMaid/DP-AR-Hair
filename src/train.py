@@ -9,6 +9,7 @@ from data.celebvhq_generated import CelebVHQGeneratedDataset
 from pipelines.training_pipeline import TrainingPipeline
 import torch.distributed as dist
 from configs.pipeline_config import pipeline_config as pco
+from MLFlowManager import MLFlowManager
 
 
 def get_args():
@@ -44,6 +45,7 @@ def get_args():
 
 
 def main():
+    mlflow_mananger = MLFlowManager()
     args = get_args()
 
     # TODO: allow user to select a specific device
@@ -122,6 +124,11 @@ def main():
                 {"avg_loss": f"{avg_loss:.4f}", "avg_disc": f"{avg_disc:.4f}"})
 
             # TODO: add mlfow logging here
+            mlflow_mananger.log_metrics({
+                **logs,
+                "avg_loss": avg_loss,
+                "avg_disc": avg_disc
+            })
 
         # epoch end — checkpoint
         if ((epoch + 1) % args.save_weight_every) == 0:

@@ -1,21 +1,27 @@
 import mlflow
 import logging
+from dataclasses import dataclass
+
+@dataclass
+class MLFlowConfig:
+    tracking_uri: str = "http://localhost:5000"
 
 class MLFlowManager:
     """
     Manages MLFlow experiment tracking.
     """
-    # TODO: Add config (if neccessary)
-    def __init__(self, experiment_name: str = "dp-hair-training"):
+    
+    def __init__(self, config: MLFlowConfig, experiment_name: str = "dp-hair-training"):
         self.experiment_name = experiment_name
+        self.config = config
         self._setup_mlflow()
         
     def _setup_mlflow(self):
         """Configure MLFlow tracking URI and experiment."""
-        url = "http://localhost:5000"
-        mlflow.set_tracking_uri(url)
+        uri = self.config.tracking_uri
+        mlflow.set_tracking_uri(uri)
         mlflow.set_experiment(self.experiment_name)
-        logging.info(f"Server is running at {url}")
+        logging.info(f"Server is running at {uri}")
         
     def start_run(self):
         """Start MLflow and launch UI."""

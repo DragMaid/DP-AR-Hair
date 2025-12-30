@@ -9,7 +9,7 @@ from data.celebvhq_generated import CelebVHQGeneratedDataset
 from pipelines.training_pipeline import TrainingPipeline
 import torch.distributed as dist
 from configs.pipeline_config import pipeline_config as pco
-from MLFlowManager import MLFlowManager
+from MLFlowManager import MLFlowManager, MLFlowConfig
 
 
 def get_args():
@@ -45,7 +45,10 @@ def get_args():
 
 
 def main():
-    mlflow_mananger = MLFlowManager()
+    # TODO: Add the proper URL instead of the default localhost:5000
+    mlflow_config = MLFlowConfig()
+    
+    mlflow_mananger = MLFlowManager(mlflow_config)
     args = get_args()
 
     # TODO: allow user to select a specific device

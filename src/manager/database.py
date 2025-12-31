@@ -4,7 +4,7 @@ import psycopg2.extras
 import logging
 from dotenv import load_dotenv
 from contextlib import contextmanager
-from typing import Optional
+from typing import Optional, List
 from enum import Enum
 from datetime import datetime
 import manager.seed as seeder
@@ -13,11 +13,16 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 
-class ProcessingStatus(str, Enum):
-    PENDING = "pending"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
+class AssignmentStatus(str, Enum):
     FAILED = "failed"
+    SUCCEED = "succeed"
+    PROCESSING = "processing"
+
+
+class TaskStatus(str, Enum):
+    COMPLETED = "completed"
+    PROCESSING = "processing"
+    PENDING = "pending"
 
 
 def get_connection():
@@ -73,31 +78,43 @@ def seed_all():
         raise
 
 
-def list_tasks(limit=100):
+def list_tasks(
+    status: Optional[List[TaskStatus]],
+    limit: int = 100
+):
     try:
         with get_cursor(dict_cursor=True) as cur:
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT *
                 FROM tasks_ordered
-                ORDER BY priority, created_at
+                WHERE (
+                    %s IS NULL
+                    OR status = ANY(%s::task_status[])
+                )
+                ORDER BY priority DESC, created_at ASC
                 LIMIT %s
-            """, (limit,))
-            task = cur.fetchall()
-            return task
+                """, (status, status, limit,),
+            )
+            return cur.fetchall()
 
     except Exception as e:
         logger.error(f"Error getting tasks: {e}")
         raise
 
 
-def list_workers(limit=100):
+def list_workers(
+        email: Optional[str],
+        limit: int = 100
+):
     try:
         with get_cursor(dict_cursor=True) as cur:
             cur.execute("""
                 SELECT *
                 FROM workers
+                WHERE (%s IS NULL OR email = %s)
                 LIMIT %s
-            """, (limit,))
+            """, (email, email, limit,))
             task = cur.fetchall()
             return task
 
@@ -106,16 +123,23 @@ def list_workers(limit=100):
         raise
 
 
-def list_assignments(limit=100):
+def list_assignments(
+    status: Optional[List[AssignmentStatus]],
+    limit: int = 100
+):
     try:
         with get_cursor(dict_cursor=True) as cur:
             cur.execute("""
                 SELECT *
-                FROM assignments_ordered a JOIN tasks_ordered t
-                ON a.task_id = t.id
-                ORDER BY a.status_rank, t.priority
+                FROM assignments_ordered a
+                JOIN tasks_ordered t ON a.task_id = t.id
+                WHERE (
+                    %s IS NULL
+                    OR a.status = ANY(%s::assignment_status[])
+                )
+                ORDER BY a.status_rank, t.priority DESC, a.created_at ASC
                 LIMIT %s
-            """, (limit,))
+            """, (status, status, limit,))
             assignments = cur.fetchall()
             return assignments
     except Exception as e:
@@ -123,7 +147,7 @@ def list_assignments(limit=100):
         raise
 
 
-def get_task(worker_id: str) -> Optional[str]:
+def claim_task(worker_id: str) -> Optional[str]:
     try:
         with get_cursor(dict_cursor=True) as cur:
             cur.execute("""
@@ -154,10 +178,14 @@ def get_task(worker_id: str) -> Optional[str]:
         raise
 
 
-def update_task(assignment_id: str, status: ProcessingStatus) -> None:
+def update_task(
+    assignment_id: str,
+    status: AssignmentStatus,
+    log: str
+) -> None:
     try:
         with get_cursor(dict_cursor=True) as cur:
-            if status == ProcessingStatus.FAILED:
+            if status == AssignmentStatus.FAILED:
                 cur.execute("""
                     UPDATE tasks
                     SET status='pending', completed_at=%s
@@ -175,6 +203,12 @@ def update_task(assignment_id: str, status: ProcessingStatus) -> None:
                         FROM assignments
                         WHERE id = %s)
                     """, (status, assignment_id,))
+            cur.execute("""
+                UPDATE assignments
+                SET status=%s, completed_at=%s, logs=%s
+                WHERE id=assignment_id;
+            """, (str(status), datetime.now(), log))
+
     except Exception as e:
         logger.error(f"Error updating task: {e}")
         cur.rollback()

@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from typing import Optional
 from enum import Enum
 from datetime import datetime
-import manager.utils as utils
+import manager.seed as seeder
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -61,11 +61,16 @@ def get_cursor(commit: bool = True, dict_cursor: bool = False) -> None:
 
 
 def seed_all():
-    with get_cursor(dict_cursor=True) as cur:
-        utils.seed_images(cur)
-        utils.seed_workers(cur)
-        utils.seed_tasks(cur)
-        utils.seed_assignments(cur)
+    try:
+        with get_cursor(dict_cursor=True) as cur:
+            seeder.seed_images(cur)
+            seeder.seed_workers(cur)
+            seeder.seed_tasks(cur)
+            seeder.seed_assignments(cur)
+    except Exception as e:
+        logger.error(f"Error seeding databases: {e}")
+        cur.rollback()
+        raise
 
 
 def list_tasks(limit=100):
@@ -73,8 +78,7 @@ def list_tasks(limit=100):
         with get_cursor(dict_cursor=True) as cur:
             cur.execute("""
                 SELECT *
-                FROM tasks
-                WHERE status = 'pending'
+                FROM tasks_ordered
                 ORDER BY priority, created_at
                 LIMIT %s
             """, (limit,))
@@ -107,11 +111,9 @@ def list_assignments(limit=100):
         with get_cursor(dict_cursor=True) as cur:
             cur.execute("""
                 SELECT *
-                FROM assignemnts a JOIN tasks t
+                FROM assignments_ordered a JOIN tasks_ordered t
                 ON a.task_id = t.id
-                ORDER BY
-                FIELD(t.status, 'processing', 'failed',
-                      'pending', 'failed'), t.priority
+                ORDER BY a.status_rank, t.priority
                 LIMIT %s
             """, (limit,))
             assignments = cur.fetchall()
@@ -140,7 +142,7 @@ def get_task(worker_id: str) -> Optional[str]:
                 )
                 cur.execute("""
                     INSERT INTO assignments(worker_id, task_id)
-                    VALUES ( % s, % s)
+                    VALUES (%s, %s)
                     RETURNING id
                 """, (worker_id, task["id"],))
                 assignment_id = cur.fetch_bone()
@@ -158,12 +160,12 @@ def update_task(assignment_id: str, status: ProcessingStatus) -> None:
             if status == ProcessingStatus.FAILED:
                 cur.execute("""
                     UPDATE tasks
-                    SET status='pending', completed_at=% s
+                    SET status='pending', completed_at=%s
                     WHERE id=(
                         SELECT task_id
                         FROM assignments
-                        WHERE id=% s
-                    )""", (datetime.now(), assignment_id,))
+                        WHERE id=%s)
+                    """, (datetime.now(), assignment_id,))
             else:
                 cur.execute("""
                     UPDATE tasks
@@ -171,9 +173,13 @@ def update_task(assignment_id: str, status: ProcessingStatus) -> None:
                     WHERE id=(
                         SELECT task_id
                         FROM assignments
-                        WHERE id = %s
-                    )""", (status, assignment_id,))
+                        WHERE id = %s)
+                    """, (status, assignment_id,))
     except Exception as e:
         logger.error(f"Error updating task: {e}")
         cur.rollback()
         raise
+
+
+if __name__ == "__main__":
+    seed_all()

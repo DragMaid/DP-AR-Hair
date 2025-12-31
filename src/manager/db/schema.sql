@@ -1,0 +1,278 @@
+\restrict SQkeCL0jRtd42bW1AQyAvlfxhkVSxYOYCVbQHuZb0kXWIyHfPyGQRFYltNXYZOI
+
+-- Dumped from database version 16.11
+-- Dumped by pg_dump version 17.6
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: assignment_status; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.assignment_status AS ENUM (
+    'succeed',
+    'processing',
+    'failed'
+);
+
+
+--
+-- Name: task_status; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.task_status AS ENUM (
+    'pending',
+    'processing',
+    'completed'
+);
+
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: assignments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.assignments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    task_id uuid,
+    worker_id uuid,
+    status public.assignment_status DEFAULT 'processing'::public.assignment_status,
+    logs text,
+    created_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: assignments_ordered; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.assignments_ordered AS
+ SELECT id,
+    task_id,
+    worker_id,
+    status,
+    logs,
+    created_at,
+        CASE status
+            WHEN 'processing'::public.assignment_status THEN 1
+            WHEN 'failed'::public.assignment_status THEN 2
+            WHEN 'succeed'::public.assignment_status THEN 3
+            ELSE NULL::integer
+        END AS status_rank
+   FROM public.assignments;
+
+
+--
+-- Name: images; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.images (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    file_path text NOT NULL,
+    created_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.schema_migrations (
+    version character varying NOT NULL
+);
+
+
+--
+-- Name: tasks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tasks (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    driving_image_id uuid,
+    reference_image_id uuid,
+    result_path text NOT NULL,
+    retry_count integer DEFAULT 0,
+    priority integer DEFAULT 0,
+    status public.task_status DEFAULT 'pending'::public.task_status,
+    created_at timestamp without time zone DEFAULT now(),
+    completed_at timestamp without time zone
+);
+
+
+--
+-- Name: tasks_ordered; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.tasks_ordered AS
+ SELECT id,
+    driving_image_id,
+    reference_image_id,
+    result_path,
+    retry_count,
+    priority,
+    status,
+    created_at,
+    completed_at,
+        CASE status
+            WHEN 'processing'::public.task_status THEN 1
+            WHEN 'pending'::public.task_status THEN 2
+            WHEN 'completed'::public.task_status THEN 3
+            ELSE NULL::integer
+        END AS status_rank
+   FROM public.tasks;
+
+
+--
+-- Name: workers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.workers (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    email text NOT NULL,
+    created_at timestamp without time zone DEFAULT now()
+);
+
+
+--
+-- Name: assignments assignments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assignments
+    ADD CONSTRAINT assignments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: images images_file_path_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.images
+    ADD CONSTRAINT images_file_path_key UNIQUE (file_path);
+
+
+--
+-- Name: images images_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.images
+    ADD CONSTRAINT images_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.schema_migrations
+    ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: tasks tasks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tasks
+    ADD CONSTRAINT tasks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: tasks tasks_result_path_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tasks
+    ADD CONSTRAINT tasks_result_path_key UNIQUE (result_path);
+
+
+--
+-- Name: workers workers_email_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.workers
+    ADD CONSTRAINT workers_email_key UNIQUE (email);
+
+
+--
+-- Name: workers workers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.workers
+    ADD CONSTRAINT workers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idx_task_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_task_id ON public.tasks USING btree (id);
+
+
+--
+-- Name: idx_task_priority; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_task_priority ON public.tasks USING btree (priority DESC);
+
+
+--
+-- Name: idx_task_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_task_status ON public.tasks USING btree (status);
+
+
+--
+-- Name: assignments assignments_task_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assignments
+    ADD CONSTRAINT assignments_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id) ON DELETE CASCADE;
+
+
+--
+-- Name: assignments assignments_worker_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assignments
+    ADD CONSTRAINT assignments_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.workers(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tasks tasks_driving_image_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tasks
+    ADD CONSTRAINT tasks_driving_image_id_fkey FOREIGN KEY (driving_image_id) REFERENCES public.images(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tasks tasks_reference_image_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tasks
+    ADD CONSTRAINT tasks_reference_image_id_fkey FOREIGN KEY (reference_image_id) REFERENCES public.images(id) ON DELETE CASCADE;
+
+
+--
+-- PostgreSQL database dump complete
+--
+
+\unrestrict SQkeCL0jRtd42bW1AQyAvlfxhkVSxYOYCVbQHuZb0kXWIyHfPyGQRFYltNXYZOI
+
+
+--
+-- Dbmate schema migrations
+--
+
+INSERT INTO public.schema_migrations (version) VALUES
+    ('20251231022416');

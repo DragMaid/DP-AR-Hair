@@ -4,7 +4,8 @@ from datetime import datetime, timedelta
 # Example file paths for images
 SAMPLE_IMAGE_PATHS = [f"/images/img_{i}.jpg" for i in range(1, 21)]
 SAMPLE_WORKER_EMAILS = [f"worker{i}@example.com" for i in range(1, 6)]
-TASK_STATUSES = ["pending", "processing", "completed", "failed"]
+TASK_STATUSES = ["pending", "processing", "completed"]
+ASSIGNMENT_STATUSES = ["succeed", "processing", "failed"]
 
 
 def seed_images(cursor, n=10):
@@ -73,13 +74,14 @@ def seed_assignments(cursor, n=10):
     for _ in range(n):
         task_id = random.choice(task_ids)
         worker_id = random.choice(worker_ids)
+        status = random.choice(ASSIGNMENT_STATUSES)
         logs = f"Assigned at {datetime.now()}"
 
         cursor.execute(
             """
-            INSERT INTO assignments (task_id, worker_id, logs)
-            VALUES (%s, %s, %s)
+            INSERT INTO assignments (task_id, worker_id, status, logs)
+            VALUES (%s, %s, %s, %s)
             """,
-            (task_id, worker_id, logs)
+            (task_id, worker_id, status, logs)
         )
     print(f"Seeded {n} assignments.")

@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 class AssignmentStatus(str, Enum):
     FAILED = "failed"
     SUCCEED = "succeed"
-    PROCESSING = "processing"
 
 
 def list_assignments(

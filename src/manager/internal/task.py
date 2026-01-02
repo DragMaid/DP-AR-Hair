@@ -84,27 +84,79 @@ def update_task(
             if status == AssignmentStatus.FAILED:
                 cur.execute("""
                     UPDATE tasks
-                    SET status = 'pending', completed_at = %s
+                    SET status = 'pending',  retry_count = retry_count + 1
+                    WHERE id = (
+                        SELECT task_id
+                        FROM assignments
+                        WHERE id = %s)
+                    """, (assignment_id,))
+            else:
+                cur.execute("""
+                    UPDATE tasks
+                    SET status = 'completed', completed_at = %s,
                     WHERE id = (
                         SELECT task_id
                         FROM assignments
                         WHERE id = %s)
                     """, (datetime.now(), assignment_id,))
-            else:
-                cur.execute("""
-                    UPDATE tasks
-                    SET status = %s, retry_count = retry_count + 1
-                    WHERE id=(
-                        SELECT task_id
-                        FROM assignments
-                        WHERE id = %s)
-                    """, (status, assignment_id,))
+
             cur.execute("""
-                UPDATE assignments
-                SET status = %s, completed_at = %s, logs = %s
-                WHERE id=assignment_id;
-            """, (str(status), datetime.now(), log))
+                INSERT INTO assignment_history (
+                    task_id,
+                    worker_id,
+                    status,
+                    log
+                )
+                SELECT
+                    task_id,
+                    worker_id,
+                    %s,
+                    %s
+                FROM assignments a
+                WHERE a.id = %s;
+            """, (status, log, assignment_id,))
+
+            cur.execute("""
+                DELETE FROM assignments
+                WHERE id = %s;
+            """, (assignment_id,))
 
     except Exception as e:
         logger.error(f"Error updating task: {e}")
+        raise
+
+
+def create_task(
+    drive_id: str,
+    ref_id: str,
+    path: str,
+    priority: int
+) -> None:
+    try:
+        with get_cursor(dict_cursor=True) as cur:
+            cur.execute("""
+                INSERT INTO tasks (
+                    driving_image_id,
+                    reference_image_id,
+                    result_path,
+                    priority
+                )
+                VALUES (%s, %s, %s, %s);
+            """, (drive_id, ref_id, path, priority,))
+    except Exception as e:
+        logger.error(f"Error adding task: {e}")
+        raise
+
+
+def delete_task(
+    task_id: str
+) -> None:
+    try:
+        with get_cursor(dict_cursor=True) as cur:
+            cur.execute("""
+                DELETE FROM tasks
+                WHERE id = %s;
+            """, (task_id,))
+    except Exception as e:
+        logger.error(f"Error adding task: {e}")
         raise

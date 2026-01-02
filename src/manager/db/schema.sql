@@ -1,4 +1,4 @@
-\restrict kykzU2yQ73ddmg5WeMkVi832VX2A8qg8x4xqxr08d8f8JVyLqJdquzXncczn1ZD
+\restrict rYL3exetc2NzC4q493ur585ufU7WmU3AAip6ggSWX8eHJ6g5LRBQf6cufFXruV3
 
 -- Dumped from database version 16.11
 -- Dumped by pg_dump version 17.6
@@ -35,8 +35,18 @@ COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
 
 CREATE TYPE public.assignment_status AS ENUM (
     'succeed',
-    'processing',
     'failed'
+);
+
+
+--
+-- Name: image_types; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.image_types AS ENUM (
+    'driving',
+    'reference',
+    'generated'
 );
 
 
@@ -66,6 +76,20 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: assignment_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.assignment_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    task_id uuid,
+    worker_id uuid,
+    status public.assignment_status NOT NULL,
+    created_at timestamp without time zone DEFAULT now(),
+    log text
+);
+
+
+--
 -- Name: assignments; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -73,30 +97,8 @@ CREATE TABLE public.assignments (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     task_id uuid,
     worker_id uuid,
-    status public.assignment_status DEFAULT 'processing'::public.assignment_status,
-    logs text,
     created_at timestamp without time zone DEFAULT now()
 );
-
-
---
--- Name: assignments_ordered; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW public.assignments_ordered AS
- SELECT id,
-    task_id,
-    worker_id,
-    status,
-    logs,
-    created_at,
-        CASE status
-            WHEN 'processing'::public.assignment_status THEN 1
-            WHEN 'failed'::public.assignment_status THEN 2
-            WHEN 'succeed'::public.assignment_status THEN 3
-            ELSE NULL::integer
-        END AS status_rank
-   FROM public.assignments;
 
 
 --
@@ -106,6 +108,7 @@ CREATE VIEW public.assignments_ordered AS
 CREATE TABLE public.images (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     file_path text NOT NULL,
+    type public.image_types NOT NULL,
     created_at timestamp without time zone DEFAULT now()
 );
 
@@ -173,19 +176,19 @@ CREATE TABLE public.users (
 
 
 --
+-- Name: assignment_history assignment_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assignment_history
+    ADD CONSTRAINT assignment_history_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: assignments assignments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.assignments
     ADD CONSTRAINT assignments_pkey PRIMARY KEY (id);
-
-
---
--- Name: images images_file_path_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.images
-    ADD CONSTRAINT images_file_path_key UNIQUE (file_path);
 
 
 --
@@ -213,11 +216,43 @@ ALTER TABLE ONLY public.tasks
 
 
 --
--- Name: tasks tasks_result_path_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: assignments unique_assignment_task_worker; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assignments
+    ADD CONSTRAINT unique_assignment_task_worker UNIQUE (task_id, worker_id);
+
+
+--
+-- Name: images unique_image_path; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.images
+    ADD CONSTRAINT unique_image_path UNIQUE (file_path);
+
+
+--
+-- Name: tasks unique_task_image_combination; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.tasks
-    ADD CONSTRAINT tasks_result_path_key UNIQUE (result_path);
+    ADD CONSTRAINT unique_task_image_combination UNIQUE (driving_image_id, reference_image_id);
+
+
+--
+-- Name: tasks unique_task_path; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tasks
+    ADD CONSTRAINT unique_task_path UNIQUE (result_path);
+
+
+--
+-- Name: users unique_username; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT unique_username UNIQUE (username);
 
 
 --
@@ -226,14 +261,6 @@ ALTER TABLE ONLY public.tasks
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (id);
-
-
---
--- Name: users users_username_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.users
-    ADD CONSTRAINT users_username_key UNIQUE (username);
 
 
 --
@@ -262,6 +289,22 @@ CREATE INDEX idx_task_status ON public.tasks USING btree (status);
 --
 
 CREATE INDEX idx_users_role ON public.users USING btree (role);
+
+
+--
+-- Name: assignment_history assignment_history_task_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assignment_history
+    ADD CONSTRAINT assignment_history_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id) ON DELETE CASCADE;
+
+
+--
+-- Name: assignment_history assignment_history_worker_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assignment_history
+    ADD CONSTRAINT assignment_history_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --
@@ -300,7 +343,7 @@ ALTER TABLE ONLY public.tasks
 -- PostgreSQL database dump complete
 --
 
-\unrestrict kykzU2yQ73ddmg5WeMkVi832VX2A8qg8x4xqxr08d8f8JVyLqJdquzXncczn1ZD
+\unrestrict rYL3exetc2NzC4q493ur585ufU7WmU3AAip6ggSWX8eHJ6g5LRBQf6cufFXruV3
 
 
 --
@@ -308,5 +351,4 @@ ALTER TABLE ONLY public.tasks
 --
 
 INSERT INTO public.schema_migrations (version) VALUES
-    ('20251231022416'),
-    ('20260101010655');
+    ('20251231022416');

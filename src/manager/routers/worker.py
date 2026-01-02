@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query
 from .response import ResponseModel
-from internal.worker import list_workers, create_worker
+from internal import worker as wapi
 from typing import Optional
 
 router = APIRouter(
@@ -15,24 +15,25 @@ def get_workers(
     email: Optional[str] = Query(default=None),
     limit: int = Query(default=100, ge=1, le=1000)
 ):
-    workers = list_workers(email, limit)
+    workers = wapi.list_workers(email, limit)
     return ResponseModel(data=workers)
 
 
 @router.post("/create", response_model=ResponseModel[str])
-def register_worker(email: str):
-    password = create_worker(email)
+def create_worker(email: str):
+    password = wapi.create_worker(email)
     return ResponseModel(data=password)
 
 
 @router.post("/delete")
 def delete_worker(worker_id: str):
-    pass
+    wapi.remove_worker(worker_id)
 
 
 @router.post("/reset")
-def reset_worker_account(worker_id: str):
-    pass
+def reset_worker_password(worker_id: str):
+    password = wapi.reset_worker_password(worker_id)
+    return ResponseModel(data=password)
 
 
 @router.post("/authenticate")

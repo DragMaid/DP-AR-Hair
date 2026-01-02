@@ -1,3 +1,4 @@
+import secrets
 import logging
 from typing import Optional
 from .connect import get_cursor
@@ -12,7 +13,7 @@ def list_workers(
     try:
         with get_cursor(dict_cursor=True) as cur:
             cur.execute("""
-                SELECT *
+                SELECT id, username, role, created_at
                 FROM users
                 WHERE (%s IS NULL OR username = %s)
                     AND role = 'worker'::user_roles
@@ -28,17 +29,13 @@ def list_workers(
 
 def create_worker(email: str) -> str:
     try:
-        with get_cursor(dict_cursor=True) as cur:
+        password = secrets.token_urlsafe(24)
+
+        with get_cursor(dict_cursor=False) as cur:
             cur.execute("""
-                WITH pwd AS (
-                    SELECT encode(gen_random_bytes(24), 'base64') AS password
-                )
-                INSERT INTO users (email, password_hash)
-                SELECT %s, crypt(pwd.password, gen_salt('bf', 12))
-                FROM pwd
-                RETURNING pwd.password;
-            """, (email,))
-            password = cur.fetchone()
+                INSERT INTO users (username, password_hash, role)
+                VALUES (%s, crypt(%s, gen_salt('bf', 12)), 'worker')
+            """, (email, password,))
             return password
     except Exception as e:
         logger.error(f"Error creating worker: {e}")
@@ -55,6 +52,22 @@ def remove_worker(worker_id: str) -> None:
             """, (worker_id,))
     except Exception as e:
         logger.error(f"Error removing worker: {e}")
+        raise
+
+
+def reset_worker_password(worker_id: str) -> str:
+    try:
+        password = secrets.token_urlsafe(24)
+
+        with get_cursor(dict_cursor=True) as cur:
+            cur.execute("""
+                UPDATE users
+                SET password_hash = crypt(%s, gen_salt('bf', 12))
+                WHERE id = %s
+            """, (password, worker_id,))
+            return password
+    except Exception as e:
+        logger.error(f"Error resetting worker account: {e}")
         raise
 
 

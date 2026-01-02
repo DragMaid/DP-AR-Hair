@@ -1,9 +1,7 @@
 import logging
 from enum import Enum
 from typing import Optional, List
-from datetime import datetime
 from .connect import get_cursor
-from .assignment import AssignmentStatus
 
 logger = logging.getLogger(__name__)
 
@@ -71,58 +69,6 @@ def claim_task(worker_id: str) -> Optional[str]:
 
     except Exception as e:
         logger.error(f"Error getting task: {e}")
-        raise
-
-
-def update_task(
-    assignment_id: str,
-    status: AssignmentStatus,
-    log: str
-) -> None:
-    try:
-        with get_cursor(dict_cursor=True) as cur:
-            if status == AssignmentStatus.FAILED:
-                cur.execute("""
-                    UPDATE tasks
-                    SET status = 'pending',  retry_count = retry_count + 1
-                    WHERE id = (
-                        SELECT task_id
-                        FROM assignments
-                        WHERE id = %s)
-                    """, (assignment_id,))
-            else:
-                cur.execute("""
-                    UPDATE tasks
-                    SET status = 'completed', completed_at = %s,
-                    WHERE id = (
-                        SELECT task_id
-                        FROM assignments
-                        WHERE id = %s)
-                    """, (datetime.now(), assignment_id,))
-
-            cur.execute("""
-                INSERT INTO assignment_history (
-                    task_id,
-                    worker_id,
-                    status,
-                    log
-                )
-                SELECT
-                    task_id,
-                    worker_id,
-                    %s,
-                    %s
-                FROM assignments a
-                WHERE a.id = %s;
-            """, (status, log, assignment_id,))
-
-            cur.execute("""
-                DELETE FROM assignments
-                WHERE id = %s;
-            """, (assignment_id,))
-
-    except Exception as e:
-        logger.error(f"Error updating task: {e}")
         raise
 
 

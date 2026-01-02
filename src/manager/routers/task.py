@@ -12,12 +12,6 @@ router = APIRouter(
 )
 
 
-class UpdateTaskBody(BaseModel):
-    assignment_id: str
-    status: tapi.AssignmentStatus
-    log: str
-
-
 class CreateTaskBody(BaseModel):
     drive_id: str
     ref_id: str
@@ -34,17 +28,7 @@ def get_tasks(
     return ResponseModel(data=tasks)
 
 
-# TODO: this way of error handling is very bad, will fix after training begins
-@router.post("/update")
-def update_task(body: UpdateTaskBody):
-    tapi.update_task(
-        body.assignment_id,
-        body.status,
-        body.log
-    )
-
-
-@router.get("/create")
+@router.post("/create")
 def create_task(body: CreateTaskBody):
     tapi.create_task(
         body.drive_id,

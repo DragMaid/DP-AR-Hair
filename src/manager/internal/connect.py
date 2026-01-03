@@ -1,13 +1,9 @@
 from typing import Iterator
-import os
 import psycopg2
 import psycopg2.extras
-from dotenv import load_dotenv
 from contextlib import contextmanager
 from core.exceptions import AppError
-
-load_dotenv()
-
+from core.config import settings
 
 def get_connection():
     """
@@ -16,11 +12,11 @@ def get_connection():
     """
     try:
         return psycopg2.connect(
-            dbname=os.getenv("POSTGRES_DB"),
-            user=os.getenv("POSTGRES_USER"),
-            password=os.getenv("POSTGRES_PASSWORD"),
-            host=os.getenv("POSTGRES_HOST", "localhost"),
-            port=os.getenv("POSTGRES_PORT", 5432),
+            dbname=settings.POSTGRES_DB,
+            user=settings.POSTGRES_USER,
+            password=settings.POSTGRES_PASSWORD,
+            host=settings.POSTGRES_HOST,
+            port=settings.POSTGRES_PORT,
         )
     except psycopg2.OperationalError as e:
         raise AppError("DB_CONNECTION_FAILED") from e

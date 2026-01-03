@@ -1,5 +1,4 @@
 from typing import Optional, List
-from psycopg2 import IntegrityError
 from .connect import get_cursor
 from schemas.task import TaskStatus
 from core.exceptions import AppError, wrap_errors

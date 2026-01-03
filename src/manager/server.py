@@ -16,3 +16,5 @@ app.include_router(assignment.router)
 app.include_router(auth.router)
 
 register_app_error_handler(app)
+
+# TODO: implement rate limiting

@@ -1,24 +1,32 @@
-import os
 import jwt
-import logging
 from fastapi import Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jwt import PyJWTError
 from datetime import datetime, timezone, timedelta
 from schemas.user import UserRoles
 from pydantic import BaseModel
 from core.exceptions import wrap_errors, AppError
-from dotenv import load_dotenv
+from core.config import settings
 from .connect import get_cursor
 
-# TODO: move config to a centralized config file
-load_dotenv()
-logger = logging.getLogger(__name__)
-SECRET_KEY = os.environ["SECRET_KEY"]
-ALGORITHM = os.environ["ALGORITHM"]
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 class TokenData(BaseModel):
     username: str
+
+
+@wrap_errors(default_code="AUTH_INTERNAL_ERROR")
+def extract_bearer_token(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)
+):
+    if credentials is None:
+        raise AppError("MISSING_AUTH_HEADER")
+
+    if credentials.scheme.lower() != "bearer":
+        raise AppError("INVALID_CREDENTIALS")
+
+    return credentials.credentials
 
 
 # TODO: I actually wants the tokens to both be long lived and sliding
@@ -27,7 +35,8 @@ def create_token(data: dict, expires_delta: timedelta):
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + expires_delta
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(
+        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
 
@@ -46,7 +55,7 @@ def get_user(username: str):
 
 
 @wrap_errors(default_code="AUTH_INTERNAL_ERROR")
-def get_current_user(token: str):
+def get_current_user(token: str = Depends(extract_bearer_token)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except PyJWTError:

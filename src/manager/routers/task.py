@@ -56,7 +56,6 @@ def delete_task(task_id: str):
     tapi.delete_task(task_id)
 
 
-# TODO: add all the dependencies
 @router.post("/claim", response_model=ClaimTaskResponse)
 def claim_task(
     worker_id: str,

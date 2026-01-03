@@ -114,6 +114,11 @@ ERRORS = {
         "status_code": 401,
         "headers": {"WWW-Authenticate": "Bearer"}
     },
+    "MISSING_AUTH_HEADER": {
+        "message": "Missing authentication header",
+        "status_code": 400,
+        "headers": {"WWW-Authenticate": "Bearer"}
+    },
 
     # External Service errors
     "EXTERNAL_API_FAIL": {

@@ -1,7 +1,7 @@
 import random
 import os
 from datetime import datetime, timedelta
-from .internal.connect import get_cursor
+from internal.connect import get_cursor
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -138,19 +138,18 @@ def seed_admin(cursor):
 
 
 def seed_all(cursor):
-    seed_images(cursor)
-    seed_workers(cursor)
-    seed_tasks(cursor)
-    seed_assignments(cursor)
+    seed_images(cursor, 20)
+    seed_workers(cursor, 1)
+    seed_tasks(cursor, 1)
+    seed_assignments(cursor, 1)
     seed_admin(cursor)
-    seed_assignment_history(cur)
+    seed_assignment_history(cur, 1)
 
 
 if __name__ == "__main__":
     try:
         with get_cursor(dict_cursor=True) as cur:
-            # seed_all(cur)
-            seed_assignment_history(cur)
+            seed_all(cur)
     except Exception as e:
         print(f"Error seeding databases: {e}")
         raise

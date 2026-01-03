@@ -34,8 +34,3 @@ def delete_worker(worker_id: str):
 def reset_worker_password(worker_id: str):
     password = wapi.reset_worker_password(worker_id)
     return ResponseModel(data=password)
-
-
-@router.post("/authenticate")
-def authenticate_worker(email: str, password: str):
-    pass

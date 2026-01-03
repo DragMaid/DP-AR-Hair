@@ -69,19 +69,3 @@ def reset_worker_password(worker_id: str) -> str:
     except Exception as e:
         logger.error(f"Error resetting worker account: {e}")
         raise
-
-
-def authenticate_worker(email: str, password: str):
-    try:
-        with get_cursor(dict_cursor=True) as cur:
-            cur.execute("""
-                SELECT id
-                FROM users
-                WHERE username = %s AND role = 'worker'::user_roles
-                    AND password_hash = crypt(%s, password_hash);
-            """, (email, password,))
-            id = cur.fetchone()
-            return id is not None
-    except Exception as e:
-        logger.error(f"Error authenticating worker: {e}")
-        raise

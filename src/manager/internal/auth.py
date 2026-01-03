@@ -1,13 +1,16 @@
 import os
 import jwt
 import logging
-from fastapi import HTTPException, status, Depends
-from jwt.exceptions import InvalidTokenError
+from fastapi import Depends
+from jwt import PyJWTError
 from datetime import datetime, timezone, timedelta
+from schemas.user import UserRoles
 from pydantic import BaseModel
+from core.exceptions import wrap_errors, AppError
 from dotenv import load_dotenv
 from .connect import get_cursor
 
+# TODO: move config to a centralized config file
 load_dotenv()
 logger = logging.getLogger(__name__)
 SECRET_KEY = os.environ["SECRET_KEY"]
@@ -19,6 +22,7 @@ class TokenData(BaseModel):
 
 
 # TODO: I actually wants the tokens to both be long lived and sliding
+@wrap_errors(default_code="TOKEN_CREATION_FAILED")
 def create_token(data: dict, expires_delta: timedelta):
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + expires_delta
@@ -27,74 +31,65 @@ def create_token(data: dict, expires_delta: timedelta):
     return encoded_jwt
 
 
+@wrap_errors(default_code="AUTH_INTERNAL_ERROR")
 def get_user(username: str):
-    try:
-        with get_cursor(dict_cursor=True) as cur:
-            cur.execute("""
-                SELECT id, username, role, created_at
-                FROM users
-                WHERE username = %s
-            """, (username,))
-            task = cur.fetchone()
-            return task
-
-    except Exception as e:
-        logger.error(f"Error getting users: {e}")
-        raise
+    with get_cursor(dict_cursor=True) as cur:
+        cur.execute("""
+            SELECT id, username, role, created_at
+            FROM users
+            WHERE username = %s
+        """, (username,))
+        user = cur.fetchone()
+        if not user:
+            raise AppError("USER_NOT_FOUND")
+        return user
 
 
+@wrap_errors(default_code="AUTH_INTERNAL_ERROR")
 def get_current_user(token: str):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-        token_data = TokenData(username=username)
-    except InvalidTokenError:
-        raise credentials_exception
-    user = get_user(username=token_data.username)
-    if user is None:
-        raise credentials_exception
-    return user
+    except PyJWTError:
+        raise AppError("INVALID_TOKEN")
 
+    username = payload.get("sub")
+    if not username:
+        raise AppError("INVALID_TOKEN")
 
-# TODO: move the type to somewhere more usable
-def require_worker(user=Depends(get_current_user)):
-    if user.role != "worker":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to perform this action",
-        )
-
-    return user
-
-
-def require_admin(user=Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to perform this action",
-        )
-
-    return user
-
-
-def authenticate_user(username: str, password: str, role: str):
     try:
-        with get_cursor(dict_cursor=True) as cur:
-            cur.execute("""
-                SELECT id, username, role, created_at
-                FROM users
-                WHERE username = %s AND role = %s::user_roles
-                    AND password_hash = crypt(%s, password_hash);
-            """, (username, role, password,))
-            user = cur.fetchone()
-            return user
-    except Exception as e:
-        logger.error(f"Error authenticating user: {e}")
+        user = get_user(username=username)
+    except AppError as e:
+        if e.code == "USER_NOT_FOUND":
+            raise AppError("INVALID_CREDENTIALS")
         raise
+
+    return user
+
+
+@wrap_errors(default_code="AUTH_INTERNAL_ERROR")
+def require_worker(user=Depends(get_current_user)):
+    if user.role != UserRoles.WORKER:
+        raise AppError("FORBIDDEN")
+    return user
+
+
+@wrap_errors(default_code="AUTH_INTERNAL_ERROR")
+def require_admin(user=Depends(get_current_user)):
+    if user.role != UserRoles.ADMIN:
+        raise AppError("FORBIDDEN")
+    return user
+
+
+@wrap_errors(default_code="AUTH_INTERNAL_ERROR")
+def authenticate_user(username: str, password: str, role: str):
+    with get_cursor(dict_cursor=True) as cur:
+        cur.execute("""
+            SELECT id, username, role, created_at
+            FROM users
+            WHERE username = %s AND role = %s::user_roles
+                AND password_hash = crypt(%s, password_hash);
+        """, (username, role, password,))
+        user = cur.fetchone()
+        if not user:
+            raise AppError("INVALID_CREDENTIALS")
+        return user

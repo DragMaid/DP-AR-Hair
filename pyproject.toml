@@ -96,7 +96,7 @@ fastapi = "^0.128.0"
 psycopg2-binary = "^2.9.11"
 uvicorn = "^0.40.0"
 dotenv = "^0.9.9"
-jwt = "^1.4.0"
+pyjwt = "^2.10.1"
 
 [tool.poetry.group.dev]
 optional = true

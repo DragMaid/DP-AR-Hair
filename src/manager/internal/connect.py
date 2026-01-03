@@ -4,6 +4,7 @@ import psycopg2
 import psycopg2.extras
 from dotenv import load_dotenv
 from contextlib import contextmanager
+from core.exceptions import AppError
 
 load_dotenv()
 
@@ -13,18 +14,20 @@ def get_connection():
     Create a new PostgreSQL connection.
     Caller is responsible for closing it.
     """
-    return psycopg2.connect(
-        dbname=os.getenv("POSTGRES_DB"),
-        user=os.getenv("POSTGRES_USER"),
-        password=os.getenv("POSTGRES_PASSWORD"),
-        host=os.getenv("POSTGRES_HOST", "localhost"),
-        port=os.getenv("POSTGRES_PORT", 5432),
-    )
+    try:
+        return psycopg2.connect(
+            dbname=os.getenv("POSTGRES_DB"),
+            user=os.getenv("POSTGRES_USER"),
+            password=os.getenv("POSTGRES_PASSWORD"),
+            host=os.getenv("POSTGRES_HOST", "localhost"),
+            port=os.getenv("POSTGRES_PORT", 5432),
+        )
+    except psycopg2.OperationalError as e:
+        raise AppError("DB_CONNECTION_FAILED") from e
 
 
 @contextmanager
 def get_cursor(
-    *,
     commit: bool = True,
     dict_cursor: bool = False,
 ) -> Iterator[psycopg2.extensions.cursor]:
@@ -37,21 +40,17 @@ def get_cursor(
     """
     conn = get_connection()
     cur = None
-
     try:
         cursor_factory = (
             psycopg2.extras.RealDictCursor if dict_cursor else None
         )
         cur = conn.cursor(cursor_factory=cursor_factory)
         yield cur
-
         if commit:
             conn.commit()
-
-    except Exception:
+    except psycopg2.DatabaseError as e:
         conn.rollback()
-        raise
-
+        raise AppError("DB_QUERY_FAILED") from e
     finally:
         if cur is not None:
             cur.close()

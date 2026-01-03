@@ -1,8 +1,13 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
 from pydantic import BaseModel
-from .response import ResponseModel
 from internal import assignment as aapi
-from typing import Optional, List
+from typing import Optional, List, Annotated
+from internal.auth import require_worker
+from schemas.assignment import (
+    AssignmentHistory,
+    Assignment,
+    AssignmentStatus
+)
 
 router = APIRouter(
     prefix="/assignments",
@@ -11,33 +16,38 @@ router = APIRouter(
 )
 
 
-class ReportAsignmentBody(BaseModel):
+class ReportAssignmentBody(BaseModel):
     assignment_id: str
-    status: aapi.AssignmentStatus
+    worker_id: str
+    status: AssignmentStatus
     log: str
 
 
-@router.get("/", response_model=ResponseModel[list])
+@router.get("/", response_model=List[Assignment])
 def get_assignments(
     limit: int = Query(default=100, ge=1, le=1000)
 ):
     assignments = aapi.list_assignments(limit)
-    return ResponseModel(data=assignments)
+    return [Assignment(**a) for a in assignments]
 
 
-@router.get("/history", response_model=ResponseModel[list])
+@router.get("/history", response_model=List[AssignmentHistory])
 def get_assignment_history(
     status: Optional[List[aapi.AssignmentStatus]] = Query(default=None),
     limit: int = Query(default=100, ge=1, le=1000)
 ):
-    assignment_history = aapi.list_assignment_history(status, limit)
-    return ResponseModel(data=assignment_history)
+    assignment_histories = aapi.list_assignment_history(status, limit)
+    return [AssignmentHistory(**ah) for ah in assignment_histories]
 
 
-@router.post("/report")
-def report_assignment(body: ReportAsignmentBody):
+@router.post("/report", status_code=204)
+def report_assignment(
+    body: ReportAssignmentBody,
+    _: Annotated[None, Depends(require_worker)]
+ ):
     aapi.report_assignment(
         body.assignment_id,
+        body.worker_id,
         body.status,
         body.log
     )

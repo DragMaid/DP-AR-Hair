@@ -97,6 +97,8 @@ psycopg2-binary = "^2.9.11"
 uvicorn = "^0.40.0"
 dotenv = "^0.9.9"
 pyjwt = "^2.10.1"
+cachetools = "^6.2.4"
+starlette = "^0.50.0"
 
 [tool.poetry.group.dev]
 optional = true

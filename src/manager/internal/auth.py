@@ -1,15 +1,10 @@
-import jwt
 from fastapi import Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jwt import PyJWTError
-from datetime import datetime, timezone, timedelta
 from schemas.user import UserRoles
 from pydantic import BaseModel
 from core.exceptions import wrap_errors, AppError
-from core.config import settings
 from .connect import get_cursor
-
-bearer_scheme = HTTPBearer(auto_error=False)
+from core.jwt_manager import decode_access_token
 
 
 class TokenData(BaseModel):
@@ -18,7 +13,8 @@ class TokenData(BaseModel):
 
 @wrap_errors(default_code="AUTH_INTERNAL_ERROR")
 def extract_bearer_token(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)
+    credentials: HTTPAuthorizationCredentials = Depends(
+        HTTPBearer(auto_error=False))
 ):
     if credentials is None:
         raise AppError("MISSING_AUTH_HEADER")
@@ -29,25 +25,14 @@ def extract_bearer_token(
     return credentials.credentials
 
 
-# TODO: I actually wants the tokens to both be long lived and sliding
-@wrap_errors(default_code="TOKEN_CREATION_FAILED")
-def create_token(data: dict, expires_delta: timedelta):
-    to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + expires_delta
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(
-        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    return encoded_jwt
-
-
 @wrap_errors(default_code="AUTH_INTERNAL_ERROR")
-def get_user(username: str):
+def get_user(user_id: str):
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
             SELECT id, username, role, created_at
             FROM users
-            WHERE username = %s
-        """, (username,))
+            WHERE id = %s
+        """, (user_id,))
         user = cur.fetchone()
         if not user:
             raise AppError("USER_NOT_FOUND")
@@ -56,17 +41,9 @@ def get_user(username: str):
 
 @wrap_errors(default_code="AUTH_INTERNAL_ERROR")
 def get_current_user(token: str = Depends(extract_bearer_token)):
+    user_id = decode_access_token(token)
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except PyJWTError:
-        raise AppError("INVALID_TOKEN")
-
-    username = payload.get("sub")
-    if not username:
-        raise AppError("INVALID_TOKEN")
-
-    try:
-        user = get_user(username=username)
+        user = get_user(user_id=user_id)
     except AppError as e:
         if e.code == "USER_NOT_FOUND":
             raise AppError("INVALID_CREDENTIALS")

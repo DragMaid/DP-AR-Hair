@@ -154,6 +154,18 @@ benchmark = ["matplotlib", "pandas"]
 test = ["lion-pytorch", "scipy"]
 
 [[package]]
+name = "cachetools"
+version = "6.2.4"
+description = "Extensible memoizing collections and decorators"
+optional = false
+python-versions = ">=3.9"
+groups = ["dqs"]
+files = [
+    {file = "cachetools-6.2.4-py3-none-any.whl", hash = "sha256:69a7a52634fed8b8bf6e24a050fb60bff1c9bd8f6d24572b99c32d4e71e62a51"},
+    {file = "cachetools-6.2.4.tar.gz", hash = "sha256:82c5c05585e70b6ba2d3ae09ea60b79548872185d2f24ae1f2709d37299fd607"},
+]
+
+[[package]]
 name = "certifi"
 version = "2025.11.12"
 description = "Python package for providing Mozilla's CA Bundle."
@@ -3425,4 +3437,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10.5,<3.11"
-content-hash = "cceef52e0f32641d0422acc6a908510de34d147375478188efe2f75a6c1c385c"
+content-hash = "c7a3cff65a16b1c5b11eaeaffebf29122f091aaee52ef7a264e018f058809e93"

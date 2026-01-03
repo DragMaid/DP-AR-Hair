@@ -1,9 +1,10 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 from datetime import timedelta
-from internal.auth import authenticate_user, create_token
+from internal.auth import authenticate_user
 from schemas.user import UserRoles, User
 from core.config import settings
+from core.jwt_manager import create_token
 
 router = APIRouter(
     prefix="/login",
@@ -29,7 +30,7 @@ def authorize(form: LoginForm):
     token_expire_min = timedelta(
         minutes=settings.TOKEN_EXPIRATION_MIN)
     access_token = create_token(
-        data={"sub": user.username},
+        data={"sub": user.id},
         expires_delta=token_expire_min
     )
     return Token(access_token=access_token, token_type="bearer")

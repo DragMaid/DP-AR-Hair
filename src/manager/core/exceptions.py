@@ -20,6 +20,10 @@ ERRORS = {
         "message": "Not authorized to perform this action",
         "status_code": 403
     },
+    "TOO_MANY_REQUESTS": {
+        "message": "Too many requests",
+        "status_code": 429
+    },
 
     # Assignment errors
     "ASSIGNMENT_REPORT_FAILED": {
@@ -91,15 +95,7 @@ ERRORS = {
         "status_code": 404
     },
 
-    # Authentication / Token errors
-    "AUTH_INTERNAL_ERROR": {
-        "message": "Authentication process failed",
-        "status_code": 500
-    },
-    "USER_NOT_FOUND": {
-        "message": "User not found",
-        "status_code": 404
-    },
+    # Token errors
     "TOKEN_CREATION_FAILED": {
         "message": "Token creation failed",
         "status_code": 500
@@ -108,6 +104,25 @@ ERRORS = {
         "message": "Could not validate token",
         "status_code": 401,
         "headers": {"WWW-Authenticate": "Bearer"}
+    },
+    "TOKEN_EXPIRED": {
+        "message": "Issued token expired",
+        "status_code": 401,
+        "headers": {"WWW-Authenticate": "Bearer"}
+    },
+    "TOKEN_INTERNAL_ERROR": {
+        "message": "Token operation failed",
+        "status_code": 500,
+    },
+
+    # Authentication errors
+    "USER_NOT_FOUND": {
+        "message": "User not found",
+        "status_code": 404
+    },
+    "AUTH_INTERNAL_ERROR": {
+        "message": "Authentication process failed",
+        "status_code": 500
     },
     "INVALID_CREDENTIALS": {
         "message": "Could not validate credentials",

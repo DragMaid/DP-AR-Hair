@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from core.exceptions import wrap_errors, AppError
 from .connect import get_cursor
 from core.jwt_manager import decode_access_token
+from core.config import settings
 
 
 class TokenData(BaseModel):
@@ -49,6 +50,14 @@ def get_current_user(token: str = Depends(extract_bearer_token)):
             raise AppError("INVALID_CREDENTIALS")
         raise
 
+    return user
+
+
+@wrap_errors(default_code="AUTH_INTERNAL_ERROR")
+def require_god(user=Depends(get_current_user)):
+    # TODO: this is considerable
+    if user.username != settings.ADMIN_USERNAME:
+        raise AppError("FORBIDDEN")
     return user
 
 

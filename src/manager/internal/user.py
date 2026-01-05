@@ -3,34 +3,36 @@ from psycopg2 import IntegrityError
 from typing import Optional
 from .connect import get_cursor
 from core.exceptions import wrap_errors, AppError
+from schemas.user import UserRoles
 
 
 @wrap_errors(default_code="WORKER_INTERNAL_ERROR")
-def list_workers(
+def list_users(
     email: Optional[str],
-    limit: int = 100
+    role: UserRoles,
+    limit: int = 100,
 ):
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
             SELECT id, username, role, created_at
             FROM users
             WHERE (%s IS NULL OR username = %s)
-                AND role = 'worker'::user_roles
+                AND role = %s::user_roles
             LIMIT %s
-        """, (email, email, limit,))
-        task = cur.fetchall()
-        return task
+        """, (email, email, role, limit,))
+        users = cur.fetchall()
+        return users
 
 
 @wrap_errors(default_code="WORKER_INTERNAL_ERROR")
-def create_worker(email: str):
+def create_user(email: str, role: UserRoles):
     password = secrets.token_urlsafe(24)
     try:
         with get_cursor(dict_cursor=False) as cur:
             cur.execute("""
                 INSERT INTO users (username, password_hash, role)
-                VALUES (%s, crypt(%s, gen_salt('bf', 12)), 'worker')
-            """, (email, password,))
+                VALUES (%s, crypt(%s, gen_salt('bf', 12)), %s)
+            """, (email, password, role,))
     except IntegrityError as e:
         raise AppError("WORKER_CREATION_FAILED") from e
 
@@ -38,28 +40,28 @@ def create_worker(email: str):
 
 
 @wrap_errors(default_code="WORKER_INTERNAL_ERROR")
-def remove_worker(worker_id: str):
+def remove_user(user_id: str, role: UserRoles):
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
             DELETE FROM users
-            WHERE role = 'worker'::user_roles
+            WHERE role = %s::user_roles
             AND id = %s
-        """, (worker_id,))
+        """, (role, user_id,))
 
         if cur.rowcount == 0:
             raise AppError("WORKER_NOT_FOUND")
 
 
 @wrap_errors(default_code="WORKER_INTERNAL_ERROR")
-def reset_worker_password(worker_id: str):
+def reset_worker_password(user_id: str, role: UserRoles):
     password = secrets.token_urlsafe(24)
 
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
             UPDATE users
             SET password_hash = crypt(%s, gen_salt('bf', 12))
-            WHERE id = %s
-        """, (password, worker_id,))
+            WHERE id = %s AND role = %s::user_roles
+        """, (password, user_id, role))
 
         if cur.rowcount == 0:
             raise AppError("WORKER_NOT_FOUND")

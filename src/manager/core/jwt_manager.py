@@ -19,7 +19,8 @@ def create_token(data: dict, expires_delta: timedelta):
     to_encode.update({"exp": expire})
     token = jwt.encode(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    last_activity_cache[token] = time()  # init last activity
+    last_activity_cache[to_encode["sub"]] = {
+        "token": token, "last_seen": time()}
     return token
 
 
@@ -31,8 +32,9 @@ def decode_access_token(token: str) -> str:
         user_id = payload.get("sub")
         if not user_id:
             raise AppError("INVALID_TOKEN")
+        # TODO: this way of handling tokens is not good but sufficient for closed env
         # Checks if token expired due to inactivity
-        check_sliding_token(token)
+        check_sliding_token(user_id, token)
         return user_id
 
     except jwt.ExpiredSignatureError:
@@ -43,10 +45,10 @@ def decode_access_token(token: str) -> str:
 
 
 @wrap_errors(default_code="TOKEN_INTERNAL_ERROR")
-def check_sliding_token(token: str):
+def check_sliding_token(user_id: str, token: str):
     now = time()
-    last_seen = last_activity_cache.get(token)
-    if last_seen is None \
-            or now - last_seen > settings.TOKEN_INACTIVE_EXPIRATION_MIN:
+    user_cache = last_activity_cache.get(user_id)
+    if now - user_cache["last_seen"] > settings.TOKEN_INACTIVE_EXPIRATION_MIN:
         raise AppError("TOKEN_EXPIRED")
-    last_activity_cache[token] = now
+    if user_cache["token"] != token:
+        raise AppError("INVALID_TOKEN")

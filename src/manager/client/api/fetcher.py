@@ -56,7 +56,6 @@ class APIFetcher:
         except httpx.ConnectError:
             raise FrontError("SERVICE_UNAVAILABLE")
 
-        # TODO: add logging here later
         except httpx.RequestError as e:
             logging.exception(e)
             raise FrontError("SERVICE_UNAVAILABLE")

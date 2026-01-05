@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Query, Depends
-from internal import worker as wapi
+from internal import user as uapi
 from typing import Optional, List, Annotated
 from internal.auth import require_admin
-from schemas.user import User
+from schemas.user import User, UserRoles
 from pydantic import BaseModel
 
 router = APIRouter(
@@ -25,7 +25,7 @@ def get_workers(
     email: Optional[str] = Query(default=None),
     limit: int = Query(default=100, ge=1, le=1000)
 ):
-    workers = wapi.list_workers(email, limit)
+    workers = uapi.list_users(email, limit, UserRoles.WORKER)
     return [User(**w) for w in workers]
 
 
@@ -34,7 +34,7 @@ def create_worker(
     email: str,
     _: Annotated[None, Depends(require_admin)]
 ):
-    password = wapi.create_worker(email)
+    password = uapi.create_user(email, UserRoles.WORKER)
     return CreateWorkerResponse(password=password)
 
 
@@ -43,7 +43,7 @@ def delete_worker(
     worker_id: str,
     _: Annotated[None, Depends(require_admin)]
 ):
-    wapi.remove_worker(worker_id)
+    uapi.remove_user(worker_id, UserRoles.WORKER)
 
 
 @router.post("/reset", response_model=ResetWorkerResponse)
@@ -51,5 +51,5 @@ def reset_worker_password(
     worker_id: str,
     _: Annotated[None, Depends(require_admin)]
 ):
-    password = wapi.reset_worker_password(worker_id)
+    password = uapi.reset_worker_password(worker_id, UserRoles.WORKER)
     return ResetWorkerResponse(password=password)

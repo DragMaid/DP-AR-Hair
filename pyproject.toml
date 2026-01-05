@@ -99,6 +99,7 @@ dotenv = "^0.9.9"
 pyjwt = "^2.10.1"
 cachetools = "^6.2.4"
 starlette = "^0.50.0"
+textual = "^7.0.0"
 
 [tool.poetry.group.dev]
 optional = true

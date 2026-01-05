@@ -24,7 +24,7 @@ class LoginForm(BaseModel):
     role: UserRoles
 
 
-@router.post("/", response_model=Token)
+@router.post("", response_model=Token)
 def authorize(form: LoginForm):
     user = User(**authenticate_user(form.username, form.password, form.role))
     token_expire_min = timedelta(

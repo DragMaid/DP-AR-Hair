@@ -14,8 +14,8 @@ router = APIRouter(
 
 
 class CreateTaskBody(BaseModel):
-    drive_id: str
-    ref_id: str
+    driving_id: str
+    reference_id: str
     path: str
     priority: int
 
@@ -28,7 +28,7 @@ class ClaimTaskResponse(BaseModel):
     assignment_id: str
 
 
-@router.get("/", response_model=List[Task])
+@router.get("", response_model=List[Task])
 def get_tasks(
     status: Optional[List[tapi.TaskStatus]] = Query(default=None),
     limit: int = Query(default=100, ge=1, le=1000),
@@ -51,8 +51,11 @@ def create_task(
     return CreateTaskResponse(task_id=task_id)
 
 
-@router.get("/delete", status_code=204)
-def delete_task(task_id: str):
+@router.post("/delete", status_code=204)
+def delete_task(
+    task_id: str,
+    _: Annotated[None, Depends(require_admin)]
+):
     tapi.delete_task(task_id)
 
 

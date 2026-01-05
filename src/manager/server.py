@@ -23,6 +23,7 @@ app.include_router(auth.router)
 
 app.add_middleware(RateLimiterMiddleware, limiter=rate_limiter)
 
+# TODO: what about other errors, they do not fit the schema
 register_app_error_handler(app)
 
 

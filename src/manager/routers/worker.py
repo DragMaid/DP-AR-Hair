@@ -20,7 +20,7 @@ class ResetWorkerResponse(BaseModel):
     password: str
 
 
-@router.get("/", response_model=List[User])
+@router.get("", response_model=List[User])
 def get_workers(
     email: Optional[str] = Query(default=None),
     limit: int = Query(default=100, ge=1, le=1000)

@@ -23,7 +23,7 @@ class ReportAssignmentBody(BaseModel):
     log: str
 
 
-@router.get("/", response_model=List[Assignment])
+@router.get("", response_model=List[Assignment])
 def get_assignments(
     limit: int = Query(default=100, ge=1, le=1000)
 ):

@@ -148,6 +148,8 @@ ERRORS = {
     },
 }
 
+# TODO: why are we using message instead of details like InternalServerError ?
+
 
 class AppError(Exception):
     def __init__(self, code: str):
@@ -156,7 +158,7 @@ class AppError(Exception):
         self.code = code
         self.message = ERRORS[code]["message"]
         self.status_code = ERRORS[code]["status_code"]
-        self.headers = ERRORS[code].get("header")
+        self.headers = ERRORS[code].get("headers")
 
 
 def register_app_error_handler(app: FastAPI):

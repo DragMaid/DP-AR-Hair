@@ -57,13 +57,13 @@ def claim_task(worker_id: str):
         if not assignment_id:
             raise AppError("ASSIGNMENT_CREATION_FAILED")
 
-        return assignment_id
+        return assignment_id["id"]
 
 
 @wrap_errors(default_code="TASK_INTERNAL_ERROR")
 def create_task(
-    drive_id: str,
-    ref_id: str,
+    driving_id: str,
+    reference_id: str,
     path: str,
     priority: int
 ):
@@ -77,11 +77,11 @@ def create_task(
             )
             VALUES (%s, %s, %s, %s)
             RETURNING id
-        """, (drive_id, ref_id, path, priority,))
+        """, (driving_id, reference_id, path, priority,))
         task_id = cur.fetchone()
         if not task_id:
             raise AppError("TASK_CREATION_FAILED")
-        return task_id
+        return task_id["id"]
 
 
 @wrap_errors(default_code="TASK_INTERNAL_ERROR")

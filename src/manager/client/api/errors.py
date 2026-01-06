@@ -39,13 +39,15 @@ class BackendError(BaseModel):
 
 class FrontError(Exception):
     # TODO: fix this way of getting params
-    def __init__(self, code: Optional[str], error: Optional[BackendError] = None):
+    def __init__(self,
+                 code: Optional[str] = None,
+                 error: Optional[BackendError] = None):
         mapping = FRONT_ERRORS[code] if code \
-            else BACK_TO_FRONT_ERRORS[error.code]
+            else BACK_TO_FRONT_ERRORS[error["code"]]
         self.source = mapping["source"]
         self.category = mapping["category"]
         self.retryable = mapping["retryable"]
-        self.message = mapping["message"] if code else error.message
+        self.message = mapping["message"] if code else error["message"]
 
 
 FRONT_ERRORS = {

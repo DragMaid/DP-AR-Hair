@@ -40,7 +40,7 @@ async def create_worker(
         response_model=CreateWorkerResponse
     )
 
-    return res.password
+    return res["password"]
 
 
 async def delete_worker(
@@ -66,4 +66,4 @@ async def reset_worker_password(
         require_auth=True,
         response_model=ResetWorkerResponse
     )
-    return res.password
+    return res["password"]

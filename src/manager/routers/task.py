@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from internal import task as tapi
 from internal.auth import require_admin, require_worker
 from schemas.task import Task
+from schemas.user import User
 
 
 router = APIRouter(
@@ -40,11 +41,11 @@ def get_tasks(
 @router.post("/create", response_model=CreateTaskResponse)
 def create_task(
     body: CreateTaskBody,
-    _: Annotated[None, Depends(require_admin)]
+    _: Annotated[User, Depends(require_admin)]
 ):
     task_id = tapi.create_task(
-        body.drive_id,
-        body.ref_id,
+        body.driving_id,
+        body.reference_id,
         body.path,
         body.priority
     )
@@ -54,15 +55,15 @@ def create_task(
 @router.post("/delete", status_code=204)
 def delete_task(
     task_id: str,
-    _: Annotated[None, Depends(require_admin)]
+    _: Annotated[User, Depends(require_admin)]
 ):
     tapi.delete_task(task_id)
 
 
+# TODO: add a limit to the number of tasks you can receive
 @router.post("/claim", response_model=ClaimTaskResponse)
 def claim_task(
-    worker_id: str,
-    _: Annotated[None, Depends(require_worker)]
+    worker: Annotated[User, Depends(require_worker)]
 ):
-    assignment_id = tapi.claim_task(worker_id)
+    assignment_id = tapi.claim_task(worker["id"])
     return ClaimTaskResponse(assignment_id=assignment_id)

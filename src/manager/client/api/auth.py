@@ -1,5 +1,5 @@
 from .fetcher import APIFetcher
-from .session import Session
+from .session import session
 from schemas.user import UserRoles
 from routers.auth import Token, LoginForm
 
@@ -17,11 +17,12 @@ async def authorize(
     )
 
     token = await fetcher.fetch(
-        method="GET",
+        method="POST",
         path="/login",
         json=payload,
         require_auth=False,
+        strict=True,
         response_model=Token
     )
 
-    Session.set_token(token.access_token)
+    session.set_token(token.access_token)

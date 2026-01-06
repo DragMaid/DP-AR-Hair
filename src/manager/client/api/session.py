@@ -6,7 +6,6 @@ from typing import Optional
 class Session:
     _access_token: Optional[str] = None
 
-    @property
     def is_authenticated(self) -> bool:
         return self._access_token is not None
 
@@ -18,3 +17,6 @@ class Session:
 
     def clear(self) -> None:
         self._access_token = None
+
+
+session = Session()

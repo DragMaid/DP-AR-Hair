@@ -55,6 +55,14 @@ CREATE TABLE users (
     CONSTRAINT unique_username UNIQUE (username)
 );
 
+CREATE TABLE ownership (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    worker_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    CONSTRAINT unique_ownership UNIQUE (admin_id, worker_id)
+);
+
 CREATE TABLE assignments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     task_id UUID REFERENCES tasks(id) ON DELETE CASCADE,
@@ -84,6 +92,7 @@ FROM tasks;
 CREATE INDEX idx_task_id ON tasks USING btree(id);
 CREATE INDEX idx_task_status ON tasks USING btree(status);
 CREATE INDEX idx_task_priority ON tasks USING btree(priority DESC);
-CREATE INDEX idx_users_role ON users USING btree(role)
+CREATE INDEX idx_users_role ON users USING btree(role);
+CREATE INDEX idx_ownership_worker_id ON ownership USING btree(worker_id);
 
 -- migrate:down

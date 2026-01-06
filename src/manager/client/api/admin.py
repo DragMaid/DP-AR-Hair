@@ -28,7 +28,7 @@ async def get_admins(
     return workers
 
 
-async def create_worker(
+async def create_admin(
     fetcher: APIFetcher,
     username: str
 ) -> CreateAdminResponse:
@@ -40,10 +40,10 @@ async def create_worker(
         response_model=CreateAdminResponse
     )
 
-    return res.password
+    return res["password"]
 
 
-async def delete_worker(
+async def delete_admin(
     fetcher: APIFetcher,
     admin_id: str
 ) -> None:
@@ -55,7 +55,7 @@ async def delete_worker(
     )
 
 
-async def reset_worker_password(
+async def reset_admin_password(
     fetcher: APIFetcher,
     admin_id: str
 ) -> str:
@@ -66,4 +66,4 @@ async def reset_worker_password(
         require_auth=True,
         response_model=ResetAdminResponse
     )
-    return res.password
+    return res["password"]

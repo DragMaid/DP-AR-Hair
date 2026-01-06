@@ -3,7 +3,8 @@ from routers import (
     assignment,
     worker,
     task,
-    auth
+    auth,
+    admin
 )
 from core.exceptions import register_app_error_handler
 from core.rate_limiter import RateLimiter, RateLimiterMiddleware
@@ -20,6 +21,7 @@ app.include_router(worker.router)
 app.include_router(task.router)
 app.include_router(assignment.router)
 app.include_router(auth.router)
+app.include_router(admin.router)
 
 app.add_middleware(RateLimiterMiddleware, limiter=rate_limiter)
 

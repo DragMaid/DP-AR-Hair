@@ -49,7 +49,7 @@ async def create_task(
         response_model=CreateTaskResponse
     )
 
-    return res.task_id
+    return res["task_id"]
 
 
 async def delete_task(
@@ -66,13 +66,11 @@ async def delete_task(
 
 async def claim_task(
     fetcher: APIFetcher,
-    worker_id: str
 ) -> str:
     res = await fetcher.fetch(
-        method="GET",
+        method="POST",
         path="/tasks/claim",
-        params={"worker_id": worker_id},
         require_auth=True,
         response_model=ClaimTaskResponse
     )
-    return res.assignment_id
+    return res["assignment_id"]

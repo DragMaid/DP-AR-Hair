@@ -20,7 +20,6 @@ class APIFetcher:
         self.timeout = timeout
         self.client = client
         self.session = session
-        self.strict = strict
 
     async def fetch(
         self,
@@ -28,6 +27,7 @@ class APIFetcher:
         path: str,
         params: dict | None = None,
         json: dict | None = None,
+        strict: bool = False,
         retries: int = settings.DEFAULT_RETRIES,
         require_auth: bool = True,
         response_model: Optional[BaseModel] = None
@@ -40,6 +40,9 @@ class APIFetcher:
             token = self.session.get_token()
             headers["Authorization"] = f"Bearer {token}"
 
+        if json and isinstance(json, BaseModel):
+            json = json.model_dump(mode="json")
+
         try:
             response = await self.client.request(
                 method=method,
@@ -48,7 +51,11 @@ class APIFetcher:
                 json=json,
                 headers=headers,
             )
-            return self._handle_response(response, response_model=response_model)
+            return self._handle_response(
+                response,
+                response_model=response_model,
+                strict=strict
+            )
 
         except httpx.TimeoutException:
             raise FrontError("REQUEST_TIMEOUT")
@@ -63,16 +70,17 @@ class APIFetcher:
     def _handle_response(
             self,
             response: httpx.Response,
-            response_model: Optional[BaseModel] = None
+            response_model: Optional[BaseModel] = None,
+            strict: bool = False
     ):
         if 200 <= response.status_code < 300:
             if response.content:
                 try:
                     payload = response.json()
-                    if response_model and self.strict:
+                    if response_model and strict:
                         adapter = TypeAdapter(response_model)
                         return adapter.validate_python(payload)
-
+                    return payload
                 except Exception:
                     raise FrontError("INVALID_RESPONSE")
             return None
@@ -80,9 +88,11 @@ class APIFetcher:
         if response.status_code >= 400:
             try:
                 payload = response.json()
-                error = payload.get("error")
-                if error:
-                    raise FrontError(error=error)
-                raise FrontError("MISSING_ERROR_RESPONSE")
             except Exception:
                 raise FrontError("INVALID_ERROR_RESPONSE")
+
+            error = payload.get("error")
+            if error:
+                raise FrontError(error=error)
+
+            raise FrontError("MISSING_ERROR_RESPONSE")

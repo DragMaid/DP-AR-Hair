@@ -1,4 +1,4 @@
-\restrict xwvjoCNnkxoj2tyl6c2hdoaG1ow6KumeXuJeQVLuCIyHBbeQ45SO9QL9PdFZIrj
+\restrict r50UcaDOjXX70YMmGXSbP51gJpePLvDk6Vc3gZtN0dFzba5hGQkUbLB5xuNc2lo
 
 -- Dumped from database version 16.11
 -- Dumped by pg_dump version 17.6
@@ -114,6 +114,18 @@ CREATE TABLE public.images (
 
 
 --
+-- Name: ownership; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ownership (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    admin_id uuid,
+    worker_id uuid,
+    created_at timestamp without time zone DEFAULT now()
+);
+
+
+--
 -- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -200,6 +212,14 @@ ALTER TABLE ONLY public.images
 
 
 --
+-- Name: ownership ownership_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ownership
+    ADD CONSTRAINT ownership_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -232,6 +252,14 @@ ALTER TABLE ONLY public.images
 
 
 --
+-- Name: ownership unique_ownership; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ownership
+    ADD CONSTRAINT unique_ownership UNIQUE (admin_id, worker_id);
+
+
+--
 -- Name: tasks unique_task_image_combination; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -261,6 +289,13 @@ ALTER TABLE ONLY public.users
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idx_ownership_worker_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_ownership_worker_id ON public.ownership USING btree (worker_id);
 
 
 --
@@ -324,6 +359,22 @@ ALTER TABLE ONLY public.assignments
 
 
 --
+-- Name: ownership ownership_admin_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ownership
+    ADD CONSTRAINT ownership_admin_id_fkey FOREIGN KEY (admin_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: ownership ownership_worker_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ownership
+    ADD CONSTRAINT ownership_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: tasks tasks_driving_image_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -343,7 +394,7 @@ ALTER TABLE ONLY public.tasks
 -- PostgreSQL database dump complete
 --
 
-\unrestrict xwvjoCNnkxoj2tyl6c2hdoaG1ow6KumeXuJeQVLuCIyHBbeQ45SO9QL9PdFZIrj
+\unrestrict r50UcaDOjXX70YMmGXSbP51gJpePLvDk6Vc3gZtN0dFzba5hGQkUbLB5xuNc2lo
 
 
 --

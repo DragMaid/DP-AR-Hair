@@ -25,14 +25,20 @@ def list_users(
 
 
 @wrap_errors(default_code="WORKER_INTERNAL_ERROR")
-def create_user(email: str, role: UserRoles):
+def create_user(email: str, role: UserRoles, admin_id: str):
     password = secrets.token_urlsafe(24)
     try:
         with get_cursor(dict_cursor=False) as cur:
             cur.execute("""
                 INSERT INTO users (username, password_hash, role)
                 VALUES (%s, crypt(%s, gen_salt('bf', 12)), %s)
+                RETURNING id
             """, (email, password, role,))
+            user_id = cur.fetchone()
+            cur.execute("""
+                INSERT INTO ownership (worker_id, admin_id)
+                VALUES (%s, %s)
+            """, (user_id, admin_id,))
     except IntegrityError as e:
         raise AppError("WORKER_CREATION_FAILED") from e
 

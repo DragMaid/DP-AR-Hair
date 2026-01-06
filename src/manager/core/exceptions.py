@@ -161,10 +161,28 @@ class AppError(Exception):
         self.headers = ERRORS[code].get("headers")
 
 
+def get_request_context(request: Request):
+    return {
+        "method": request.method,
+        "path": request.url.path,
+        "query": str(request.url.query),
+        "client": request.client.host if request.client else None,
+        "user_agent": request.headers.get("user-agent"),
+    }
+
+
 def register_app_error_handler(app: FastAPI):
     @app.exception_handler(AppError)
     async def app_error_handler(request: Request, exc: AppError):
-        logger.error(f"[{exc.code}] {exc.message}", exc_info=True)
+        logger.error(
+            f"[{exc.code}] {exc.message}",
+            extra={
+                "error_code": exc.code,
+                "request": get_request_context(request),
+            },
+            exc_info=True,
+        )
+
         response = JSONResponse(
             status_code=exc.status_code,
             content={"error": {"code": exc.code, "message": exc.message}}

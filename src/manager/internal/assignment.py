@@ -1,4 +1,3 @@
-from datetime import datetime
 from schemas.assignment import AssignmentStatus
 from typing import Optional, List
 from .connect import get_cursor
@@ -82,12 +81,12 @@ def report_assignment(
         else:
             cur.execute("""
                 UPDATE tasks
-                SET status = 'completed', completed_at = %s
+                SET status = 'completed'
                 WHERE id = (
                     SELECT task_id
                     FROM assignments
                     WHERE id = %s)
-                """, (datetime.now(), assignment_id,))
+                """, (assignment_id,))
 
         # Insert into history after assignment is done
         cur.execute("""

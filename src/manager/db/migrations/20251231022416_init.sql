@@ -41,7 +41,6 @@ CREATE TABLE tasks (
     priority INT DEFAULT 0,
     status task_status DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT NOW(),
-    completed_at TIMESTAMP,
     CONSTRAINT unique_task_image_combination UNIQUE (driving_image_id, reference_image_id),
     CONSTRAINT unique_task_path UNIQUE (result_path)
 );

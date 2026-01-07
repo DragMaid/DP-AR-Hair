@@ -11,18 +11,16 @@ def list_tasks(
     limit: int = 100
 ):
     with get_cursor(dict_cursor=True) as cur:
-        cur.execute(
-            """
+        cur.execute("""
             SELECT *
-            FROM tasks_ordered
+            FROM tasks_ordered t
             WHERE (
                 %s IS NULL
                 OR status = ANY(%s::task_status[])
             )
             ORDER BY priority DESC, created_at ASC
             LIMIT %s
-            """, (status, status, limit,),
-        )
+        """, (status, status, limit,))
         return cur.fetchall()
 
 

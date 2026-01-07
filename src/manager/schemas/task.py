@@ -18,4 +18,3 @@ class Task(BaseModel):
     priority: int
     status: TaskStatus
     created_at: datetime
-    completed_at: datetime | None

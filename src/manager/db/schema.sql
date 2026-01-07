@@ -1,4 +1,4 @@
-\restrict r50UcaDOjXX70YMmGXSbP51gJpePLvDk6Vc3gZtN0dFzba5hGQkUbLB5xuNc2lo
+\restrict 1ANceSdwh2GWJrfPKTBIC7MrHFeBRjvgtMCriIVvAdMAEtgMoF00CvLfXlff914
 
 -- Dumped from database version 16.11
 -- Dumped by pg_dump version 17.6
@@ -146,8 +146,7 @@ CREATE TABLE public.tasks (
     retry_count integer DEFAULT 0,
     priority integer DEFAULT 0,
     status public.task_status DEFAULT 'pending'::public.task_status,
-    created_at timestamp without time zone DEFAULT now(),
-    completed_at timestamp without time zone
+    created_at timestamp without time zone DEFAULT now()
 );
 
 
@@ -164,7 +163,6 @@ CREATE VIEW public.tasks_ordered AS
     priority,
     status,
     created_at,
-    completed_at,
         CASE status
             WHEN 'processing'::public.task_status THEN 1
             WHEN 'pending'::public.task_status THEN 2
@@ -394,7 +392,7 @@ ALTER TABLE ONLY public.tasks
 -- PostgreSQL database dump complete
 --
 
-\unrestrict r50UcaDOjXX70YMmGXSbP51gJpePLvDk6Vc3gZtN0dFzba5hGQkUbLB5xuNc2lo
+\unrestrict 1ANceSdwh2GWJrfPKTBIC7MrHFeBRjvgtMCriIVvAdMAEtgMoF00CvLfXlff914
 
 
 --

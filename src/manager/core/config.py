@@ -24,7 +24,7 @@ class Settings(BaseModel):
     TOKEN_INACTIVE_EXPIRATION_MIN: int = 20  # 20 minutes
     TOKEN_STORAGE_CAPACITY: int = 10000
 
-    RATE_LIMITER_LIMIT: int = 10
+    RATE_LIMITER_LIMIT: int = 30
     RATE_LIMITER_WINDOW_SEC: int = 60
     RATE_LIMITER_CAPACITY: int = 10000
 

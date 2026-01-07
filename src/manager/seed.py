@@ -1,12 +1,11 @@
 import random
 import os
-# from datetime import datetime, timedelta
 from internal.connect import get_cursor
 from dotenv import load_dotenv
 from schemas.assignment import AssignmentStatus
 from schemas.image import ImageTypes
 from schemas.user import UserRoles
-from client.api.session import session
+from client.core.session import session
 
 load_dotenv()
 
@@ -62,6 +61,7 @@ async def seed_admins(fetcher, n=1):
 
     # Login to last created admin
     await authorize(fetcher, f"admin{n-1}", password, UserRoles.ADMIN)
+    print("Test admin password is: ", password)
 
 
 async def seed_workers(fetcher, n=1):

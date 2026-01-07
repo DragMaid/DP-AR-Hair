@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from enum import Enum
 from typing import Optional
+from textwrap import dedent
 
 
 class ErrorCategories(str, Enum):
@@ -48,6 +49,14 @@ class FrontError(Exception):
         self.category = mapping["category"]
         self.retryable = mapping["retryable"]
         self.message = mapping["message"] if code else error["message"]
+
+    def __str__(self):
+        return dedent(f"""
+            Source: {self.source},
+            Category: {self.category},
+            Retryable: {self.retryable},
+            Message: {self.message}
+        """)
 
 
 FRONT_ERRORS = {

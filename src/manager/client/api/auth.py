@@ -1,5 +1,5 @@
 from .fetcher import APIFetcher
-from .session import session
+from client.core.session import session
 from schemas.user import UserRoles
 from routers.auth import Token, LoginForm
 

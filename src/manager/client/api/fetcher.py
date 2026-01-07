@@ -1,9 +1,9 @@
 import httpx
 from typing import Optional
-from .errors import FrontError
-from .logger import logging
-from .config import settings
-from .session import Session
+from client.core.errors import FrontError
+from client.core.logger import logging
+from client.core.config import settings
+from client.core.session import Session
 from pydantic import BaseModel, TypeAdapter
 
 

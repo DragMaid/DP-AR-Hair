@@ -1,0 +1,54 @@
+/* All screens related */
+Screen {
+    background: $surface;
+}
+
+.menu-title {
+    text-align: center;
+    text-style: bold;
+    color: $accent;
+    margin-bottom: 1;
+    padding: 1;
+}
+
+.screen-title {
+    text-style: bold;
+    color: $accent;
+    padding: 1 2;
+    background: $panel;
+    text-align: center;
+}
+
+.content-container {
+    height: 100%;
+    border: solid $primary;
+    margin: 1 2;
+    width: 1fr;
+}
+
+/* Sidebar related stuff */
+Sidebar {
+    width: 28;
+    border: solid $surface;
+    background: $panel;
+    padding: 1 0;
+}
+
+Static.title {
+    padding: 0 2;
+    color: $text-muted;
+    text-style: bold;
+}
+
+ListView {
+    background: transparent;
+}
+
+ListItem {
+    padding: 0 2;
+}
+
+ListItem.--highlight {
+    background: $boost;
+    color: $text;
+}

@@ -3,6 +3,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Label
 from textual.containers import Vertical, Horizontal
 from textual.message import Message
+from textual.binding import Binding
 from textual import on
 
 
@@ -24,6 +25,7 @@ class ConfirmModal(ModalScreen):
     }
 
     .title {
+        width: 100%;
         text-align: center;
         text-style: bold;
         color: $text;
@@ -31,7 +33,7 @@ class ConfirmModal(ModalScreen):
     }
 
     .description {
-        text-align: center;
+        text-align: left;
         color: $text-muted;
         margin-bottom: 2;
     }
@@ -42,8 +44,9 @@ class ConfirmModal(ModalScreen):
     }
 
     .actions Button {
-        margin: 0 1;
-        min-width: 12;
+        content-align: center middle;
+        margin: 0 2;
+        width: 1fr;
     }
     """
 
@@ -54,6 +57,10 @@ class ConfirmModal(ModalScreen):
     class Cancelled(Message):
         """Message sent when the user cancels."""
         pass
+
+    BINDINGS = [
+        Binding("escape", "close", "Cancel")
+    ]
 
     def __init__(
             self,
@@ -71,6 +78,9 @@ class ConfirmModal(ModalScreen):
             with Horizontal(classes="actions"):
                 yield Button("Cancel", id="cancel", variant="default")
                 yield Button("Confirm", id="confirm", variant="error")
+
+    def action_close(self) -> None:
+        self.on_cancel_pressed()
 
     @on(Button.Pressed, "#confirm")
     def on_confirm_pressed(self) -> None:

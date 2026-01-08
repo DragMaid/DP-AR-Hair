@@ -26,7 +26,7 @@ class LoginModal(ModalScreen):
     }
 
     .modal .title {
-        text-align: center;
+        text-align: left;
         margin-bottom: 1;
         text-style: bold;
     }

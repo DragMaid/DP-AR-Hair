@@ -13,6 +13,7 @@ class ErrorModal(ModalScreen):
     }
 
     .modal {
+        align: center middle;
         width: 52;
         height: auto;
         padding: 2 3;
@@ -21,6 +22,7 @@ class ErrorModal(ModalScreen):
     }
 
     .title {
+        width: 100%;
         text-align: center;
         text-style: bold;
         color: $error;
@@ -28,7 +30,7 @@ class ErrorModal(ModalScreen):
     }
 
     .message {
-        text-align: center;
+        text-align: left;
         margin-bottom: 2;
     }
 
@@ -45,7 +47,7 @@ class ErrorModal(ModalScreen):
 
     def __init__(
             self,
-            title: str = "Error",
+            title: str = "ERROR",
             message: str = "Something went wrong"):
         super().__init__()
         self.title = title

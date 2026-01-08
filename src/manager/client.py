@@ -1,6 +1,6 @@
 from textual.app import App
 from textual.binding import Binding
-from textual.containers import Horizontal
+from textual.containers import Container, Horizontal
 from client.ui.components import Sidebar
 from client.ui.screens import (
     WorkersScreen,
@@ -32,10 +32,10 @@ class DQSDashboard(App):
     ]
 
     def compose(self):
-        with Horizontal():
+        with Horizontal(id="all_content"):
             self.sidebar = Sidebar()
             yield self.sidebar
-            self.content_area = Horizontal(id="content_area")
+            self.content_area = Container(id="content_area")
             yield self.content_area
 
     def on_mount(self):
@@ -84,6 +84,9 @@ class DQSDashboard(App):
                 self.current_screen.remove()
             self.current_screen = screen_cls()
             self.content_area.mount(self.current_screen)
+
+    def add_note(self, text: str):
+        self.sidebar.add_note(text)
 
     # Re-routing confirm message to active screen
     @on(ConfirmModal.Confirmed)

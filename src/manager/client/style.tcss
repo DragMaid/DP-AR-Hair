@@ -31,7 +31,7 @@ Sidebar {
     width: 28;
     border: solid $surface;
     background: $panel;
-    padding: 1 0;
+    padding-top: 1;
 }
 
 Static.title {
@@ -41,6 +41,7 @@ Static.title {
 }
 
 ListView {
+    height: 70%;
     background: transparent;
 }
 
@@ -51,4 +52,12 @@ ListItem {
 ListItem.--highlight {
     background: $boost;
     color: $text;
+}
+
+.note_container {
+    border: solid $primary;
+}
+
+.note_container > ListView { 
+    height: 100%;
 }

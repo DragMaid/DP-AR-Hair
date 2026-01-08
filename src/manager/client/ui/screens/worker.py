@@ -1,35 +1,100 @@
-from textual.app import ComposeResult
-from textual.containers import Container, VerticalScroll
-from textual.widgets import Header, Footer, DataTable, Static
+from textual import on
+from textual import work
+from textual.binding import Binding
+from client.ui.modals import ConfirmModal, FormModal
+from client.ui.components import Table
+from client.api.worker import create_worker, delete_worker, get_workers
+from client.core.errors import FrontError
+from schemas.user import User
+from pydantic import BaseModel
 
 
-class WorkersScreen(Container):
-    """Screen displaying all workers with their status."""
+class CreateWorkerForm(BaseModel):
+    email: str
 
-    BINDINGS = [("escape", "app.pop_screen", "Back")]
 
-    def compose(self) -> ComposeResult:
-        yield Header()
-        yield Container(
-            Static("Workers", classes="screen-title"),
-            VerticalScroll(
-                DataTable(id="workers_table"),
-                classes="content-container"
-            )
+class WorkersScreen(Table):
+    """Screen displaying all workers in a table."""
+    BINDINGS = [
+        Binding("r", "reload", "Reload", show=True),
+        Binding("d", "delete", "Delete", show=True),
+        Binding("c", "create", "Create", show=True),
+    ]
+
+    def __init__(self):
+        super().__init__(
+            name="Workers",
+            max_length=24,
+            schema=User
         )
-        yield Footer()
+        self.worker_nodes = None
 
-    def on_mount(self) -> None:
-        table = self.query_one("#workers_table", DataTable)
-        table.add_columns("ID", "Username", "Role", "Created At", "Status")
-
-        for worker in WORKERS:
-            # Simulate online status (in real app, this would come from API)
-            status = "🟢 Online" if hash(worker.id) % 2 == 0 else "⚫ Offline"
-            table.add_row(
-                worker.id,
-                worker.username,
-                worker.role.value,
-                worker.created_at.strftime("%Y-%m-%d %H:%M"),
-                status
+    # Core logic handlers
+    @work(exclusive=True)
+    async def handle_reload(self):
+        try:
+            self.table.clear()
+            self.workers_nodes = await get_workers(self.fetcher)
+            for worker in self.workers_nodes:
+                self.table.add_row(*self.shorten(worker.values()))
+        except FrontError as e:
+            self.app.show_modal(
+                target="error",
+                message=str(e)
             )
+
+    @work(exclusive=True)
+    @on(ConfirmModal.Confirmed)
+    async def handle_confirm(self, message):
+        message.stop()
+
+        # Checks if index recording started yet
+        index = self.table.cursor_row
+        if index < 0:
+            return
+
+        try:
+            await delete_worker(
+                fetcher=self.fetcher,
+                worker_id=self.workers_nodes[index]["id"]
+            )
+            self.handle_reload()
+        except FrontError as e:
+            self.app.show_modal("error", message=str(e))
+
+    @work(exclusive=True)
+    @on(FormModal.Submitted)
+    async def handle_form_submiited(self, message):
+        message.stop()
+        try:
+            await create_worker(
+                self.fetcher,
+                message.formdata.email
+            )
+            self.handle_reload()
+        except FrontError as e:
+            self.app.show_modal(
+                target="error",
+                message=str(e)
+            )
+
+    # On start
+    def on_mount(self) -> None:
+        self.handle_reload()
+
+    # Actions
+    def action_reload(self):
+        self.handle_reload()
+
+    def action_delete(self):
+        self.app.show_modal(target="confirm")
+
+    def action_filter(self):
+        pass
+
+    def action_create(self):
+        self.app.show_modal(
+            target="form",
+            form_name="Create worker",
+            form_schema=CreateWorkerForm
+        )

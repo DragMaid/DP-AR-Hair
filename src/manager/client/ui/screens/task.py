@@ -62,9 +62,6 @@ class TasksScreen(Table):
     def on_mount(self) -> None:
         self.handle_reload()
 
-    def on_data_table_row_highlighted(self) -> None:
-        self.log(self.table.cursor_row)
-
     # Actions
     def action_reload(self):
         self.handle_reload()
@@ -79,4 +76,3 @@ class TasksScreen(Table):
         self.log(self.current_mode_index)
         self.app.add_note(f"Filter: {self.MODES[index]}")
         self.handle_reload()
-

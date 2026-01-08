@@ -3,11 +3,20 @@ from textual.widgets import Static, ListView, ListItem
 from textual.message import Message
 from textual.reactive import reactive
 from typing import List
+from textual import on
 
 
 class Sidebar(Vertical):
     past_notices: reactive[List[str]] = reactive(list, recompose=True)
+
     NOTICE_LIMIT = 100
+    SCREENS = [
+        {"name": "Workers", "id": "workers"},
+        {"name": "Tasks", "id": "tasks"},
+        {"name": "Assignments", "id": "assignments"},
+        {"name": "Histories", "id": "histories"},
+        {"name": "Admins", "id": "admins"}
+    ]
 
     class NavSelected(Message):
         def __init__(self, action: str) -> None:
@@ -15,13 +24,17 @@ class Sidebar(Vertical):
             super().__init__()
 
     def compose(self):
+        items = []
+        for i in range(len(self.SCREENS)):
+            items.append(
+                ListItem(
+                    Static(f"{i+1} {self.SCREENS[i]['name']}"),
+                    id=self.SCREENS[i]["id"]
+                )
+            )
         yield Static("DQS", classes="title")
         yield ListView(
-            ListItem(Static("1  Workers"), id="workers"),
-            ListItem(Static("2  Tasks"), id="tasks"),
-            ListItem(Static("3  Assignments"), id="assignments"),
-            ListItem(Static("4  Histories"), id="histories"),
-            ListItem(Static("5  Admins"), id="admins"),
+            *items,
             initial_index=1,
             id="nav_list"
         )
@@ -39,6 +52,13 @@ class Sidebar(Vertical):
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         self.post_message(self.NavSelected(event.item.id))
+
+    @on(NavSelected)
+    def handle_nav_selected(self, message: NavSelected):
+        message.stop()
+        for i in range(len(self.SCREENS)):
+            if self.SCREENS[i]["id"] == message.action:
+                self.query_one("#nav_list", ListView).index = i
 
     def add_note(self, text: str) -> None:
         if len(self.past_notices) >= self.NOTICE_LIMIT:

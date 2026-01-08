@@ -12,7 +12,7 @@ from client.ui.screens import (
 from client.core.session import session
 from client.api.fetcher import APIFetcher
 from client.core.config import settings
-from client.ui.modals import LoginModal, ErrorModal, ConfirmModal
+from client.ui.modals import LoginModal, ErrorModal, ConfirmModal, FormModal
 from httpx import AsyncClient
 
 from textual import on
@@ -49,9 +49,6 @@ class DQSDashboard(App):
         self.current_screen = None
         self.show_screen("tasks")
 
-    def on_nav_selected(self, message: Sidebar.NavSelected) -> None:
-        self.show_screen(message.action)
-
     def action_nav(self, target: str) -> None:
         self.show_screen(target)
 
@@ -63,7 +60,8 @@ class DQSDashboard(App):
         modal_map = {
             "error": ErrorModal,
             "login": LoginModal,
-            "confirm": ConfirmModal
+            "confirm": ConfirmModal,
+            "form": FormModal
         }
         modal_cls = modal_map.get(target)
         if modal_cls:
@@ -84,13 +82,23 @@ class DQSDashboard(App):
                 self.current_screen.remove()
             self.current_screen = screen_cls()
             self.content_area.mount(self.current_screen)
+            self.sidebar.post_message(Sidebar.NavSelected(target))
 
     def add_note(self, text: str):
         self.sidebar.add_note(text)
 
     # Re-routing confirm message to active screen
     @on(ConfirmModal.Confirmed)
-    def handle_confirm(self, message):
+    def handle_confirm(self, message: ConfirmModal.Confirmed) -> None:
+        if self.current_screen:
+            self.current_screen.post_message(message)
+
+    @on(Sidebar.NavSelected)
+    def handle_nav_selected(self, message: Sidebar.NavSelected) -> None:
+        self.show_screen(message.action)
+
+    @on(FormModal.Submitted)
+    def handle_form_submiited(self, message: FormModal.Submitted) -> None:
         if self.current_screen:
             self.current_screen.post_message(message)
 

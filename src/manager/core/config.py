@@ -28,5 +28,7 @@ class Settings(BaseModel):
     RATE_LIMITER_WINDOW_SEC: int = 60
     RATE_LIMITER_CAPACITY: int = 10000
 
+    ASSIGNMENT_TIMEOUT_MIN: int = 20
+
 
 settings = Settings()

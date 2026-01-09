@@ -7,6 +7,7 @@ class AssignmentStatus(str, Enum):
     SUCCEED = "succeed"
     FAILED = "failed"
     TERMINATED = "terminated"
+    TIMEOUT = "timeout"
 
 
 class Assignment(BaseModel):

@@ -2,6 +2,8 @@ from typing import Optional, List
 from .connect import get_cursor
 from schemas.task import TaskStatus
 from core.exceptions import AppError, wrap_errors
+from core.config import settings
+from datetime import datetime
 
 
 # TODO: add return types later
@@ -47,10 +49,10 @@ def claim_task(worker_id: str):
         """, (task["id"],))
 
         cur.execute("""
-            INSERT INTO assignments(worker_id, task_id)
-            VALUES (%s, %s)
+            INSERT INTO assignments(worker_id, task_id, expires_at)
+            VALUES (%s, %s, NOW() + %s * INTERVAL '1 minute')
             RETURNING id
-        """, (worker_id, task["id"],))
+        """, (worker_id, task["id"], settings.ASSIGNMENT_TIMEOUT_MIN,))
 
         assignment_id = cur.fetchone()
         if not assignment_id:

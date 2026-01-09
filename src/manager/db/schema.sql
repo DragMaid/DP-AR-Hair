@@ -1,6 +1,6 @@
-\restrict TQ3E5fwlthfphuEchJTnbMwccA67zNT6jwh8sWxI4PfwgUd5gVUxtigBWv0mRH2
+\restrict Pz3g70BbwdNwmUwvNdFn8h3sFDe2ucNPYkdZkXosfC1qRxcyRzcoNuOuKuxcBTB
 
--- Dumped from database version 16.11
+-- Dumped from database version 16.11 (Debian 16.11-1.pgdg12+1)
 -- Dumped by pg_dump version 17.6
 
 SET statement_timeout = 0;
@@ -14,6 +14,20 @@ SET check_function_bodies = false;
 SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
+
+--
+-- Name: pg_cron; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
+
+
+--
+-- Name: EXTENSION pg_cron; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON EXTENSION pg_cron IS 'Job scheduler for PostgreSQL';
+
 
 --
 -- Name: pgcrypto; Type: EXTENSION; Schema: -; Owner: -
@@ -36,7 +50,8 @@ COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
 CREATE TYPE public.assignment_status AS ENUM (
     'succeed',
     'failed',
-    'terminated'
+    'terminated',
+    'timeout'
 );
 
 
@@ -72,6 +87,49 @@ CREATE TYPE public.user_roles AS ENUM (
 );
 
 
+--
+-- Name: timeout_assignments(); Type: PROCEDURE; Schema: public; Owner: -
+--
+
+CREATE PROCEDURE public.timeout_assignments()
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    WITH expired_assignments AS (
+        DELETE FROM assignments
+        WHERE expires_at < NOW()
+        RETURNING task_id, worker_id
+    ),
+
+    history_insert AS (
+        INSERT INTO assignment_history (
+            task_id,
+            worker_id,
+            status,
+            log
+        )
+        SELECT
+            task_id,
+            worker_id,
+            'timeout'::assignment_status,
+            'Assignment timed out'
+        FROM expired_assignments
+    )
+
+    UPDATE tasks t
+    SET
+        status = 'pending',
+        retry_count = retry_count + 1
+    WHERE t.id IN (
+        SELECT DISTINCT task_id
+        FROM expired_assignments
+    )
+    AND t.status = 'processing';
+
+END;
+$$;
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -103,8 +161,9 @@ CREATE VIEW public.assignment_history_ordered AS
     log,
         CASE status
             WHEN 'failed'::public.assignment_status THEN 1
-            WHEN 'terminated'::public.assignment_status THEN 2
-            WHEN 'succeed'::public.assignment_status THEN 3
+            WHEN 'timeout'::public.assignment_status THEN 2
+            WHEN 'terminated'::public.assignment_status THEN 3
+            WHEN 'succeed'::public.assignment_status THEN 4
             ELSE NULL::integer
         END AS assignment_history_rank
    FROM public.assignment_history;
@@ -118,7 +177,8 @@ CREATE TABLE public.assignments (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     task_id uuid,
     worker_id uuid,
-    created_at timestamp without time zone DEFAULT now()
+    created_at timestamp without time zone DEFAULT now(),
+    expires_at timestamp without time zone
 );
 
 
@@ -413,7 +473,7 @@ ALTER TABLE ONLY public.tasks
 -- PostgreSQL database dump complete
 --
 
-\unrestrict TQ3E5fwlthfphuEchJTnbMwccA67zNT6jwh8sWxI4PfwgUd5gVUxtigBWv0mRH2
+\unrestrict Pz3g70BbwdNwmUwvNdFn8h3sFDe2ucNPYkdZkXosfC1qRxcyRzcoNuOuKuxcBTB
 
 
 --

@@ -1,32 +1,92 @@
-from textual.app import ComposeResult
-from textual.containers import Container, VerticalScroll
-from textual.widgets import Header, Footer, DataTable, Static
+from textual import on
+from textual import work
+from textual.binding import Binding
+from client.ui.components import Table
+from client.ui.modals import ConfirmModal
+from client.api.assignment import terminate_assignment, get_assignments
+from client.core.errors import FrontError
+from schemas.assignment import Assignment
+from client.core.session import session
 
 
-class AssignmentsScreen(Container):
-    """Screen displaying all assignments."""
+class AssignmentsScreen(Table):
+    """Screen displaying all assignments in a table."""
+    BINDINGS = [
+        Binding("r", "reload", "Reload", show=True),
+        Binding("f", "filter", "Filter", show=True),
+        Binding("d", "delete", "Delete", show=True),
+    ]
 
-    BINDINGS = [("escape", "app.pop_screen", "Back")]
+    FILTER_MODES = ["all", "own"]
 
-    def compose(self) -> ComposeResult:
-        yield Header()
-        yield Container(
-            Static("Assignments", classes="screen-title"),
-            VerticalScroll(
-                DataTable(id="assignments_table"),
-                classes="content-container"
-            )
+    def __init__(self):
+        super().__init__(
+            name="Workers",
+            max_length=24,
+            schema=Assignment
         )
-        yield Footer()
+        self.assignments = None
+        self.filter_mode_index = 0
 
-    def on_mount(self) -> None:
-        table = self.query_one("#assignments_table", DataTable)
-        table.add_columns("ID", "Task ID", "Worker ID", "Created At")
+    # Core logic handlers
+    @work(exclusive=True)
+    async def handle_reload(self):
+        try:
+            self.table.clear()
 
-        for assignment in ASSIGNMENTS:
-            table.add_row(
-                assignment.id,
-                assignment.task_id,
-                assignment.worker_id,
-                assignment.created_at.strftime("%Y-%m-%d %H:%M")
+            owner_id = None
+            if self.FILTER_MODES[self.filter_mode_index] == "own":
+                # If return None then not logged in -> should just crash
+                owner_id = session.get_user_id()
+
+            self.assignments = await get_assignments(
+                self.fetcher,
+                owner_id=owner_id
             )
+
+            for ass in self.assignments:
+                self.table.add_row(*self.shorten(ass.values()))
+
+        except FrontError as e:
+            self.app.show_modal(
+                target="error",
+                message=str(e)
+            )
+
+    @work(exclusive=True)
+    @on(ConfirmModal.Confirmed)
+    async def handle_confirm(self, message):
+        message.stop()
+
+        # Checks if index recording started yet
+        index = self.table.cursor_row
+        if index < 0:
+            return
+
+        try:
+            await terminate_assignment(
+                fetcher=self.fetcher,
+                assignment_id=self.assignments[index]["id"],
+                log="Manually terminated by user"
+            )
+            self.handle_reload()
+        except FrontError as e:
+            self.app.show_modal("error", message=str(e))
+
+    # On start
+    def on_mount(self) -> None:
+        self.handle_reload()
+
+    # Actions
+    def action_reload(self):
+        self.handle_reload()
+
+    def action_delete(self):
+        self.app.show_modal(target="confirm")
+
+    def action_filter(self):
+        index = self.filter_mode_index + 1
+        index = index if index < len(self.FILTER_MODES) else 0
+        self.filter_mode_index = index
+        self.app.add_note(f"Filter: {self.FILTER_MODES[index]}")
+        self.handle_reload()

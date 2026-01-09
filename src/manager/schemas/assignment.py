@@ -6,6 +6,7 @@ from datetime import datetime
 class AssignmentStatus(str, Enum):
     SUCCEED = "succeed"
     FAILED = "failed"
+    TERMINATED = "terminated"
 
 
 class Assignment(BaseModel):

@@ -116,9 +116,9 @@ async def seed_assignment_history(fetcher, n=1):
 
 async def seed_all(fetcher):
     await seed_admins(fetcher, 1)
-    await seed_tasks(fetcher, 1)
+    await seed_tasks(fetcher, 2)
     await seed_workers(fetcher, 1)
-    await seed_assignments(fetcher, 1)
+    await seed_assignments(fetcher, 2)
     await seed_assignment_history(fetcher, 1)
 
 

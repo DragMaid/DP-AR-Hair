@@ -26,8 +26,9 @@ def get_admins(
     username: Optional[str] = Query(default=None),
     limit: int = Query(default=100, ge=1, le=1000)
 ):
-    workers = uapi.list_users(username, limit, UserRoles.ADMIN)
-    return [User(**w) for w in workers]
+    # There will only be one god account so finding owner is not necessary
+    admins = uapi.list_users(username, UserRoles.ADMIN, None, limit)
+    return [User(**a) for a in admins]
 
 
 @router.post("/create", response_model=CreateAdminResponse)

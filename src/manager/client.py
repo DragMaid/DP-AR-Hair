@@ -48,6 +48,7 @@ class DQSDashboard(App):
         )
         self.current_screen = None
         self.show_screen("tasks")
+        self.show_modal("login", dismissible=False)
 
     def action_nav(self, target: str) -> None:
         self.show_screen(target)

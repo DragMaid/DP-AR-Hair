@@ -24,6 +24,7 @@ def list_tasks(
         return cur.fetchall()
 
 
+# TODO: add a timeout to clear the assignment
 @wrap_errors(default_code="TASK_INTERNAL_ERROR")
 def claim_task(worker_id: str):
     with get_cursor(dict_cursor=True) as cur:

@@ -6,6 +6,7 @@ from core.exceptions import wrap_errors
 
 
 def list_assignments(
+    owner_id: Optional[str],
     limit: int = 100
 ):
     with get_cursor(dict_cursor=True) as cur:
@@ -17,15 +18,22 @@ def list_assignments(
                 a.created_at
             FROM assignments a
             JOIN tasks_ordered t ON a.task_id = t.id
+            WHERE %s IS NULL OR EXISTS (
+                SELECT 1
+                FROM ownership o
+                WHERE a.worker_id = o.worker_id
+                    AND o.admin_id =  %s
+            )
             ORDER BY t.priority DESC, a.created_at ASC
             LIMIT %s
-        """, (limit,))
+        """, (owner_id, owner_id, limit,))
         assignments = cur.fetchall()
         return assignments
 
 
 def list_assignment_history(
     status: Optional[List[AssignmentStatus]],
+    owner_id: Optional[str],
     limit: int = 100
 ):
     with get_cursor(dict_cursor=True) as cur:
@@ -37,15 +45,21 @@ def list_assignment_history(
                 a.status,
                 a.log,
                 a.created_at
-            FROM assignment_history a
+            FROM assignment_history_ordered a
             JOIN tasks_ordered t ON a.task_id = t.id
             WHERE (
                 %s IS NULL
                 OR a.status = ANY(%s::assignment_status[])
+                AND EXISTS (
+                    SELECT 1
+                    FROM ownership o
+                    WHERE a.worker_id = o.worker_id
+                        AND o.admin_id = %s
+                )
             )
-            ORDER BY t.priority DESC, a.created_at ASC
+            ORDER BY a.created_at ASC, t.priority DESC
             LIMIT %s
-        """, (status, status, limit,))
+        """, (status, status, owner_id, limit,))
         assignments = cur.fetchall()
         return assignments
 
@@ -68,6 +82,44 @@ def report_assignment(
         if not a_id:
             raise AppError("ASSIGNMENT_NOT_FOUND")
 
+        update_assignment(assignment_id, status, log)
+
+
+@wrap_errors(default_code="ASSIGNMENT_REPORT_FAILED")
+def terminate_assignment(
+    assignment_id: str,
+    admin_id: str,
+    log: str
+) -> None:
+    with get_cursor(dict_cursor=True) as cur:
+        cur.execute("""
+            SELECT id
+            FROM assignments a
+            WHERE a.id = %s AND EXISTS (
+                SELECT 1
+                FROM ownership o
+                WHERE o.worker_id = a.worker_id
+                    AND o.admin_id = %s
+            )
+        """, (assignment_id, admin_id,))
+        a_id = cur.fetchone()
+        if not a_id:
+            raise AppError("ASSIGNMENT_NOT_FOUND")
+
+        update_assignment(
+            assignment_id,
+            AssignmentStatus.TERMINATED,
+            log
+        )
+
+
+@wrap_errors(default_code="ASSIGNMENT_REPORT_FAILED")
+def update_assignment(
+    assignment_id: str,
+    status: AssignmentStatus,
+    log: str
+) -> None:
+    with get_cursor(dict_cursor=True) as cur:
         # Update the task status based on report
         if status == AssignmentStatus.FAILED:
             cur.execute("""

@@ -7,6 +7,7 @@ from routers.worker import ResetWorkerResponse, CreateWorkerResponse
 async def get_workers(
     fetcher: APIFetcher,
     email: Optional[str] = None,
+    owner_id: Optional[str] = None,
     limit: int = 100
 ) -> List[User]:
     params = {}
@@ -16,6 +17,9 @@ async def get_workers(
 
     if limit:
         params["limit"] = limit
+
+    if owner_id:
+        params["owner_id"] = owner_id
 
     workers = await fetcher.fetch(
         method="GET",

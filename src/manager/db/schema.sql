@@ -1,4 +1,4 @@
-\restrict Xz82kyeVF13FnbTUFJMKDgRaazdLG4vdzA3pw8K59KbLDt7DEFsoka2FKZmV5p3
+\restrict TQ3E5fwlthfphuEchJTnbMwccA67zNT6jwh8sWxI4PfwgUd5gVUxtigBWv0mRH2
 
 -- Dumped from database version 16.11
 -- Dumped by pg_dump version 17.6
@@ -35,7 +35,8 @@ COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
 
 CREATE TYPE public.assignment_status AS ENUM (
     'succeed',
-    'failed'
+    'failed',
+    'terminated'
 );
 
 
@@ -87,6 +88,26 @@ CREATE TABLE public.assignment_history (
     created_at timestamp without time zone DEFAULT now(),
     log text
 );
+
+
+--
+-- Name: assignment_history_ordered; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.assignment_history_ordered AS
+ SELECT id,
+    task_id,
+    worker_id,
+    status,
+    created_at,
+    log,
+        CASE status
+            WHEN 'failed'::public.assignment_status THEN 1
+            WHEN 'terminated'::public.assignment_status THEN 2
+            WHEN 'succeed'::public.assignment_status THEN 3
+            ELSE NULL::integer
+        END AS assignment_history_rank
+   FROM public.assignment_history;
 
 
 --
@@ -392,7 +413,7 @@ ALTER TABLE ONLY public.tasks
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Xz82kyeVF13FnbTUFJMKDgRaazdLG4vdzA3pw8K59KbLDt7DEFsoka2FKZmV5p3
+\unrestrict TQ3E5fwlthfphuEchJTnbMwccA67zNT6jwh8sWxI4PfwgUd5gVUxtigBWv0mRH2
 
 
 --

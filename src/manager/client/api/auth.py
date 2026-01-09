@@ -26,3 +26,4 @@ async def authorize(
     )
 
     session.set_token(token.access_token)
+    session.set_user_id(token.user_id)

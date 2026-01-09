@@ -16,8 +16,7 @@ class TasksScreen(Table):
         Binding("f", "filter", "Filter", show=True),
     ]
 
-    MODES = [t.value for t in TaskStatus]
-    current_mode_index = 0
+    FILTER_MODES = ["all"] + [t.value for t in TaskStatus]
 
     def __init__(self):
         super().__init__(
@@ -26,14 +25,18 @@ class TasksScreen(Table):
             schema=Task
         )
         self.tasks = None
+        self.filter_mode_index = 0
 
     # Core logic handlers
     @work(exclusive=True)
     async def handle_reload(self):
         try:
+            mode = self.FILTER_MODES[self.filter_mode_index]
             self.table.clear()
             self.tasks = await get_tasks(
-                self.fetcher, status=[self.MODES[self.current_mode_index]])
+                self.fetcher,
+                status=None if mode == "all" else [mode]
+            )
             for task in self.tasks:
                 self.table.add_row(*self.shorten(task.values()))
         except FrontError as e:
@@ -70,9 +73,8 @@ class TasksScreen(Table):
         self.app.show_modal("confirm")
 
     def action_filter(self):
-        index = self.current_mode_index + 1
-        index = index if index < len(self.MODES) else 0
-        self.current_mode_index = index
-        self.log(self.current_mode_index)
-        self.app.add_note(f"Filter: {self.MODES[index]}")
+        index = self.filter_mode_index + 1
+        index = index if index < len(self.FILTER_MODES) else 0
+        self.filter_mode_index = index
+        self.app.add_note(f"Filter: {self.FILTER_MODES[index]}")
         self.handle_reload()

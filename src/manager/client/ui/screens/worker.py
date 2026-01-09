@@ -7,6 +7,7 @@ from client.api.worker import create_worker, delete_worker, get_workers
 from client.core.errors import FrontError
 from schemas.user import User
 from pydantic import BaseModel
+from client.core.session import session
 
 
 class CreateWorkerForm(BaseModel):
@@ -17,9 +18,12 @@ class WorkersScreen(Table):
     """Screen displaying all workers in a table."""
     BINDINGS = [
         Binding("r", "reload", "Reload", show=True),
+        Binding("f", "filter", "Filter", show=True),
         Binding("d", "delete", "Delete", show=True),
         Binding("c", "create", "Create", show=True),
     ]
+
+    FILTER_MODES = ["all", "own"]
 
     def __init__(self):
         super().__init__(
@@ -28,13 +32,24 @@ class WorkersScreen(Table):
             schema=User
         )
         self.worker_nodes = None
+        self.filter_mode_index = 0
 
     # Core logic handlers
     @work(exclusive=True)
     async def handle_reload(self):
         try:
             self.table.clear()
-            self.workers_nodes = await get_workers(self.fetcher)
+
+            owner_id = None
+            if self.FILTER_MODES[self.filter_mode_index] == "own":
+                # If return None then not logged in -> should just crash
+                owner_id = session.get_user_id()
+
+            self.workers_nodes = await get_workers(
+                self.fetcher,
+                owner_id=owner_id
+            )
+
             for worker in self.workers_nodes:
                 self.table.add_row(*self.shorten(worker.values()))
         except FrontError as e:
@@ -90,7 +105,11 @@ class WorkersScreen(Table):
         self.app.show_modal(target="confirm")
 
     def action_filter(self):
-        pass
+        index = self.filter_mode_index + 1
+        index = index if index < len(self.FILTER_MODES) else 0
+        self.filter_mode_index = index
+        self.app.add_note(f"Filter: {self.FILTER_MODES[index]}")
+        self.handle_reload()
 
     def action_create(self):
         self.app.show_modal(

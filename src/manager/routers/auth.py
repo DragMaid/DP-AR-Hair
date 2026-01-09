@@ -16,6 +16,7 @@ router = APIRouter(
 class Token(BaseModel):
     access_token: str
     token_type: str
+    user_id: str
 
 
 class LoginForm(BaseModel):
@@ -26,11 +27,22 @@ class LoginForm(BaseModel):
 
 @router.post("", response_model=Token)
 def authorize(form: LoginForm):
-    user = User(**authenticate_user(form.username, form.password, form.role))
+    user = User(**authenticate_user(
+        form.username,
+        form.password,
+        form.role
+    ))
+
     token_expire_min = timedelta(
         minutes=settings.TOKEN_EXPIRATION_MIN)
+
     access_token = create_token(
         data={"sub": user.id},
         expires_delta=token_expire_min
     )
-    return Token(access_token=access_token, token_type="bearer")
+
+    return Token(
+        access_token=access_token,
+        token_type="bearer",
+        user_id=user.id
+    )

@@ -48,6 +48,8 @@ def decode_access_token(token: str) -> str:
 def check_sliding_token(user_id: str, token: str):
     now = time()
     user_cache = last_activity_cache.get(user_id)
+    if not user_cache:
+        raise AppError("TOKEN_EXPIRED")
     if now - user_cache["last_seen"] > settings.TOKEN_INACTIVE_EXPIRATION_MIN:
         raise AppError("TOKEN_EXPIRED")
     if user_cache["token"] != token:

@@ -22,11 +22,11 @@ class ResetWorkerResponse(BaseModel):
 
 @router.get("", response_model=List[User])
 def get_workers(
-    admin: Annotated[User, Depends(require_admin)],
     email: Optional[str] = Query(default=None),
+    owner_id: Optional[str] = Query(default=None),
     limit: int = Query(default=100, ge=1, le=1000)
 ):
-    workers = uapi.list_users(email, UserRoles.WORKER, limit)
+    workers = uapi.list_users(email, UserRoles.WORKER, owner_id, limit)
     return [User(**w) for w in workers]
 
 

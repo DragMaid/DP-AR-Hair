@@ -86,7 +86,7 @@ def require_ownership(
             FROM ownership
             WHERE worker_id = %s
         """, (owned_id,))
-        admin_id = cur.fetchone()
+        admin_id = cur.fetchone()["admin_id"]
 
         if not admin_id or admin_id != user["id"]:
             raise AppError("FORBIDDEN")

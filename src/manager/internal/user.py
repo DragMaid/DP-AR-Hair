@@ -10,16 +10,28 @@ from schemas.user import UserRoles
 def list_users(
     email: Optional[str],
     role: UserRoles,
+    owner_id: Optional[str],
     limit: int = 100,
 ):
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
-            SELECT id, username, role, created_at
-            FROM users
-            WHERE (%s IS NULL OR username = %s)
-                AND role = %s::user_roles
+            SELECT u.id, u.username, u.role, u.created_at
+            FROM users u
+            WHERE
+                (%s IS NULL OR u.username = %s)
+                AND u.role = %s::user_roles
+                AND (
+                    %s IS NULL
+                    OR EXISTS (
+                        SELECT 1
+                        FROM ownership o
+                        WHERE o.worker_id = u.id
+                            AND o.admin_id = %s
+                    )
+                )
+            ORDER BY u.created_at DESC
             LIMIT %s
-        """, (email, email, role, limit,))
+        """, (email, email, role, owner_id, owner_id, limit,))
         users = cur.fetchall()
         return users
 

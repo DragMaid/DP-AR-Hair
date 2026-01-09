@@ -74,3 +74,4 @@ class FormModal(ModalScreen):
             form[key] = self.query_one(f"#{key}", Input).value
         form = self.form_schema(**form)
         self.post_message(self.Submitted(form))
+        self.dismiss()

@@ -15,7 +15,8 @@ CREATE TYPE task_status AS ENUM (
 
 CREATE TYPE assignment_status as ENUM (
     'succeed',
-    'failed'
+    'failed',
+    'terminated'
 );
 
 CREATE TYPE image_types as ENUM (
@@ -87,6 +88,15 @@ SELECT *,
         WHEN 'completed'  THEN 3
     END AS status_rank
 FROM tasks;
+
+CREATE VIEW assignment_history_ordered AS
+SELECT *,
+    CASE status
+        WHEN 'failed'     THEN 1
+        WHEN 'terminated' THEN 2
+        WHEN 'succeed'    THEN 3
+    END AS assignment_history_rank
+FROM assignment_history;
 
 CREATE INDEX idx_task_id ON tasks USING btree(id);
 CREATE INDEX idx_task_status ON tasks USING btree(status);

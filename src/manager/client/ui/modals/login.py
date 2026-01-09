@@ -52,6 +52,10 @@ class LoginModal(ModalScreen):
             self.password = password
             super().__init__()
 
+    def __init__(self, dismissible=True):
+        self.dismissible = dismissible
+        super().__init__()
+
     def compose(self) -> ComposeResult:
         with Vertical(classes="modal"):
             yield Label("Login", classes="title")
@@ -61,7 +65,8 @@ class LoginModal(ModalScreen):
                 yield Button("Login", variant="success", id="login")
 
     def action_cancel(self) -> None:
-        self.dismiss()
+        if self.dismissible:
+            self.dismiss()
 
     @on(Button.Pressed, "#login")
     def submit(self) -> None:

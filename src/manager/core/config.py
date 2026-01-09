@@ -21,7 +21,7 @@ class Settings(BaseModel):
     ALGORITHM: str = os.environ["ALGORITHM"]
 
     TOKEN_EXPIRATION_MIN: int = 2400  # 4 hours
-    TOKEN_INACTIVE_EXPIRATION_MIN: int = 20  # 20 minutes
+    TOKEN_INACTIVE_EXPIRATION_SEC: int = 20 * 60  # 20 minutes
     TOKEN_STORAGE_CAPACITY: int = 10000
 
     RATE_LIMITER_LIMIT: int = 30

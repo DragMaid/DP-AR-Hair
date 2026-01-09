@@ -12,14 +12,15 @@ class AssignmentHistoriesScreen(Table):
     BINDINGS = [
         Binding("r", "reload", "Reload", show=True),
         Binding("f", "filter", "Filter", show=True),
+        Binding("b", "read", "Read", show=True)
     ]
 
     FILTER_MODES = ["all", "own"]
 
     def __init__(self):
         super().__init__(
-            name="Workers",
-            max_length=24,
+            name="Histories",
+            max_length=30,
             schema=AssignmentHistory
         )
         self.histories = None
@@ -68,7 +69,14 @@ class AssignmentHistoriesScreen(Table):
         self.app.add_note(f"Filter: {self.FILTER_MODES[index]}")
         self.handle_reload()
 
-    # How should I do this, the best way would be to map a button on task
-    # screen to navigate over here
+    def action_read(self):
+        index = self.table.cursor_row
+        if index < 0:
+            return
+        self.log(self.histories[index]["log"])
+        self.app.show_modal(
+            target="note",
+            message=self.histories[index]["log"]
+        )
 
     # TODO: implement pagination later, right now this is enough

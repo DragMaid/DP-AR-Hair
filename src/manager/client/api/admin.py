@@ -17,15 +17,15 @@ async def get_admins(
     if limit:
         params["limit"] = limit
 
-    workers = await fetcher.fetch(
+    admins = await fetcher.fetch(
         method="GET",
         path="/admin",
         params=params,
-        require_auth=False,
+        require_auth=True,
         response_model=List[User]
     )
 
-    return workers
+    return admins
 
 
 async def create_admin(

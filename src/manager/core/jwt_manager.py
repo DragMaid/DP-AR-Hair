@@ -8,7 +8,7 @@ from .exceptions import wrap_errors, AppError
 
 last_activity_cache = TTLCache(
     maxsize=settings.TOKEN_STORAGE_CAPACITY,
-    ttl=settings.TOKEN_INACTIVE_EXPIRATION_MIN
+    ttl=settings.TOKEN_INACTIVE_EXPIRATION_SEC
 )
 
 
@@ -50,7 +50,7 @@ def check_sliding_token(user_id: str, token: str):
     user_cache = last_activity_cache.get(user_id)
     if not user_cache:
         raise AppError("TOKEN_EXPIRED")
-    if now - user_cache["last_seen"] > settings.TOKEN_INACTIVE_EXPIRATION_MIN:
+    if now - user_cache["last_seen"] > settings.TOKEN_INACTIVE_EXPIRATION_SEC:
         raise AppError("TOKEN_EXPIRED")
     if user_cache["token"] != token:
         raise AppError("INVALID_TOKEN")

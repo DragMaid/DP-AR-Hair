@@ -12,7 +12,7 @@ from client.ui.screens import (
 from client.core.session import session
 from client.api.fetcher import APIFetcher
 from client.core.config import settings
-from client.ui.modals import LoginModal, ErrorModal, ConfirmModal, FormModal
+from client.ui.modals import LoginModal, ErrorModal, ConfirmModal, FormModal, NoteModal
 from httpx import AsyncClient
 
 from textual import on
@@ -62,7 +62,8 @@ class DQSDashboard(App):
             "error": ErrorModal,
             "login": LoginModal,
             "confirm": ConfirmModal,
-            "form": FormModal
+            "form": FormModal,
+            "note": NoteModal
         }
         modal_cls = modal_map.get(target)
         if modal_cls:

@@ -95,11 +95,6 @@ FRONT_ERRORS = {
 
 BACK_TO_FRONT_ERRORS = {
     # Client / Request errors
-    "INVALID_REQUEST": {
-        "source": ErrorSources.CLIENT,
-        "category": ErrorCategories.CLIENT_ERROR,
-        "retryable": False,
-    },
     "UNAUTHORIZED": {
         "source": ErrorSources.BACKEND,
         "category": ErrorCategories.UNAUTHORIZED,
@@ -252,10 +247,36 @@ BACK_TO_FRONT_ERRORS = {
         "retryable": True,
     },
 
+    # Default backend errors
+    "INVALID_REQUEST": {
+        "source": ErrorSources.BACKEND,
+        "category": ErrorCategories.CLIENT_ERROR,
+        "retryable": False
+    },
+
+    "INVALID_RESPONSE": {
+        "source": ErrorSources.BACKEND,
+        "category": ErrorCategories.INVALID_RESPONSE,
+        "retryable": False
+    },
+
+    "HTTP_ERROR": {
+        "source": ErrorSources.BACKEND,
+        "category": ErrorCategories.SERVER_ERROR,
+        "retryable": True
+    },
+
+    "INTERNAL_SERVER_ERROR": {
+        "source": ErrorSources.BACKEND,
+        "category": ErrorCategories.SERVER_ERROR,
+        "retryable": True
+    },
+
     # Fallback / Unknown errors
     "UNKNOWN_ERROR": {
         "source": ErrorSources.BACKEND,
         "category": ErrorCategories.UNKNOWN,
         "retryable": False,
     },
+
 }

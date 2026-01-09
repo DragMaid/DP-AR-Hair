@@ -6,7 +6,13 @@ from routers import (
     auth,
     admin
 )
-from core.exceptions import register_app_error_handler
+from core.exceptions import (
+    register_app_error_handler,
+    register_http_error_handler,
+    register_request_error_handler,
+    register_response_error_handler,
+    register_fallback_error_handler
+)
 from core.rate_limiter import RateLimiter, RateLimiterMiddleware
 from core.config import settings
 
@@ -17,16 +23,22 @@ rate_limiter = RateLimiter(
     maxsize=settings.RATE_LIMITER_CAPACITY
 )
 
+# Include all the routes
 app.include_router(worker.router)
 app.include_router(task.router)
 app.include_router(assignment.router)
 app.include_router(auth.router)
 app.include_router(admin.router)
 
+# Middleware for rate limiting
 app.add_middleware(RateLimiterMiddleware, limiter=rate_limiter)
 
-# TODO: what about other errors, they do not fit the schema
+# Error handlers for all error types
 register_app_error_handler(app)
+register_http_error_handler(app)
+register_request_error_handler(app)
+register_response_error_handler(app)
+register_fallback_error_handler(app)
 
 
 @app.get("/health")

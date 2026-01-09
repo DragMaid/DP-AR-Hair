@@ -1,32 +1,100 @@
-from textual.app import ComposeResult
-from textual.containers import Container, VerticalScroll
-from textual.widgets import Header, Footer, DataTable, Static
+from textual import on
+from textual import work
+from textual.binding import Binding
+from client.ui.modals import ConfirmModal, FormModal
+from client.ui.components import Table
+from client.api.admin import get_admins, create_admin, delete_admin
+from client.core.errors import FrontError
+from schemas.user import User
+from pydantic import BaseModel
 
 
-class AdminsScreen(Container):
-    """Screen displaying all administrators."""
+class CreateAdminForm(BaseModel):
+    username: str
 
-    BINDINGS = [("escape", "app.pop_screen", "Back")]
 
-    def compose(self) -> ComposeResult:
-        yield Header()
-        yield Container(
-            Static("Administrators", classes="screen-title"),
-            VerticalScroll(
-                DataTable(id="admins_table"),
-                classes="content-container"
-            )
+class AdminsScreen(Table):
+    """Screen displaying all workers in a table."""
+    BINDINGS = [
+        Binding("r", "reload", "Reload", show=True),
+        Binding("f", "filter", "Filter", show=True),
+        Binding("d", "delete", "Delete", show=True),
+        Binding("c", "create", "Create", show=True),
+    ]
+
+    def __init__(self):
+        super().__init__(
+            name="Admins",
+            max_length=24,
+            schema=User
         )
-        yield Footer()
+        self.admin_nodes = None
+        self.filter_mode_index = 0
 
-    def on_mount(self) -> None:
-        table = self.query_one("#admins_table", DataTable)
-        table.add_columns("ID", "Username", "Role", "Created At")
+    # Core logic handlers
+    @work(exclusive=True)
+    async def handle_reload(self):
+        try:
+            self.table.clear()
+            self.admin_nodes = await get_admins(self.fetcher)
+            for admin in self.admin_nodes:
+                self.table.add_row(*self.shorten(admin.values()))
 
-        for admin in ADMINS:
-            table.add_row(
-                admin.id,
-                admin.username,
-                admin.role.value,
-                admin.created_at.strftime("%Y-%m-%d %H:%M")
+        except FrontError as e:
+            self.app.show_modal(
+                target="error",
+                message=str(e)
             )
+
+    @work(exclusive=True)
+    @on(ConfirmModal.Confirmed)
+    async def handle_confirm(self, message):
+        message.stop()
+
+        # Checks if index recording started yet
+        index = self.table.cursor_row
+        if index < 0:
+            return
+
+        try:
+            await delete_admin(
+                fetcher=self.fetcher,
+                admin_id=self.admin_nodes[index]["id"]
+            )
+            self.handle_reload()
+        except FrontError as e:
+            self.app.show_modal("error", message=str(e))
+
+    @work(exclusive=True)
+    @on(FormModal.Submitted)
+    async def handle_form_submiited(self, message):
+        message.stop()
+        try:
+            await create_admin(
+                self.fetcher,
+                message.formdata.username
+            )
+            self.handle_reload()
+        except FrontError as e:
+            self.app.show_modal(
+                target="error",
+                message=str(e)
+            )
+
+    # On start
+    def on_mount(self) -> None:
+        self.handle_reload()
+
+    # Actions
+    def action_reload(self):
+        self.handle_reload()
+
+    def action_delete(self):
+        self.app.show_modal(target="confirm")
+
+    def action_create(self):
+        self.app.show_modal(
+            target="form",
+            form_name="Create admin",
+            form_schema=CreateAdminForm
+        )

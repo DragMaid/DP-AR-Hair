@@ -2,16 +2,13 @@ from .logger import get_logger
 from functools import wraps
 from fastapi import Request
 from fastapi.responses import JSONResponse
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
+from fastapi.exceptions import RequestValidationError, ResponseValidationError
 
 logger = get_logger(__name__)
 
-ERRORS = {
+APP_ERRORS = {
     # Client / Request errors
-    "INVALID_REQUEST": {
-        "message": "Invalid request parameters",
-        "status_code": 400
-    },
     "UNAUTHORIZED": {
         "message": "Unauthorized access",
         "status_code": 401
@@ -148,17 +145,15 @@ ERRORS = {
     },
 }
 
-# TODO: why are we using message instead of details like InternalServerError ?
-
 
 class AppError(Exception):
     def __init__(self, code: str):
-        if code not in ERRORS:
+        if code not in APP_ERRORS:
             code = "UNKNOWN_ERROR"  # fallback
         self.code = code
-        self.message = ERRORS[code]["message"]
-        self.status_code = ERRORS[code]["status_code"]
-        self.headers = ERRORS[code].get("headers")
+        self.message = APP_ERRORS[code]["message"]
+        self.status_code = APP_ERRORS[code]["status_code"]
+        self.headers = APP_ERRORS[code].get("headers")
 
 
 def get_request_context(request: Request):
@@ -169,29 +164,6 @@ def get_request_context(request: Request):
         "client": request.client.host if request.client else None,
         "user_agent": request.headers.get("user-agent"),
     }
-
-
-def register_app_error_handler(app: FastAPI):
-    @app.exception_handler(AppError)
-    async def app_error_handler(request: Request, exc: AppError):
-        logger.error(
-            f"[{exc.code}] {exc.message}",
-            extra={
-                "error_code": exc.code,
-                "request": get_request_context(request),
-            },
-            exc_info=True,
-        )
-
-        response = JSONResponse(
-            status_code=exc.status_code,
-            content={"error": {"code": exc.code, "message": exc.message}}
-        )
-
-        if exc.headers:
-            response.headers.update(exc.headers)
-
-        return response
 
 
 def wrap_errors(default_code="UNKNOWN_ERROR"):
@@ -208,3 +180,122 @@ def wrap_errors(default_code="UNKNOWN_ERROR"):
                 raise AppError(default_code)
         return wrapper
     return decorator
+
+
+def error_response(
+    *,
+    status_code: int,
+    code: str,
+    message: str,
+    headers: dict | None = None,
+):
+    response = JSONResponse(
+        status_code=status_code,
+        content={
+            "error": {
+                "code": code,
+                "message": message,
+            }
+        },
+    )
+
+    if headers:
+        response.headers.update(headers)
+
+    return response
+
+
+def register_app_error_handler(app: FastAPI):
+    @app.exception_handler(AppError)
+    async def app_error_handler(request: Request, exc: AppError):
+        logger.error(
+            f"[{exc.code}] {exc.message}",
+            extra={
+                "error_code": exc.code,
+                "request": get_request_context(request),
+            },
+            exc_info=True,
+        )
+
+        return error_response(
+            status_code=exc.status_code,
+            code=exc.code,
+            message=exc.message,
+            headers=exc.headers,
+        )
+
+
+def register_http_error_handler(app: FastAPI):
+    # FastAPI / Starlette HTTP exceptions
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(request: Request, exc: HTTPException):
+        logger.warning(
+            f"[HTTP_{exc.status_code}] {exc.detail}",
+            extra={"request": get_request_context(request)},
+        )
+
+        return error_response(
+            status_code=exc.status_code,
+            code="HTTP_ERROR",
+            message=str(exc.detail),
+        )
+
+
+def register_request_error_handler(app: FastAPI):
+    # Request validation errors
+    @app.exception_handler(RequestValidationError)
+    async def request_validation_handler(
+        request: Request, exc: RequestValidationError
+    ):
+        logger.info(
+            "Request validation failed",
+            extra={
+                "errors": exc.errors(),
+                "request": get_request_context(request),
+            },
+        )
+
+        return error_response(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code="INVALID_REQUEST",
+            message="Invalid request parameters",
+        )
+
+
+def register_response_error_handler(app: FastAPI):
+    # Response validation errors
+    @app.exception_handler(ResponseValidationError)
+    async def response_validation_handler(
+        request: Request, exc: ResponseValidationError
+    ):
+        logger.error(
+            "Response validation failed",
+            extra={
+                "errors": exc.errors(),
+                "request": get_request_context(request),
+            },
+            exc_info=True,
+        )
+
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            code="INVALID_RESPONSE",
+            message="Internal server error",
+        )
+
+
+def register_fallback_error_handler(app: FastAPI):
+    # All the other stuff
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception):
+        logger.critical(
+            "Unhandled exception",
+            extra={"request": get_request_context(request)},
+            exc_info=True,
+        )
+
+        return error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            code="INTERNAL_SERVER_ERROR",
+            message="Internal server error",
+        )

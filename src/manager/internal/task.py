@@ -1,20 +1,28 @@
 from typing import Optional, List
 from .connect import get_cursor
-from schemas.task import TaskStatus
+from schemas.task import TaskStatus, Task
 from core.exceptions import AppError, wrap_errors
 from core.config import settings
-from datetime import datetime
 
 
 # TODO: add return types later
+# TODO: add proper select tags later
 @wrap_errors(default_code="TASK_INTERNAL_ERROR")
 def list_tasks(
     status: Optional[List[TaskStatus]],
     limit: int = 100
-):
+) -> List[Task]:
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
-            SELECT *
+            SELECT
+                id,
+                driving_image_id,
+                reference_image_id,
+                result_path,
+                retry_count,
+                priority,
+                status,
+                created_at
             FROM tasks_ordered t
             WHERE (
                 %s IS NULL
@@ -28,10 +36,10 @@ def list_tasks(
 
 # TODO: add a timeout to clear the assignment
 @wrap_errors(default_code="TASK_INTERNAL_ERROR")
-def claim_task(worker_id: str):
+def claim_task(worker_id: str) -> str:
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
-            SELECT *
+            SELECT id
             FROM tasks
             WHERE status = 'pending'
             ORDER BY priority, created_at
@@ -67,7 +75,7 @@ def create_task(
     reference_id: str,
     path: str,
     priority: int
-):
+) -> str:
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
             INSERT INTO tasks (
@@ -86,7 +94,7 @@ def create_task(
 
 
 @wrap_errors(default_code="TASK_INTERNAL_ERROR")
-def delete_task(task_id: str):
+def delete_task(task_id: str) -> None:
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
             DELETE FROM tasks

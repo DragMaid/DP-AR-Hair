@@ -1,6 +1,6 @@
 from fastapi import Depends, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from schemas.user import UserRoles
+from schemas.user import UserRoles, User
 from pydantic import BaseModel
 from core.exceptions import wrap_errors, AppError
 from .connect import get_cursor
@@ -16,7 +16,7 @@ class TokenData(BaseModel):
 def extract_bearer_token(
     credentials: HTTPAuthorizationCredentials = Depends(
         HTTPBearer(auto_error=False))
-):
+) -> str:
     if credentials is None:
         raise AppError("MISSING_AUTH_HEADER")
 
@@ -27,7 +27,7 @@ def extract_bearer_token(
 
 
 @wrap_errors(default_code="AUTH_INTERNAL_ERROR")
-def get_user(user_id: str):
+def get_user(user_id: str) -> User:
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
             SELECT id, username, role, created_at
@@ -41,7 +41,7 @@ def get_user(user_id: str):
 
 
 @wrap_errors(default_code="AUTH_INTERNAL_ERROR")
-def get_current_user(token: str = Depends(extract_bearer_token)):
+def get_current_user(token: str = Depends(extract_bearer_token)) -> User:
     user_id = decode_access_token(token)
     try:
         user = get_user(user_id=user_id)
@@ -54,7 +54,7 @@ def get_current_user(token: str = Depends(extract_bearer_token)):
 
 
 @wrap_errors(default_code="AUTH_INTERNAL_ERROR")
-def require_god(user=Depends(get_current_user)):
+def require_god(user=Depends(get_current_user)) -> User:
     # TODO: this is considerable
     if user["username"] != settings.ADMIN_USERNAME:
         raise AppError("FORBIDDEN")
@@ -62,14 +62,14 @@ def require_god(user=Depends(get_current_user)):
 
 
 @wrap_errors(default_code="AUTH_INTERNAL_ERROR")
-def require_worker(user=Depends(get_current_user)):
+def require_worker(user=Depends(get_current_user)) -> User:
     if user["role"] != UserRoles.WORKER:
         raise AppError("FORBIDDEN")
     return user
 
 
 @wrap_errors(default_code="AUTH_INTERNAL_ERROR")
-def require_admin(user=Depends(get_current_user)):
+def require_admin(user=Depends(get_current_user)) -> User:
     if user["role"] != UserRoles.ADMIN:
         raise AppError("FORBIDDEN")
     return user
@@ -79,7 +79,7 @@ def require_admin(user=Depends(get_current_user)):
 def require_ownership(
     user=Depends(get_current_user),
     owned_id: str = Query(alias="worker_id")
-):
+) -> None:
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
             SELECT admin_id
@@ -93,7 +93,7 @@ def require_ownership(
 
 
 @wrap_errors(default_code="AUTH_INTERNAL_ERROR")
-def authenticate_user(username: str, password: str, role: str):
+def authenticate_user(username: str, password: str, role: str) -> User:
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
             SELECT id, username, role, created_at

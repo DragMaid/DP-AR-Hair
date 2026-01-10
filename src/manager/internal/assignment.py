@@ -1,4 +1,4 @@
-from schemas.assignment import AssignmentStatus
+from schemas.assignment import AssignmentStatus, Assignment, AssignmentHistory
 from typing import Optional, List
 from .connect import get_cursor
 from core.exceptions import AppError
@@ -8,7 +8,7 @@ from core.exceptions import wrap_errors
 def list_assignments(
     owner_id: Optional[str],
     limit: int = 100
-):
+) -> List[Assignment]:
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
             SELECT
@@ -35,7 +35,7 @@ def list_assignment_history(
     status: Optional[List[AssignmentStatus]],
     owner_id: Optional[str],
     limit: int = 100
-):
+) -> List[AssignmentHistory]:
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
             SELECT

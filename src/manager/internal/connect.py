@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from core.exceptions import AppError
 from core.config import settings
 
+# TODO: add typings here
 def get_connection():
     """
     Create a new PostgreSQL connection.

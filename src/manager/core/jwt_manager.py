@@ -13,7 +13,7 @@ last_activity_cache = TTLCache(
 
 
 @wrap_errors(default_code="TOKEN_CREATION_FAILED")
-def create_token(data: dict, expires_delta: timedelta):
+def create_token(data: dict, expires_delta: timedelta) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + expires_delta
     to_encode.update({"exp": expire})
@@ -45,7 +45,7 @@ def decode_access_token(token: str) -> str:
 
 
 @wrap_errors(default_code="TOKEN_INTERNAL_ERROR")
-def check_sliding_token(user_id: str, token: str):
+def check_sliding_token(user_id: str, token: str) -> None:
     now = time()
     user_cache = last_activity_cache.get(user_id)
     if not user_cache:

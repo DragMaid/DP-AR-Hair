@@ -5,7 +5,7 @@ from logging.handlers import RotatingFileHandler
 
 
 class JsonFormatter(logging.Formatter):
-    def format(self, record):
+    def format(self, record: dict):
         log_record = {
             "time": self.formatTime(record, self.datefmt),
             "level": record.levelname,
@@ -23,7 +23,7 @@ def setup_logging(
     max_bytes: int = 10*1024*1024,  # 10 MB
     backup_count: int = 5,
     json_format: bool = False,
-):
+) -> None:
     """
     Configure centralized logging
     - json_format: outputs logs in JSON

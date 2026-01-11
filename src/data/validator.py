@@ -3,15 +3,15 @@ import torch
 import cv2
 import numpy as np
 import torch.nn.functional as F
+from PIL import Image
+from pathlib import Path
+from collections import Counter
 import matplotlib.pyplot as plt
 from torchvision import transforms as T
 from loaders.loader import load_models
 from face_parsing.models.utils import normalize_image
-from collections import Counter
-from PIL import Image
 from data.celebvhq_reference import CelebVHQReferenceDataset
 from configs.pipeline_config import pipeline_config
-from pathlib import Path
 
 # 5% will be the threshold for both hat and bald
 UPSCALE_SIZE = 512
@@ -89,9 +89,13 @@ def validate_dataset():
         transform=transform
     )
 
-    with open("cache.txt", "a") as f:
+    with open(pipeline_config.dataset.validated_cache_path, "a") as f:
         count = 0
         total = len(dataset)
+
+        reference_paths = list(
+            Path(pipeline_config.dataset.reference_dir).glob("*.[jp][pn]g"))
+
         for combinations in dataset:
             print(f"Processing {count} / {total} items ...")
             count += 1
@@ -102,8 +106,6 @@ def validate_dataset():
             if not validate_image(combinations["side"]["path"]):
                 continue
 
-            reference_paths = list(
-                Path(pipeline_config.dataset.reference_dir).glob("*.[jp][pn]g"))
             ref_path = random.choice(reference_paths)
 
             while not validate_image(str(ref_path)):
@@ -113,6 +115,41 @@ def validate_dataset():
                 f"{combinations['front']['path']},{combinations['side']['path']},{ref_path}\n")
 
 
+def permute_till_goal_reached(goal: int):
+    with open(pipeline_config.dataset.validated_cache_path, "r") as f:
+        lines = f.readlines()
+        cache_combs = set()
+        for line in lines:
+            record = line.strip().split(',')
+            cache_combs.add((record[0], record[-1]))
+        original_len = len(lines)
+
+    with open(pipeline_config.dataset.validated_cache_path, "a") as f:
+        added_count = 0
+
+        reference_paths = list(
+            Path(pipeline_config.dataset.reference_dir).glob("*.[jp][pn]g"))
+
+        while original_len + added_count < goal:
+            print(f"Processing {original_len + added_count} / {goal} ...")
+            line = random.choice(lines)
+            drive_front_path, drive_side_path, _ = line.strip().split(',')
+
+            ref_path = random.choice(reference_paths)
+            current_comb = (drive_front_path, ref_path)
+
+            while current_comb not in cache_combs and \
+                    not validate_image(str(ref_path)):
+                ref_path = random.choice(reference_paths)
+
+            cache_combs.add(current_comb)
+            f.write(
+                f"{drive_front_path},{drive_side_path},{ref_path}\n")
+
+            added_count += 1
+
+
+# TODO: write another function to add variation in case there's no enough images
 def test_dangerous_images():
     DANGEROUS_IMAGES = [
         "0bR6pUOhZo4_2_frontal",
@@ -135,4 +172,6 @@ def test_dangerous_images():
 
 
 if __name__ == "__main__":
-    validate_dataset()
+    if not Path(pipeline_config.dataset.reference_dir).exists():
+        validate_dataset()
+    permute_till_goal_reached(16000)

@@ -43,3 +43,4 @@ def insert_image(
         image_id = cur.fetchone()
         if not image_id:
             raise AppError("IMAGE_CREATION_FAILED")
+        return image_id["id"]

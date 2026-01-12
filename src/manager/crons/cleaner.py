@@ -13,9 +13,10 @@ def clear_expired_uploads():
             RETURNING file_path
         """, ())
 
-        paths = cur.fetchall()["file_path"]
-        for path in paths:
-            remove(path)
+        rows = cur.fetchall()
+        for row in rows:
+            remove(row["file_path"])
+        print(f"Removed {len(rows)} expired uploads")
 
 
 if __name__ == "__main__":

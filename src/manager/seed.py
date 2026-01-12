@@ -149,20 +149,30 @@ if __name__ == "__main__":
     from client.api.fetcher import APIFetcher
     from httpx import AsyncClient
     import asyncio
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser()
+    parser.add_argument('-d', '--debug', action='store_true')
+    args = parser.parse_args()
+
     try:
         with get_cursor(dict_cursor=True) as cur:
             seed_god(cur)
-            seed_images(cur, 20)
 
-        client = AsyncClient()
-        fetcher = APIFetcher(
-            base_url="http://localhost:8000",
-            client=client,
-            session=session,
-            strict=False
-        )
+        if args.debug:
+            with get_cursor(dict_cursor=True) as cur:
+                seed_images(cur, 20)
 
-        asyncio.run(seed_all(fetcher))
+            client = AsyncClient()
+            fetcher = APIFetcher(
+                base_url=settings.BASE_URL,
+                client=client,
+                session=session,
+                strict=False
+            )
+
+            asyncio.run(seed_all(fetcher))
+
     except Exception as e:
         print(f"Error seeding databases: {e}")
         raise

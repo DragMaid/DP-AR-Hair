@@ -5,8 +5,6 @@ from core.exceptions import AppError, wrap_errors
 from core.config import settings
 
 
-# TODO: add return types later
-# TODO: add proper select tags later
 @wrap_errors(default_code="TASK_INTERNAL_ERROR")
 def list_tasks(
     status: Optional[List[TaskStatus]],
@@ -37,6 +35,8 @@ def list_tasks(
 # TODO: add a timeout to clear the assignment
 @wrap_errors(default_code="TASK_INTERNAL_ERROR")
 def claim_task(worker_id: str) -> str:
+
+    # TODO: its overriding old claims
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
             SELECT id

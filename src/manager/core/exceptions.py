@@ -91,6 +91,19 @@ APP_ERRORS = {
         "message": "Failed to create image",
         "status_code": 500
     },
+    "INVALID_IMAGE_CONTENT": {
+        "message": "Failed to process image content",
+        "status_code": 500
+    },
+    "UNSUPPORTED_IMAGE_TYPE": {
+        "message": "Image format not supported",
+        "status_code": 415,
+    },
+    "UPLOAD_NOT_FOUND": {
+        "message": "Upload was not found",
+        "status_code": 404,
+    },
+
 
     # Queue errors
     "QUEUE_OVERFLOW": {

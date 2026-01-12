@@ -6,12 +6,15 @@ from schemas.assignment import AssignmentStatus
 from schemas.image import ImageTypes
 from schemas.user import UserRoles
 from client.core.session import session
+from pathlib import Path
+from core.config import settings
 
 load_dotenv()
 
 image_ids = []
 task_ids = []
 assignment_ids = []
+upload_ids = {}
 
 
 def seed_images(cursor, n=10):
@@ -104,14 +107,33 @@ async def seed_assignments(fetcher, n=1):
 
 async def seed_assignment_history(fetcher, n=1):
     from client.api.assignment import report_assignment
-
     for i in range(min(n, len(assignment_ids))):
+        assignment_id = assignment_ids[i]
+        upload_id = upload_ids.get(assignment_id)
+
+        if not upload_id:
+            continue
+
         await report_assignment(
             fetcher,
-            assignment_ids[i],
+            assignment_id,
+            upload_id,
             status=random.choice(list(AssignmentStatus)),
             log=""
         )
+
+
+async def seed_upload(fetcher, n=1):
+    from client.api.image import upload
+    path = Path("../../assets/test_images/cropped.png")
+
+    for i in range(min(n, len(assignment_ids))):
+        if not os.path.isfile(path):
+            return
+
+        assignment_id = assignment_ids[i]
+        id = await upload(fetcher, assignment_id, path)
+        upload_ids[assignment_id] = id
 
 
 async def seed_all(fetcher):
@@ -119,6 +141,7 @@ async def seed_all(fetcher):
     await seed_tasks(fetcher, 2)
     await seed_workers(fetcher, 1)
     await seed_assignments(fetcher, 2)
+    await seed_upload(fetcher, 1)
     await seed_assignment_history(fetcher, 1)
 
 

@@ -3,7 +3,10 @@ from pydantic import BaseModel
 from internal import assignment as aapi
 from typing import Optional, List, Annotated
 from internal.auth import require_worker, require_admin
+from internal.image import move_file, get_generated_name
 from schemas.user import User
+from core.config import settings
+from pathlib import Path
 from schemas.assignment import (
     AssignmentHistory,
     Assignment,
@@ -23,6 +26,7 @@ class TerminateAssignmentBody(BaseModel):
 
 
 class ReportAssignmentBody(TerminateAssignmentBody):
+    upload_id: str
     status: AssignmentStatus
 
 
@@ -51,11 +55,22 @@ def report_assignment(
     body: ReportAssignmentBody,
     worker: Annotated[User, Depends(require_worker)]
 ):
-    aapi.report_assignment(
+    filename = get_generated_name(body.assignment_id)
+
+    file_path = aapi.report_assignment(
         body.assignment_id,
         worker["id"],
+        body.upload_id,
         body.status,
         body.log
+    )
+
+    extension = file_path.split('.')[-1]
+    filename = f"{filename}.{extension}"
+
+    move_file(
+        source=Path(file_path),
+        destination=Path(settings.GENERATED_IMAGE_DIR, filename)
     )
 
 

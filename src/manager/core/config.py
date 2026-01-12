@@ -1,6 +1,7 @@
 import os
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from pathlib import Path
 
 load_dotenv()
 
@@ -29,6 +30,12 @@ class Settings(BaseModel):
     RATE_LIMITER_CAPACITY: int = 10000
 
     ASSIGNMENT_TIMEOUT_MIN: int = 20
+    UPLOAD_TIMEOUT_MIN: int = 5
+
+    IMAGE_TMP_FOLDER: str = "assets/tmp/"
+
+    # TODO: this is kinda hard coded and must be syncronized with pipeline config
+    GENERATED_IMAGE_DIR: Path = Path("../../assets/generated_images/")
 
 
 settings = Settings()

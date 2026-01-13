@@ -17,7 +17,7 @@ from core.exceptions import (
 from core.rate_limiter import RateLimiter, RateLimiterMiddleware
 from core.config import settings
 
-app = FastAPI()
+app = FastAPI(root_path="/api")
 rate_limiter = RateLimiter(
     limit=settings.RATE_LIMITER_LIMIT,
     window=settings.RATE_LIMITER_WINDOW_SEC,
@@ -41,6 +41,8 @@ register_http_error_handler(app)
 register_request_error_handler(app)
 register_response_error_handler(app)
 register_fallback_error_handler(app)
+
+# TODO: I can make nginx only accept X-accel redirect from fastapi if image is included in assignment table
 
 
 @app.get("/health")

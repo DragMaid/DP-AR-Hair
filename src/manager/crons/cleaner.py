@@ -1,8 +1,7 @@
 from time import sleep
 from internal.connect import get_cursor
 from os import remove
-
-INTERVAL_MIN = 10
+from core.config import settings
 
 
 def clear_expired_uploads():
@@ -24,4 +23,4 @@ if __name__ == "__main__":
     # TODO: add retry and all mighty cleanup (remove files not mentioned)
     while True:
         clear_expired_uploads()
-        sleep(INTERVAL_MIN * 60)
+        sleep(settings.TMP_FILE_CLEANUP_MIN * 60)

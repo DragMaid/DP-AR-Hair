@@ -37,5 +37,7 @@ class Settings(BaseModel):
     # TODO: this is kinda hard coded and must be syncronized with pipeline config
     GENERATED_IMAGE_DIR: Path = Path("../../assets/generated_images/")
 
+    TMP_FILE_CLEANUP_MIN: int = 10
+
 
 settings = Settings()

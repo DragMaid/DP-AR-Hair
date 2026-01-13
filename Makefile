@@ -2,15 +2,23 @@
 
 install: poetry ninja submodules download
 
-# 1. Install Poetry if not present
+# Install Poetry if not present
+# Will have to manually download python 3.10.5 and set poetry to use it
 poetry:
-	@command -v poetry >/dev/null 2>&1 || (echo "Installing Poetry..." && curl -sSL https://install.python-poetry.org | python3 -)
-	@echo "Installing project dependencies..."
-	export PATH="$PATH:/root/.local/bin" && poetry install --with full
+	command -v poetry >/dev/null 2>&1 || \
+		echo "Installing Poetry..."; \
+		curl -sSL https://install.python-poetry.org \
+		| python3 - \
+		| grep -o 'export PATH="[^"]*"' \
+		| sh
+	)
 
-# 2. Install Ninja
+install:
+
+
+# Install Ninja
 ninja:
-	@command -v ninja >/dev/null 2>&1 || ( \
+	command -v ninja >/dev/null 2>&1 || ( \
 		echo "Installing Ninja..."; \
 		wget https://github.com/ninja-build/ninja/releases/download/v1.8.2/ninja-linux.zip -O /tmp/ninja.zip; \
 		sudo unzip -o /tmp/ninja.zip -d /usr/local/bin/; \
@@ -18,18 +26,12 @@ ninja:
 	)
 	@echo "Ninja is ready"
 
-# 3. Update git submodules
-submodules:
-	git submodule update --init --recursive
-
-# 4. Run tests
+# Run tests
 test:
-	export PYTHONPATH=src:libs
-	poetry run pytest
+	PYTHONPATH=src:libs poetry run pytest
 
-# 4. Download all weights for dataset
+# Download all weights for dataset
 download:
 	git clone https://huggingface.co/AIRI-Institute/HairFastGAN
 	mv HairFastGAN/pretrained_models/ .
 	rm -rf HairFastGAN
-

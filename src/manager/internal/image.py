@@ -1,7 +1,7 @@
 from fastapi import UploadFile
 from typing import Optional, List
 from .connect import get_cursor
-from schemas.image import Image, ImageTypes, UploadStatus
+from schemas.image import Image, ImageCategories, UploadStatus
 from core.exceptions import AppError, wrap_errors
 from core.config import settings
 from PIL import Image as PILImage, UnidentifiedImageError
@@ -13,34 +13,6 @@ from pathlib import Path
 # TODO: map image errors to frontend
 UPLOAD_DIR = Path(settings.IMAGE_TMP_FOLDER)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
-
-@wrap_errors(default_code="IMAGE_INTERNAL_ERROR")
-def get_generated_name(assignment_id: str) -> str:
-    with get_cursor(dict_cursor=True) as cur:
-        cur.execute("""
-            SELECT i.file_path
-            FROM images i
-            JOIN tasks t ON t.driving_image_id = i.id
-            JOIN assignments a ON a.task_id = t.id
-            WHERE a.id = %s
-            LIMIT 1
-        """, (assignment_id,))
-
-        row = cur.fetchone()
-        if not row or not row.get("file_path"):
-            raise ValueError(
-                f"No source image found for assignment {assignment_id}")
-
-        original_filename = row["file_path"].split('/')[-1]
-        file_id_parts = original_filename.split('_')[:-1]
-
-        if not file_id_parts:
-            raise ValueError(f"Invalid original filename: {original_filename}")
-
-        file_id = '_'.join(file_id_parts)
-        generated_name = f"{file_id}_generated"
-        return generated_name
 
 
 @wrap_errors(default_code="IMAGE_INTERNAL_ERROR")
@@ -88,7 +60,7 @@ def save_upload_file(
 
 @wrap_errors(default_code="IMAGE_INTERNAL_ERROR")
 def list_images(
-    image_type: Optional[List[ImageTypes]],
+    image_type: Optional[List[ImageCategories]],
     limit: int = 100
 ) -> List[Image]:
     with get_cursor(dict_cursor=True) as cur:
@@ -101,7 +73,7 @@ def list_images(
             FROM images
             Where (
                 %s IS NULL
-                OR type = ANY(%s::image_types)
+                OR type = ANY(%s::image_categories)
             )
             ORDER BY created_at ASC
             LIMIT %s
@@ -112,7 +84,7 @@ def list_images(
 @wrap_errors(default_code="IMAGE_INTERNAL_ERROR")
 def insert_image(
     file_path: str,
-    image_type: ImageTypes,
+    image_type: ImageCategories,
 ) -> str:
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
@@ -132,14 +104,33 @@ def insert_upload(
     worker_id: str,
     assignment_id: str,
     file_path: str,
+    category: ImageCategories,
     status: UploadStatus,
 ) -> str:
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
-            INSERT INTO uploads (id, worker_id, assignment_id, file_path, status, expires_at)
-            VALUES (%s, %s, %s, %s, %s, NOW() + %s * INTERVAL '1 minute')
+            INSERT INTO uploads (
+                id,
+                worker_id,
+                assignment_id,
+                file_path,
+                category,
+                status,
+                expires_at
+            )
+            VALUES (
+                %s, %s, %s, %s, %s::image_categories, %s,
+                NOW() + %s * INTERVAL '1 minute')
             RETURNING id;
-        """, (id, worker_id, assignment_id, file_path, status, settings.UPLOAD_TIMEOUT_MIN,))
+        """, (
+            id,
+            worker_id,
+            assignment_id,
+            file_path,
+            category,
+            status,
+            settings.UPLOAD_TIMEOUT_MIN,
+        ))
         upload_id = cur.fetchone()
         if not upload_id:
             raise AppError("UPLOAD_REGISTRATION_FAILED")
@@ -155,3 +146,29 @@ def validate_image(file: UploadFile) -> None:
         PILImage.open(file.file)
     except UnidentifiedImageError:
         raise AppError("INVALID_IMAGE_CONTENT")
+
+
+@wrap_errors(default_code="IMAGE_INTERNAL_ERROR")
+def retrieve_upload(
+    upload_id: str,
+    assignment_id: str,
+    worker_id: str,
+    category: Optional[List[ImageCategories]] = None
+) -> str:
+
+    with get_cursor(dict_cursor=True) as cur:
+        cur.execute("""
+            UPDATE uploads
+            SET status = 'processed'::upload_status
+            WHERE id = %s
+                AND worker_id = %s
+                AND assignment_id = %s
+                AND status = 'pending'::upload_status
+                AND (category IS NULL OR
+                     category = ANY(%s::image_categories[]))
+            RETURNING file_path
+        """, (upload_id, worker_id, assignment_id, category,))
+        upload = cur.fetchone()
+        if not upload:
+            raise AppError("UPLOAD_NOT_FOUND")
+        return upload["file_path"]

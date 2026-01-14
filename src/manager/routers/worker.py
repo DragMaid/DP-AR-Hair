@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query, Depends
 from internal import user as uapi
 from typing import Optional, List, Annotated
-from internal.auth import require_admin, require_ownership
+from internal.auth import require_admin, require_worker_ownership
 from schemas.user import User, UserRoles
 from pydantic import BaseModel
 
@@ -42,7 +42,7 @@ def create_worker(
 @router.post("/delete", status_code=204)
 def delete_worker(
     worker_id: str,
-    _: Annotated[None, Depends(require_ownership)]
+    _: Annotated[None, Depends(require_worker_ownership)]
 ):
     uapi.remove_user(worker_id, UserRoles.WORKER)
 
@@ -50,7 +50,7 @@ def delete_worker(
 @router.post("/reset", response_model=ResetWorkerResponse)
 def reset_worker_password(
     worker_id: str,
-    _: Annotated[None, Depends(require_ownership)]
+    _: Annotated[None, Depends(require_worker_ownership)]
 ):
     password = uapi.reset_worker_password(worker_id, UserRoles.WORKER)
     return ResetWorkerResponse(password=password)

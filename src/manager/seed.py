@@ -3,27 +3,28 @@ import os
 from internal.connect import get_cursor
 from dotenv import load_dotenv
 from schemas.assignment import AssignmentStatus
-from schemas.image import ImageTypes
+from schemas.image import ImageCategories
 from schemas.user import UserRoles
 from client.core.session import session
 from pathlib import Path
 from core.config import settings
+from collections import defaultdict
 
 load_dotenv()
 
 image_ids = []
 task_ids = []
 assignment_ids = []
-upload_ids = {}
+upload_id_maps = defaultdict(dict)
 
 
 def seed_images(cursor, n=10):
     """Seed `images` table with n random image paths."""
     image_paths = [f"/images/img_{i}.jpg" for i in range(1, n)]
     for path in image_paths:
-        image_type = random.choice(list(ImageTypes))
+        image_type = random.choice(list(ImageCategories))
         cursor.execute("""
-            INSERT INTO images (file_path, type)
+            INSERT INTO images (file_path, category)
             VALUES (%s, %s)
             ON CONFLICT (file_path) DO NOTHING
             RETURNING id
@@ -109,15 +110,17 @@ async def seed_assignment_history(fetcher, n=1):
     from client.api.assignment import report_assignment
     for i in range(min(n, len(assignment_ids))):
         assignment_id = assignment_ids[i]
-        upload_id = upload_ids.get(assignment_id)
+        upload_id_map = upload_id_maps.get(assignment_id)
 
-        if not upload_id:
+        if not upload_id_map:
             continue
 
         await report_assignment(
-            fetcher,
-            assignment_id,
-            upload_id,
+            fetcher=fetcher,
+            assignment_id=assignment_id,
+            driving_upload_id=upload_id_map["driving"],
+            reference_upload_id=upload_id_map["reference"],
+            generated_upload_id=upload_id_map["generated"],
             status=random.choice(list(AssignmentStatus)),
             log=""
         )
@@ -131,9 +134,15 @@ async def seed_upload(fetcher, n=1):
         if not os.path.isfile(path):
             return
 
-        assignment_id = assignment_ids[i]
-        id = await upload(fetcher, assignment_id, path)
-        upload_ids[assignment_id] = id
+        for category in [e.value for e in ImageCategories]:
+            assignment_id = assignment_ids[i]
+            id = await upload(
+                fetcher=fetcher,
+                assignment_id=assignment_id,
+                path=path,
+                category=category
+            )
+            upload_id_maps[assignment_id][category] = id
 
 
 async def seed_all(fetcher):
@@ -165,7 +174,7 @@ if __name__ == "__main__":
 
             client = AsyncClient()
             fetcher = APIFetcher(
-                base_url=settings.BASE_URL,
+                base_url="http://localhost:80/api/",
                 client=client,
                 session=session,
                 strict=False

@@ -32,10 +32,8 @@ class Settings(BaseModel):
     ASSIGNMENT_TIMEOUT_MIN: int = 20
     UPLOAD_TIMEOUT_MIN: int = 5
 
-    IMAGE_TMP_FOLDER: str = "assets/tmp/"
-
-    # TODO: this is kinda hard coded and must be syncronized with pipeline config
-    GENERATED_IMAGE_DIR: Path = Path("../../assets/generated_images/")
+    IMAGE_TMP_FOLDER: Path = Path("assets/tmp/")
+    GENERATED_IMAGE_DIR: Path = Path("assets/generated/")
 
     TMP_FILE_CLEANUP_MIN: int = 10
 

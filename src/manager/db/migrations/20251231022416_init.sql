@@ -24,7 +24,7 @@ CREATE TYPE assignment_status as ENUM (
     'timeout'
 );
 
-CREATE TYPE image_types as ENUM (
+CREATE TYPE image_categories as ENUM (
     'driving',
     'reference',
     'generated'
@@ -38,7 +38,7 @@ CREATE TYPE upload_status as ENUM (
 CREATE TABLE images (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     file_path TEXT NOT NULL,
-    type image_types NOT NULL,
+    category image_categories NOT NULL,
     created_at TIMESTAMP DEFAULT NOW(),
     CONSTRAINT unique_image_path UNIQUE (file_path)
 );
@@ -88,6 +88,7 @@ CREATE TABLE uploads (
     assignment_id UUID REFERENCES assignments(id) ON DELETE CASCADE,
     file_path TEXT NOT NULL,
     status upload_status NOT NULL,
+    category image_categories NOT NULL,
     expires_at TIMESTAMP DEFAULT NOW(),
     created_at TIMESTAMP DEFAULT NOW(),
     CONSTRAINT unique_upload_path UNIQUE (file_path)

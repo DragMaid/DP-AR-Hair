@@ -59,12 +59,16 @@ async def get_assignment_history(
 async def report_assignment(
     fetcher: APIFetcher,
     assignment_id: str,
-    upload_id: str,
+    generated_upload_id: str,
+    driving_upload_id: str,
+    reference_upload_id: str,
     status: AssignmentStatus,
     log: str
 ) -> None:
     payload = ReportAssignmentBody(
-        upload_id=upload_id,
+        generated_upload_id=generated_upload_id,
+        driving_upload_id=driving_upload_id,
+        reference_upload_id=reference_upload_id,
         assignment_id=assignment_id,
         status=status,
         log=log

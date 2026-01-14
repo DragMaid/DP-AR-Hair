@@ -7,14 +7,20 @@ from core.config import settings
 def clear_expired_uploads():
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
-            DELETE FROM uploads
+            SELECT file_path FROM uploads
             WHERE expires_at < NOW()
-            RETURNING file_path
         """, ())
 
+        # Delete the files first then delete the record
         rows = cur.fetchall()
         for row in rows:
             remove(row["file_path"])
+
+        cur.execute("""
+            DELETE FROM uploads
+            WHERE expires_at < NOW()
+        """, ())
+
         print(f"Removed {len(rows)} expired uploads")
 
 

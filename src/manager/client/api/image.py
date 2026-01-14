@@ -1,10 +1,12 @@
 from .fetcher import APIFetcher
 from routers.image import UploadResponse
+from schemas.image import ImageCategories
 
 
 async def upload(
     fetcher: APIFetcher,
     assignment_id: str,
+    category: ImageCategories,
     path: str
 ) -> str:
     with open(path, 'rb') as f:
@@ -17,7 +19,7 @@ async def upload(
             path="/images/upload",
             files=files,
             require_auth=True,
-            params={"assignment_id": assignment_id},
+            params={"assignment_id": assignment_id, "category": category},
             response_model=UploadResponse
         )
 

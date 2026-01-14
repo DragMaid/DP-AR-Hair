@@ -2,7 +2,7 @@ from fastapi import APIRouter, UploadFile, Depends
 from pydantic import BaseModel
 from typing import Annotated
 from schemas.user import User
-from schemas.image import UploadStatus
+from schemas.image import UploadStatus, ImageCategories
 from internal.auth import require_worker
 from internal.image import validate_image, insert_upload, save_upload_file
 from internal.assignment import require_assignment_ownership
@@ -24,6 +24,7 @@ class UploadResponse(BaseModel):
 def upload_image(
     worker: Annotated[User, Depends(require_worker)],
     assignment_id: str,
+    category: ImageCategories,
     file: UploadFile
 ):
     require_assignment_ownership(
@@ -44,6 +45,7 @@ def upload_image(
         worker_id=worker["id"],
         assignment_id=assignment_id,
         file_path=destination,
+        category=category,
         status=UploadStatus.PENDING
     )
 

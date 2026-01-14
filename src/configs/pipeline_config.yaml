@@ -19,9 +19,12 @@ training:
   steps_till_save: 1000
 
 dataset:
+    # These 2 are for dataset generation
     reference_dir: './assets/reference_images/'
     driving_dir: './assets/driving_images/'
-    generated_dir: './assets/generated_images/'
+
+    # All dataset for training process is here
+    dataset_dir: './assets/dataset/'
     validated_cache_path: './src/manager/cache.txt'
     num_workers: 1
     device: -1

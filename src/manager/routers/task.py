@@ -27,6 +27,8 @@ class CreateTaskResponse(BaseModel):
 
 class ClaimTaskResponse(BaseModel):
     assignment_id: str
+    driving_path: str
+    reference_path: str
 
 
 @router.get("", response_model=List[Task])
@@ -65,5 +67,11 @@ def delete_task(
 def claim_task(
     worker: Annotated[User, Depends(require_worker)]
 ):
-    assignment_id = tapi.claim_task(worker["id"])
-    return ClaimTaskResponse(assignment_id=assignment_id)
+    response = tapi.claim_task(worker["id"])
+
+    # TODO: maybe returning image id and mapping that id to nginx path would be better
+    return ClaimTaskResponse(
+        assignment_id=response["assignment_id"],
+        driving_path=response["driving_path"],
+        reference_path=response["reference_path"],
+    )

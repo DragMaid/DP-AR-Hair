@@ -59,14 +59,48 @@ def claim_task(worker_id: str) -> str:
         cur.execute("""
             INSERT INTO assignments(worker_id, task_id, expires_at)
             VALUES (%s, %s, NOW() + %s * INTERVAL '1 minute')
-            RETURNING id
+            RETURNING id, task_id
         """, (worker_id, task["id"], settings.ASSIGNMENT_TIMEOUT_MIN,))
 
-        assignment_id = cur.fetchone()
-        if not assignment_id:
+        assignment = cur.fetchone()
+        if not assignment:
             raise AppError("ASSIGNMENT_CREATION_FAILED")
 
-        return assignment_id["id"]
+        cur.execute("""
+            WITH task_data AS (
+                SELECT
+                    t.driving_image_id,
+                    t.reference_image_id,
+                    t.result_path
+                FROM tasks t
+                WHERE t.id = %s
+                LIMIT 1
+            ),
+            driving_path AS (
+                SELECT file_path
+                FROM images i
+                JOIN task_data t ON i.id = t.driving_image_id
+            ),
+            reference_path AS (
+                SELECT file_path
+                FROM images i
+                JOIN task_data t ON i.id = t.reference_image_id
+            )
+            SELECT
+                %s as assignment_id,
+                d.file_path as driving_path,
+                r.file_path as reference_path
+            FROM task_data t
+            CROSS JOIN driving_path d
+            CROSS JOIN reference_path r
+        """, (assignment["task_id"], assignment["id"]))
+
+        # TOOD: create an error for this later
+        response = cur.fetchone()
+        if not response:
+            raise
+
+        return response
 
 
 @wrap_errors(default_code="TASK_INTERNAL_ERROR")

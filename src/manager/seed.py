@@ -101,8 +101,8 @@ async def seed_tasks(fetcher, n=1):
 async def seed_assignments(fetcher, n=1):
     from manager.client.api.tasks import claim_task
     for i in range(n):
-        assignment_id = await claim_task(fetcher)
-        assignment_ids.append(assignment_id)
+        response = await claim_task(fetcher)
+        assignment_ids.append(response["assignment_id"])
 
 
 async def seed_assignment_history(fetcher, n=1):

@@ -62,6 +62,7 @@ class HairFast:
         # Blending and Post Process stage
         final_image = self.blend.blend_images(
             align_shape, align_color, name_to_embed, **kwargs)
+
         return final_image
 
     def swap(self, face_img: TImage | TPath, shape_img: TImage | TPath, color_img: TImage | TPath,

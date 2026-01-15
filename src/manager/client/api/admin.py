@@ -1,7 +1,7 @@
 from .fetcher import APIFetcher
 from typing import List, Optional
-from schemas.user import User
-from routers.admin import ResetAdminResponse, CreateAdminResponse
+from manager.schemas.user import User
+from manager.routers.admin import ResetAdminResponse, CreateAdminResponse
 
 
 async def get_admins(

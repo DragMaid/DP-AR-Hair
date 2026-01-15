@@ -1,19 +1,19 @@
+from pathlib import Path
 from uuid import uuid4
 from fastapi import APIRouter, Query, Depends
 from pydantic import BaseModel
-from internal import assignment as aapi
 from typing import Optional, List, Annotated
-from internal.auth import require_worker, require_admin
-from internal.image import move_file
-from schemas.user import User
-from core.config import settings
-from pathlib import Path
-from schemas.assignment import (
+from manager.internal import assignment as aapi
+from manager.internal.auth import require_worker, require_admin
+from manager.internal.image import move_file
+from manager.schemas.user import User
+from manager.core.config import settings
+from manager.schemas.assignment import (
     AssignmentHistory,
     Assignment,
     AssignmentStatus,
 )
-from internal.assignment import UploadPathMap
+from manager.internal.assignment import UploadPathMap
 
 router = APIRouter(
     prefix="/assignments",

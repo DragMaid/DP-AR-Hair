@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Query, Depends
 from typing import Optional, List, Annotated
 from pydantic import BaseModel
-from internal import task as tapi
-from internal.auth import require_admin, require_worker
-from schemas.task import Task
-from schemas.user import User
+from manager.internal import task as tapi
+from manager.internal.auth import require_admin, require_worker
+from manager.schemas.task import Task
+from manager.schemas.user import User
 
 
 router = APIRouter(

@@ -1,13 +1,13 @@
 from textual import on
 from textual import work
 from textual.binding import Binding
-from client.ui.modals import ConfirmModal, FormModal
-from client.ui.components import Table
-from client.api.worker import create_worker, delete_worker, get_workers
-from client.core.errors import FrontError
-from schemas.user import User
+from manager.client.ui.modals import ConfirmModal, FormModal
+from manager.client.ui.components import Table
+from manager.client.api.worker import create_worker, delete_worker, get_workers
+from manager.client.core.errors import FrontError
+from manager.client.core.session import session
+from manager.schemas.user import User
 from pydantic import BaseModel
-from client.core.session import session
 
 
 class CreateWorkerForm(BaseModel):
@@ -82,11 +82,16 @@ class WorkersScreen(Table):
     async def handle_form_submiited(self, message):
         message.stop()
         try:
-            await create_worker(
+            password = await create_worker(
                 self.fetcher,
                 message.formdata.email
             )
             self.handle_reload()
+            self.app.show_modal(
+                target="note",
+                title="PASSWORD",
+                message=password
+            )
         except FrontError as e:
             self.app.show_modal(
                 target="error",

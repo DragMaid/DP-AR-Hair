@@ -1,12 +1,12 @@
 from textual import on
 from textual import work
 from textual.binding import Binding
-from client.ui.components import Table
-from client.ui.modals import ConfirmModal
-from client.api.assignment import terminate_assignment, get_assignments
-from client.core.errors import FrontError
-from schemas.assignment import Assignment
-from client.core.session import session
+from manager.client.ui.components import Table
+from manager.client.ui.modals import ConfirmModal
+from manager.client.api.assignment import terminate_assignment, get_assignments
+from manager.client.core.errors import FrontError
+from manager.schemas.assignment import Assignment
+from manager.client.core.session import session
 
 
 class AssignmentsScreen(Table):

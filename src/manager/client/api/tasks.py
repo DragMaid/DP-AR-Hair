@@ -1,7 +1,7 @@
 from .fetcher import APIFetcher
 from typing import List, Optional
-from schemas.task import Task, TaskStatus
-from routers.task import CreateTaskBody, CreateTaskResponse, ClaimTaskResponse
+from manager.schemas.task import Task, TaskStatus
+from manager.routers.task import CreateTaskBody, CreateTaskResponse, ClaimTaskResponse
 
 
 async def get_tasks(

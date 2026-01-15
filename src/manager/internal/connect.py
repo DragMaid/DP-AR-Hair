@@ -2,8 +2,8 @@ from typing import Iterator
 import psycopg2
 import psycopg2.extras
 from contextlib import contextmanager
-from core.exceptions import AppError
-from core.config import settings
+from manager.core.exceptions import AppError
+from manager.core.config import settings
 
 # TODO: add typings here
 

@@ -1,11 +1,11 @@
 from textual import on
 from textual import work
 from textual.binding import Binding
-from schemas.task import Task, TaskStatus
-from client.api.tasks import get_tasks, delete_task
-from client.core.errors import FrontError
-from client.ui.modals import ConfirmModal
-from client.ui.components import Table
+from manager.schemas.task import Task, TaskStatus
+from manager.client.api.tasks import get_tasks, delete_task
+from manager.client.core.errors import FrontError
+from manager.client.ui.modals import ConfirmModal
+from manager.client.ui.components import Table
 
 
 class TasksScreen(Table):

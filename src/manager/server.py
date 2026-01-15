@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routers import (
+from manager.routers import (
     assignment,
     worker,
     task,
@@ -7,15 +7,15 @@ from routers import (
     admin,
     image
 )
-from core.exceptions import (
+from manager.core.exceptions import (
     register_app_error_handler,
     register_http_error_handler,
     register_request_error_handler,
     register_response_error_handler,
     register_fallback_error_handler
 )
-from core.rate_limiter import RateLimiter, RateLimiterMiddleware
-from core.config import settings
+from manager.core.rate_limiter import RateLimiter, RateLimiterMiddleware
+from manager.core.config import settings
 
 app = FastAPI(root_path="/api")
 rate_limiter = RateLimiter(
@@ -48,3 +48,5 @@ register_fallback_error_handler(app)
 @app.get("/health")
 async def health():
     return {"message": "Server is up and running!"}
+
+# TODO: make it so everything can be ran from root (or probably just the client)

@@ -1,10 +1,10 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 from datetime import timedelta
-from internal.auth import authenticate_user
-from schemas.user import UserRoles, User
-from core.config import settings
-from core.jwt_manager import create_token
+from manager.internal.auth import authenticate_user
+from manager.schemas.user import UserRoles, User
+from manager.core.config import settings
+from manager.core.jwt_manager import create_token
 
 router = APIRouter(
     prefix="/login",

@@ -13,9 +13,6 @@ poetry:
 		| sh
 	)
 
-install:
-
-
 # Install Ninja
 ninja:
 	command -v ninja >/dev/null 2>&1 || ( \
@@ -26,12 +23,45 @@ ninja:
 	)
 	@echo "Ninja is ready"
 
+init-roots = PYTHONPATH=src:libs 
 # Run tests
 test:
-	PYTHONPATH=src:libs poetry run pytest
+	$(init-roots) poetry run pytest
 
 # Download all weights for dataset
 download:
 	git clone https://huggingface.co/AIRI-Institute/HairFastGAN
 	mv HairFastGAN/pretrained_models/ .
 	rm -rf HairFastGAN
+
+backend-docker = src/manager/docker-compose.yml
+backend-dir = src.manager
+migration-dir = ./src/manager/db/migrations
+
+dbup:
+	docker compose -f $(backend-docker) up db
+
+dbclear:
+	docker compose -f $(backend-docker) down -v db
+
+backend:
+	$(init-roots) poetry run uvicorn $(backend-dir).server:app --host 0.0.0.0 --port 8000
+
+nginx:
+	docker compose -f $(backend-docker) down -v nginx
+	docker compose -f $(backend-docker) up nginx
+
+seed:
+	$(init-roots) poetry run python -m $(backend-dir).seed
+
+seeddebug:
+	$(init-roots) poetry run python -m $(backend-dir).seed -d
+
+cron:
+	docker compose -f $(backend-docker) up cronjob
+
+migrate:
+	dbmate -d $(migration-dir) migrate
+
+tui:
+	$(init-roots) poetry run python -m $(backend-dir).tui

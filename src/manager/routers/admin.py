@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Query, Depends
-from internal.auth import require_god, require_admin
-from internal import user as uapi
 from typing import Optional, List, Annotated
 from pydantic import BaseModel
-from schemas.user import User, UserRoles
+from manager.internal.auth import require_god, require_admin
+from manager.internal import user as uapi
+from manager.schemas.user import User, UserRoles
 
 router = APIRouter(
     prefix="/admin",

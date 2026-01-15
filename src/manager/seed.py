@@ -1,14 +1,13 @@
 import random
 import os
-from internal.connect import get_cursor
-from dotenv import load_dotenv
-from schemas.assignment import AssignmentStatus
-from schemas.image import ImageCategories
-from schemas.user import UserRoles
-from client.core.session import session
 from pathlib import Path
-from core.config import settings
+from dotenv import load_dotenv
 from collections import defaultdict
+from manager.internal.connect import get_cursor
+from manager.schemas.assignment import AssignmentStatus
+from manager.schemas.image import ImageCategories
+from manager.schemas.user import UserRoles
+from manager.client.core.session import session
 
 load_dotenv()
 
@@ -49,8 +48,8 @@ def seed_god(cursor):
 
 async def seed_admins(fetcher, n=1):
     assert n >= 1
-    from client.api.auth import authorize
-    from client.api.admin import create_admin
+    from manager.client.api.auth import authorize
+    from manager.client.api.admin import create_admin
 
     # Authorize for god user first
     username = os.environ["ADMIN_USERNAME"]
@@ -69,8 +68,8 @@ async def seed_admins(fetcher, n=1):
 
 
 async def seed_workers(fetcher, n=1):
-    from client.api.auth import authorize
-    from client.api.worker import create_worker
+    from manager.client.api.auth import authorize
+    from manager.client.api.worker import create_worker
 
     for i in range(n):
         password = await create_worker(fetcher, f"worker{i}")
@@ -80,7 +79,7 @@ async def seed_workers(fetcher, n=1):
 
 
 async def seed_tasks(fetcher, n=1):
-    from client.api.tasks import create_task
+    from manager.client.api.tasks import create_task
     from random import randint
 
     cnt = 0
@@ -100,14 +99,14 @@ async def seed_tasks(fetcher, n=1):
 
 
 async def seed_assignments(fetcher, n=1):
-    from client.api.tasks import claim_task
+    from manager.client.api.tasks import claim_task
     for i in range(n):
         assignment_id = await claim_task(fetcher)
         assignment_ids.append(assignment_id)
 
 
 async def seed_assignment_history(fetcher, n=1):
-    from client.api.assignment import report_assignment
+    from manager.client.api.assignment import report_assignment
     for i in range(min(n, len(assignment_ids))):
         assignment_id = assignment_ids[i]
         upload_id_map = upload_id_maps.get(assignment_id)
@@ -127,7 +126,7 @@ async def seed_assignment_history(fetcher, n=1):
 
 
 async def seed_upload(fetcher, n=1):
-    from client.api.image import upload
+    from manager.client.api.image import upload
     path = Path("../../assets/test_images/cropped.png")
 
     for i in range(min(n, len(assignment_ids))):
@@ -155,7 +154,7 @@ async def seed_all(fetcher):
 
 
 if __name__ == "__main__":
-    from client.api.fetcher import APIFetcher
+    from manager.client.api.fetcher import APIFetcher
     from httpx import AsyncClient
     import asyncio
     from argparse import ArgumentParser

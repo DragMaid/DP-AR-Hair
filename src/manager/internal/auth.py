@@ -1,11 +1,11 @@
 from fastapi import Depends, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from schemas.user import UserRoles, User
 from pydantic import BaseModel
-from core.exceptions import wrap_errors, AppError
 from .connect import get_cursor
-from core.jwt_manager import decode_access_token
-from core.config import settings
+from manager.schemas.user import UserRoles, User
+from manager.core.exceptions import wrap_errors, AppError
+from manager.core.jwt_manager import decode_access_token
+from manager.core.config import settings
 
 
 class TokenData(BaseModel):

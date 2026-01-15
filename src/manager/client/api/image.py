@@ -1,6 +1,6 @@
 from .fetcher import APIFetcher
-from routers.image import UploadResponse
-from schemas.image import ImageCategories
+from manager.routers.image import UploadResponse
+from manager.schemas.image import ImageCategories
 
 
 async def upload(

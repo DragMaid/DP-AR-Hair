@@ -1,19 +1,19 @@
 from textual.app import App
 from textual.binding import Binding
 from textual.containers import Container, Horizontal
-from client.ui.components import Sidebar
-from client.ui.screens import (
+from httpx import AsyncClient
+from manager.client.ui.components import Sidebar
+from manager.client.ui.screens import (
     WorkersScreen,
     TasksScreen,
     AssignmentsScreen,
     AssignmentHistoriesScreen,
     AdminsScreen,
 )
-from client.core.session import session
-from client.api.fetcher import APIFetcher
-from client.core.config import settings
-from client.ui.modals import LoginModal, ErrorModal, ConfirmModal, FormModal, NoteModal
-from httpx import AsyncClient
+from manager.client.core.session import session
+from manager.client.api.fetcher import APIFetcher
+from manager.client.core.config import settings
+from manager.client.ui.modals import LoginModal, ErrorModal, ConfirmModal, FormModal, NoteModal
 
 from textual import on
 

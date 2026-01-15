@@ -1,6 +1,7 @@
 from time import sleep
 from internal.connect import get_cursor
 from os import remove
+# This is getting ran as root so no need for manager
 from core.config import settings
 
 

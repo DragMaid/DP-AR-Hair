@@ -1,11 +1,11 @@
 from textual import on
 from textual import work
 from textual.binding import Binding
-from client.ui.modals import ConfirmModal, FormModal
-from client.ui.components import Table
-from client.api.admin import get_admins, create_admin, delete_admin
-from client.core.errors import FrontError
-from schemas.user import User
+from manager.client.ui.modals import ConfirmModal, FormModal
+from manager.client.ui.components import Table
+from manager.client.api.admin import get_admins, create_admin, delete_admin
+from manager.client.core.errors import FrontError
+from manager.schemas.user import User
 from pydantic import BaseModel
 
 
@@ -70,11 +70,16 @@ class AdminsScreen(Table):
     async def handle_form_submiited(self, message):
         message.stop()
         try:
-            await create_admin(
+            password = await create_admin(
                 self.fetcher,
                 message.formdata.username
             )
             self.handle_reload()
+            self.app.show_modal(
+                target="note",
+                title="PASSWORD",
+                message=password
+            )
         except FrontError as e:
             self.app.show_modal(
                 target="error",

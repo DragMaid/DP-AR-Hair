@@ -1,8 +1,8 @@
 from typing import Optional, List
 from .connect import get_cursor
-from schemas.task import TaskStatus, Task
-from core.exceptions import AppError, wrap_errors
-from core.config import settings
+from manager.schemas.task import TaskStatus, Task
+from manager.core.exceptions import AppError, wrap_errors
+from manager.core.config import settings
 
 
 @wrap_errors(default_code="TASK_INTERNAL_ERROR")

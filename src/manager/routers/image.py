@@ -1,12 +1,12 @@
 from fastapi import APIRouter, UploadFile, Depends
 from pydantic import BaseModel
 from typing import Annotated
-from schemas.user import User
-from schemas.image import UploadStatus, ImageCategories
-from internal.auth import require_worker
-from internal.image import validate_image, insert_upload, save_upload_file
-from internal.assignment import require_assignment_ownership
 from uuid import uuid4
+from manager.schemas.user import User
+from manager.schemas.image import UploadStatus, ImageCategories
+from manager.internal.auth import require_worker
+from manager.internal.image import validate_image, insert_upload, save_upload_file
+from manager.internal.assignment import require_assignment_ownership
 
 
 router = APIRouter(

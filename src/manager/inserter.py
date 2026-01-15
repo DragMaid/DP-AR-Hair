@@ -1,8 +1,8 @@
 import os
 from pathlib import Path
-from internal.image import insert_image
-from internal.task import create_task
-from schemas.image import ImageCategories
+from manager.internal.image import insert_image
+from manager.internal.task import create_task
+from manager.schemas.image import ImageCategories
 
 
 def insert_tasks():

@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Query, Depends
-from internal import user as uapi
 from typing import Optional, List, Annotated
-from internal.auth import require_admin, require_worker_ownership
-from schemas.user import User, UserRoles
 from pydantic import BaseModel
+from manager.internal import user as uapi
+from manager.internal.auth import require_admin, require_worker_ownership
+from manager.schemas.user import User, UserRoles
 
 router = APIRouter(
     prefix="/workers",

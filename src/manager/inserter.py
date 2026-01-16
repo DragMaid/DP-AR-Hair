@@ -9,11 +9,17 @@ def insert_tasks():
     filename = Path("cache.txt")
 
     with open(filename, "r") as f:
-        for line in f.readlines():
+        records = f.readlines()
+        length = len(records)
+
+        for i in range(length):
+            print(f"Inserting {i} / {length} items")
+            line = records[i]
             drive_front_path, drive_side_path, ref_path = line.strip().split(',')
             asset_dir = '/'.join(drive_front_path.split('/')[:-2])
 
-            drive_front_id = insert_image(drive_front_path, ImageCategories.DRIVING)
+            drive_front_id = insert_image(
+                drive_front_path, ImageCategories.DRIVING)
             _ = insert_image(drive_side_path, ImageCategories.DRIVING)
             ref_id = insert_image(ref_path, ImageCategories.REFERENCE)
 

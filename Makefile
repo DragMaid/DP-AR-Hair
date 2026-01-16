@@ -36,7 +36,7 @@ download:
 
 backend-docker = src/manager/docker-compose.yml
 backend-dir = src.manager
-migration-dir = ./src/manager/db/migrations
+db-dir = ./src/manager/db
 
 dbup:
 	docker compose -f $(backend-docker) up db
@@ -61,7 +61,7 @@ cron:
 	docker compose -f $(backend-docker) up cronjob
 
 migrate:
-	dbmate -d $(migration-dir) migrate
+	dbmate -d $(db-dir)/migrations -s $(db-dir)schema.sql migrate
 
 tui:
 	$(init-roots) poetry run python -m $(backend-dir).tui

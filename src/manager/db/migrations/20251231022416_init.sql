@@ -30,6 +30,11 @@ CREATE TYPE image_types as ENUM (
     'generated'
 );
 
+CREATE TYPE upload_status as ENUM (
+    'pending',
+    'processed'
+);
+
 CREATE TABLE images (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     file_path TEXT NOT NULL,
@@ -77,6 +82,17 @@ CREATE TABLE assignments (
     CONSTRAINT unique_assignment_task_worker UNIQUE (task_id, worker_id)
 );
 
+CREATE TABLE uploads (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    worker_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    assignment_id UUID REFERENCES assignments(id) ON DELETE CASCADE,
+    file_path TEXT NOT NULL,
+    status upload_status NOT NULL,
+    expires_at TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMP DEFAULT NOW(),
+    CONSTRAINT unique_upload_path UNIQUE (file_path)
+);
+
 CREATE TABLE assignment_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     task_id UUID REFERENCES tasks(id) ON DELETE CASCADE,
@@ -106,6 +122,7 @@ SELECT *,
 FROM assignment_history;
 
 CREATE INDEX idx_task_id ON tasks USING btree(id);
+CREATE INDEX idx_upload_id ON uploads USING btree(id);
 CREATE INDEX idx_task_status ON tasks USING btree(status);
 CREATE INDEX idx_task_priority ON tasks USING btree(priority DESC);
 CREATE INDEX idx_users_role ON users USING btree(role);

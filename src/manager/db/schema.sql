@@ -1,4 +1,4 @@
-\restrict Pz3g70BbwdNwmUwvNdFn8h3sFDe2ucNPYkdZkXosfC1qRxcyRzcoNuOuKuxcBTB
+\restrict BDhVwHIdP1PxHUPcc2ZN2a2TUeP0dDnx7nXUighv2gu5J6z0EG6wcgFrsfJVKzo
 
 -- Dumped from database version 16.11 (Debian 16.11-1.pgdg12+1)
 -- Dumped by pg_dump version 17.6
@@ -74,6 +74,16 @@ CREATE TYPE public.task_status AS ENUM (
     'pending',
     'processing',
     'completed'
+);
+
+
+--
+-- Name: upload_status; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.upload_status AS ENUM (
+    'pending',
+    'processed'
 );
 
 
@@ -254,6 +264,21 @@ CREATE VIEW public.tasks_ordered AS
 
 
 --
+-- Name: uploads; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.uploads (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    worker_id uuid,
+    assignment_id uuid,
+    file_path text NOT NULL,
+    status public.upload_status NOT NULL,
+    expires_at timestamp without time zone DEFAULT now(),
+    created_at timestamp without time zone DEFAULT now()
+);
+
+
+--
 -- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -355,11 +380,27 @@ ALTER TABLE ONLY public.tasks
 
 
 --
+-- Name: uploads unique_upload_path; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.uploads
+    ADD CONSTRAINT unique_upload_path UNIQUE (file_path);
+
+
+--
 -- Name: users unique_username; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT unique_username UNIQUE (username);
+
+
+--
+-- Name: uploads uploads_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.uploads
+    ADD CONSTRAINT uploads_pkey PRIMARY KEY (id);
 
 
 --
@@ -396,6 +437,13 @@ CREATE INDEX idx_task_priority ON public.tasks USING btree (priority DESC);
 --
 
 CREATE INDEX idx_task_status ON public.tasks USING btree (status);
+
+
+--
+-- Name: idx_upload_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_upload_id ON public.uploads USING btree (id);
 
 
 --
@@ -470,10 +518,26 @@ ALTER TABLE ONLY public.tasks
 
 
 --
+-- Name: uploads uploads_assignment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.uploads
+    ADD CONSTRAINT uploads_assignment_id_fkey FOREIGN KEY (assignment_id) REFERENCES public.assignments(id) ON DELETE CASCADE;
+
+
+--
+-- Name: uploads uploads_worker_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.uploads
+    ADD CONSTRAINT uploads_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Pz3g70BbwdNwmUwvNdFn8h3sFDe2ucNPYkdZkXosfC1qRxcyRzcoNuOuKuxcBTB
+\unrestrict BDhVwHIdP1PxHUPcc2ZN2a2TUeP0dDnx7nXUighv2gu5J6z0EG6wcgFrsfJVKzo
 
 
 --

@@ -217,3 +217,5 @@ generated_images/
 debug_images/
 *.rar
 *.pt
+
+**/cache.txt.*

@@ -5,7 +5,7 @@ services:
     env_file: ".env"
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: ./db/Dockerfile
     container_name: postgres_db
     restart: unless-stopped
     environment:
@@ -22,6 +22,30 @@ services:
       postgres
       -c shared_preload_libraries=pg_cron
       -c cron.database_name=${POSTGRES_DB}
+
+  nginx:
+    image: nginx:stable
+    container_name: nginx
+    restart: unless-stopped
+
+    volumes:
+      - ./db/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../../assets/driving_images/:/var/www/assets/driving_images/:ro
+      - ../../assets/reference_images/:/var/www/assets/reference_images/:ro
+      - ../../assets/generated_images/:/var/www/assets/generated_images/:ro
+    ports:
+      - "80:80"
+
+  cronjob:
+    container_name: cronjob
+    env_file: ".env"
+    environment:
+      POSTGRES_HOST: db
+    build:
+      context: .
+      dockerfile: ./crons/Dockerfile
+    restart: unless-stopped
+    working_dir: /app
 
 volumes:
   db_data:

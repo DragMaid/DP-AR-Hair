@@ -27,6 +27,7 @@ class APIFetcher:
         path: str,
         params: dict | None = None,
         json: dict | None = None,
+        files: dict | None = None,
         strict: bool = False,
         retries: int = settings.DEFAULT_RETRIES,
         require_auth: bool = True,
@@ -49,6 +50,7 @@ class APIFetcher:
                 url=url,
                 params=params,
                 json=json,
+                files=files,
                 headers=headers,
             )
             return self._handle_response(

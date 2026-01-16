@@ -4,7 +4,8 @@ from routers import (
     worker,
     task,
     auth,
-    admin
+    admin,
+    image
 )
 from core.exceptions import (
     register_app_error_handler,
@@ -29,6 +30,7 @@ app.include_router(task.router)
 app.include_router(assignment.router)
 app.include_router(auth.router)
 app.include_router(admin.router)
+app.include_router(image.router)
 
 # Middleware for rate limiting
 app.add_middleware(RateLimiterMiddleware, limiter=rate_limiter)

@@ -1,9 +1,9 @@
 import secrets
 from psycopg2 import IntegrityError
-from typing import Optional
+from typing import Optional, List
 from .connect import get_cursor
 from core.exceptions import wrap_errors, AppError
-from schemas.user import UserRoles
+from schemas.user import UserRoles, User
 
 
 @wrap_errors(default_code="WORKER_INTERNAL_ERROR")
@@ -12,7 +12,7 @@ def list_users(
     role: UserRoles,
     owner_id: Optional[str],
     limit: int = 100,
-):
+) -> List[User]:
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
             SELECT u.id, u.username, u.role, u.created_at
@@ -37,7 +37,7 @@ def list_users(
 
 
 @wrap_errors(default_code="WORKER_INTERNAL_ERROR")
-def create_user(email: str, role: UserRoles, admin_id: str):
+def create_user(email: str, role: UserRoles, admin_id: str) -> str:
     password = secrets.token_urlsafe(24)
     try:
         with get_cursor(dict_cursor=False) as cur:
@@ -58,7 +58,7 @@ def create_user(email: str, role: UserRoles, admin_id: str):
 
 
 @wrap_errors(default_code="WORKER_INTERNAL_ERROR")
-def remove_user(user_id: str, role: UserRoles):
+def remove_user(user_id: str, role: UserRoles) -> None:
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
             DELETE FROM users
@@ -71,7 +71,7 @@ def remove_user(user_id: str, role: UserRoles):
 
 
 @wrap_errors(default_code="WORKER_INTERNAL_ERROR")
-def reset_worker_password(user_id: str, role: UserRoles):
+def reset_worker_password(user_id: str, role: UserRoles) -> str:
     password = secrets.token_urlsafe(24)
 
     with get_cursor(dict_cursor=True) as cur:

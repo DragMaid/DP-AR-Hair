@@ -5,12 +5,16 @@ from contextlib import contextmanager
 from core.exceptions import AppError
 from core.config import settings
 
+# TODO: add typings here
+
+
 def get_connection():
     """
     Create a new PostgreSQL connection.
     Caller is responsible for closing it.
     """
     try:
+        print(settings.POSTGRES_HOST)
         return psycopg2.connect(
             dbname=settings.POSTGRES_DB,
             user=settings.POSTGRES_USER,

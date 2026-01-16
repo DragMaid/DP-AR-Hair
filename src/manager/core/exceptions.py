@@ -82,6 +82,29 @@ APP_ERRORS = {
         "status_code": 500
     },
 
+    # Image errors
+    "IMAGE_INTERNAL_ERROR": {
+        "message": "Image operation failed",
+        "status_code": 500
+    },
+    "IMAGE_CREATION_FAILED": {
+        "message": "Failed to create image",
+        "status_code": 500
+    },
+    "INVALID_IMAGE_CONTENT": {
+        "message": "Failed to process image content",
+        "status_code": 500
+    },
+    "UNSUPPORTED_IMAGE_TYPE": {
+        "message": "Image format not supported",
+        "status_code": 415,
+    },
+    "UPLOAD_NOT_FOUND": {
+        "message": "Upload was not found",
+        "status_code": 404,
+    },
+
+
     # Queue errors
     "QUEUE_OVERFLOW": {
         "message": "Queue is full",
@@ -156,7 +179,7 @@ class AppError(Exception):
         self.headers = APP_ERRORS[code].get("headers")
 
 
-def get_request_context(request: Request):
+def get_request_context(request: Request) -> dict:
     return {
         "method": request.method,
         "path": request.url.path,
@@ -188,7 +211,7 @@ def error_response(
     code: str,
     message: str,
     headers: dict | None = None,
-):
+) -> JSONResponse:
     response = JSONResponse(
         status_code=status_code,
         content={
@@ -207,7 +230,9 @@ def error_response(
 
 def register_app_error_handler(app: FastAPI):
     @app.exception_handler(AppError)
-    async def app_error_handler(request: Request, exc: AppError):
+    async def app_error_handler(
+            request: Request, exc: AppError
+    ) -> JSONResponse:
         logger.error(
             f"[{exc.code}] {exc.message}",
             extra={
@@ -228,7 +253,9 @@ def register_app_error_handler(app: FastAPI):
 def register_http_error_handler(app: FastAPI):
     # FastAPI / Starlette HTTP exceptions
     @app.exception_handler(HTTPException)
-    async def http_exception_handler(request: Request, exc: HTTPException):
+    async def http_exception_handler(
+            request: Request, exc: HTTPException
+    ) -> JSONResponse:
         logger.warning(
             f"[HTTP_{exc.status_code}] {exc.detail}",
             extra={"request": get_request_context(request)},
@@ -246,7 +273,7 @@ def register_request_error_handler(app: FastAPI):
     @app.exception_handler(RequestValidationError)
     async def request_validation_handler(
         request: Request, exc: RequestValidationError
-    ):
+    ) -> JSONResponse:
         logger.info(
             "Request validation failed",
             extra={
@@ -267,7 +294,7 @@ def register_response_error_handler(app: FastAPI):
     @app.exception_handler(ResponseValidationError)
     async def response_validation_handler(
         request: Request, exc: ResponseValidationError
-    ):
+    ) -> JSONResponse:
         logger.error(
             "Response validation failed",
             extra={
@@ -287,7 +314,9 @@ def register_response_error_handler(app: FastAPI):
 def register_fallback_error_handler(app: FastAPI):
     # All the other stuff
     @app.exception_handler(Exception)
-    async def unhandled_exception_handler(request: Request, exc: Exception):
+    async def unhandled_exception_handler(
+        request: Request, exc: Exception
+    ) -> JSONResponse:
         logger.critical(
             "Unhandled exception",
             extra={"request": get_request_context(request)},

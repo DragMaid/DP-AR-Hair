@@ -1,4 +1,4 @@
-from schemas.assignment import AssignmentStatus
+from schemas.assignment import AssignmentStatus, Assignment, AssignmentHistory
 from typing import Optional, List
 from .connect import get_cursor
 from core.exceptions import AppError
@@ -8,7 +8,7 @@ from core.exceptions import wrap_errors
 def list_assignments(
     owner_id: Optional[str],
     limit: int = 100
-):
+) -> List[Assignment]:
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
             SELECT
@@ -35,7 +35,7 @@ def list_assignment_history(
     status: Optional[List[AssignmentStatus]],
     owner_id: Optional[str],
     limit: int = 100
-):
+) -> List[AssignmentHistory]:
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
             SELECT
@@ -65,24 +65,53 @@ def list_assignment_history(
 
 
 @wrap_errors(default_code="ASSIGNMENT_REPORT_FAILED")
-def report_assignment(
+def require_assignment_ownership(
     assignment_id: str,
-    worker_id: str,
-    status: AssignmentStatus,
-    log: str
-) -> None:
+    worker_id: str
+):
     with get_cursor(dict_cursor=True) as cur:
         # Checks if assignment exists
         cur.execute("""
             SELECT id
             FROM assignments
             WHERE id = %s AND worker_id = %s
+            LIMIT 1
         """, (assignment_id, worker_id,))
         a_id = cur.fetchone()
         if not a_id:
             raise AppError("ASSIGNMENT_NOT_FOUND")
 
-        update_assignment(assignment_id, status, log)
+
+@wrap_errors(default_code="ASSIGNMENT_REPORT_FAILED")
+def report_assignment(
+    assignment_id: str,
+    worker_id: str,
+    upload_id: str,
+    status: AssignmentStatus,
+    log: str
+) -> str:
+    require_assignment_ownership(
+        assignment_id=assignment_id,
+        worker_id=worker_id
+    )
+
+    with get_cursor(dict_cursor=True) as cur:
+        cur.execute("""
+            UPDATE uploads
+            SET status = 'processed'::upload_status
+            WHERE id = %s
+                AND worker_id = %s
+                AND assignment_id = %s
+                AND status = 'pending'::upload_status
+            RETURNING file_path
+        """, (upload_id, worker_id, assignment_id,))
+        upload = cur.fetchone()
+        if not upload:
+            raise AppError("UPLOAD_NOT_FOUND")
+
+    update_assignment(assignment_id, status, log)
+
+    return upload["file_path"]
 
 
 @wrap_errors(default_code="ASSIGNMENT_REPORT_FAILED")

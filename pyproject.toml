@@ -23,9 +23,6 @@ priority = "explicit"
 
 [tool.poetry.dependencies]
 python = ">=3.10.5,<3.11"
-torch = {version = "2.2.2+cu118", source = "pytorch-cu118"}
-torchvision = {version = "0.17.2+cu118", source = "pytorch-cu118"}
-xformers = "0.0.25.post1"
 gdown = "5.2.0"
 huggingface-hub = "0.25.2"
 numpy = "1.26.4"
@@ -33,6 +30,14 @@ pandas = "2.2.2"
 pydantic = "2.7.1"
 pydantic-core = "2.18.2"
 pyyaml = "6.0.1"
+
+[tool.poetry.group.vision]
+optional = true
+
+[tool.poetry.group.vision.dependencies]
+torch = {version = "2.2.2+cu118", source = "pytorch-cu118"}
+torchvision = {version = "0.17.2+cu118", source = "pytorch-cu118"}
+xformers = "0.0.25.post1"
 
 [tool.poetry.group.test]
 optional = true

@@ -69,6 +69,7 @@ def claim_task(
 ):
     response = tapi.claim_task(worker["id"])
 
+    # TODO: return the old assignment to the worker if not finished
     # TODO: maybe returning image id and mapping that id to nginx path would be better
     return ClaimTaskResponse(
         assignment_id=response["assignment_id"],

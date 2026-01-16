@@ -3,6 +3,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Label, Button
 from textual.containers import Vertical
 from textual.binding import Binding
+from clipboard import copy
 
 
 class NoteModal(ModalScreen):
@@ -64,6 +65,7 @@ class NoteModal(ModalScreen):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "ok":
+            copy(self.message)
             self.dismiss()
 
     def action_close(self) -> None:

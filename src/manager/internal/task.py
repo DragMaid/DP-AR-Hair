@@ -34,7 +34,7 @@ def list_tasks(
 
 # TODO: add a timeout to clear the assignment
 @wrap_errors(default_code="TASK_INTERNAL_ERROR")
-def claim_task(worker_id: str) -> str:
+def claim_task(worker_id: str) -> dict:
 
     # TODO: its overriding old claims
     with get_cursor(dict_cursor=True) as cur:
@@ -48,7 +48,7 @@ def claim_task(worker_id: str) -> str:
         """)
         task = cur.fetchone()
         if not task:
-            return AppError("QUEUE_EMPTY")
+            raise AppError("QUEUE_EMPTY")
 
         cur.execute("""
             UPDATE tasks
@@ -100,7 +100,7 @@ def claim_task(worker_id: str) -> str:
         if not response:
             raise
 
-        return response
+        return dict(response)
 
 
 @wrap_errors(default_code="TASK_INTERNAL_ERROR")

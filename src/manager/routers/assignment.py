@@ -28,9 +28,9 @@ class TerminateAssignmentBody(BaseModel):
 
 
 class ReportAssignmentBody(TerminateAssignmentBody):
-    generated_upload_id: str
-    driving_upload_id: str
-    reference_upload_id: str
+    generated_upload_id: Optional[str]
+    driving_upload_id: Optional[str]
+    reference_upload_id: Optional[str]
     status: AssignmentStatus
 
 
@@ -59,7 +59,7 @@ def report_assignment(
     body: ReportAssignmentBody,
     worker: Annotated[User, Depends(require_worker)]
 ):
-    upload_map: UploadPathMap = aapi.report_assignment(
+    upload_map: UploadPathMap | None = aapi.report_assignment(
         assignment_id=body.assignment_id,
         worker_id=worker["id"],
         driving_upload_id=body.driving_upload_id,
@@ -68,6 +68,9 @@ def report_assignment(
         status=body.status,
         log=body.log
     )
+
+    if not upload_map:
+        return
 
     file_id = uuid4()
     for key, path in upload_map.model_dump().items():

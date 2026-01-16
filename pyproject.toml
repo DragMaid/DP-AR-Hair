@@ -33,7 +33,6 @@ pandas = "2.2.2"
 pydantic = "2.7.1"
 pydantic-core = "2.18.2"
 pyyaml = "6.0.1"
-textual-dev = "^1.8.0"
 
 [tool.poetry.group.test]
 optional = true
@@ -101,6 +100,8 @@ pyjwt = "^2.10.1"
 cachetools = "^6.2.4"
 starlette = "^0.50.0"
 textual = "^7.0.0"
+textual-dev = "^1.8.0"
+clipboard = "^0.0.4"
 
 [tool.poetry.group.dev]
 optional = true

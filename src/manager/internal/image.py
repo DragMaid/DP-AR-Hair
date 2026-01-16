@@ -30,11 +30,11 @@ def save_upload_file(
     upload_dir = Path(UPLOAD_DIR)
     upload_dir.mkdir(parents=True, exist_ok=True)
 
-    ext = mimetypes.guess_extension(upload_file.content_type or "")
-    if not ext:
+    if upload_file.content_type not in ["image/jpg", "image/png"]:
         raise ValueError("Unsupported or unknown file type")
 
-    final_path = upload_dir / f"{name}{ext}"
+    ext = str(upload_file.content_type).split('/')[-1]
+    final_path = upload_dir / f"{name}.{ext}"
 
     # Start from start of file
     upload_file.file.seek(0)
@@ -88,10 +88,12 @@ def insert_image(
 ) -> str:
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
-            INSERT INTO images (file_path, type)
+            INSERT INTO images (file_path, category)
             VALUES (%s, %s)
+            ON CONFLICT (file_path)
+            DO UPDATE SET file_path = %s
             RETURNING id
-        """, (file_path, image_type,))
+        """, (file_path, image_type, file_path))
         image_id = cur.fetchone()
         if not image_id:
             raise AppError("IMAGE_CREATION_FAILED")

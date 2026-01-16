@@ -85,7 +85,7 @@ def poisson_image_blending(final_image, face_image, dilate_erosion=30, maxn=115)
         save_image(mask_save, mask_path)
 
         out_image_path = os.path.join(temp_dir, 'out_image_path.png')
-        result = subprocess.run(
+        _ = subprocess.run(
             ["fpie", "-s", face_image_path, "-m", mask_path, "-t", final_image_path, "-o", out_image_path, "-n",
              str(maxn), "-b", "taichi-gpu", "-g", "max"],
             check=True

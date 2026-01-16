@@ -45,7 +45,7 @@ dbclear:
 	docker compose -f $(backend-docker) down -v db
 
 backend:
-	$(init-roots) poetry run uvicorn $(backend-dir).server:app --host 0.0.0.0 --port 8000
+	$(init-roots) poetry run uvicorn $(backend-dir).server:app --host 0.0.0.0 --port 8000 --reload
 
 nginx:
 	docker compose -f $(backend-docker) down -v nginx
@@ -65,3 +65,9 @@ migrate:
 
 tui:
 	$(init-roots) poetry run python -m $(backend-dir).tui
+
+worker:
+	$(init-roots) poetry run python -m $(backend-dir).worker
+
+make dbinsert:
+	$(init-roots) poetry run python -m $(backend-dir).inserter

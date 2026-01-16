@@ -19,7 +19,7 @@ async def upload(
             path="/images/upload",
             files=files,
             require_auth=True,
-            params={"assignment_id": assignment_id, "category": category},
+            params={"assignment_id": assignment_id, "category": category.value},
             response_model=UploadResponse
         )
 

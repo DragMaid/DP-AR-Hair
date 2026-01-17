@@ -30,6 +30,7 @@ pandas = "2.2.2"
 pydantic = "2.7.1"
 pydantic-core = "2.18.2"
 pyyaml = "6.0.1"
+httpx = "0.28.1"
 
 [tool.poetry.group.vision]
 optional = true
@@ -96,7 +97,6 @@ yt-dlp = "^2025.11.12"
 [tool.poetry.group.dqs]
 optional = true
 
-# TODO: check if this is enough for tui
 [tool.poetry.group.dqs.dependencies]
 fastapi = "^0.128.0"
 psycopg2-binary = "^2.9.11"

@@ -96,6 +96,7 @@ yt-dlp = "^2025.11.12"
 [tool.poetry.group.dqs]
 optional = true
 
+# TODO: check if this is enough for tui
 [tool.poetry.group.dqs.dependencies]
 fastapi = "^0.128.0"
 psycopg2-binary = "^2.9.11"

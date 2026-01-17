@@ -1,10 +1,6 @@
 -- migrate:up
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-
-GRANT USAGE ON SCHEMA cron TO CURRENT_USER;
-
 
 CREATE TYPE user_roles as ENUM (
     'worker',
@@ -24,7 +20,7 @@ CREATE TYPE assignment_status as ENUM (
     'timeout'
 );
 
-CREATE TYPE image_types as ENUM (
+CREATE TYPE image_categories as ENUM (
     'driving',
     'reference',
     'generated'
@@ -38,7 +34,7 @@ CREATE TYPE upload_status as ENUM (
 CREATE TABLE images (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     file_path TEXT NOT NULL,
-    type image_types NOT NULL,
+    category image_categories NOT NULL,
     created_at TIMESTAMP DEFAULT NOW(),
     CONSTRAINT unique_image_path UNIQUE (file_path)
 );
@@ -88,6 +84,7 @@ CREATE TABLE uploads (
     assignment_id UUID REFERENCES assignments(id) ON DELETE CASCADE,
     file_path TEXT NOT NULL,
     status upload_status NOT NULL,
+    category image_categories NOT NULL,
     expires_at TIMESTAMP DEFAULT NOW(),
     created_at TIMESTAMP DEFAULT NOW(),
     CONSTRAINT unique_upload_path UNIQUE (file_path)
@@ -127,51 +124,5 @@ CREATE INDEX idx_task_status ON tasks USING btree(status);
 CREATE INDEX idx_task_priority ON tasks USING btree(priority DESC);
 CREATE INDEX idx_users_role ON users USING btree(role);
 CREATE INDEX idx_ownership_worker_id ON ownership USING btree(worker_id);
-
--- Procedures
-CREATE OR REPLACE PROCEDURE timeout_assignments()
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    WITH expired_assignments AS (
-        DELETE FROM assignments
-        WHERE expires_at < NOW()
-        RETURNING task_id, worker_id
-    ),
-
-    history_insert AS (
-        INSERT INTO assignment_history (
-            task_id,
-            worker_id,
-            status,
-            log
-        )
-        SELECT
-            task_id,
-            worker_id,
-            'timeout'::assignment_status,
-            'Assignment timed out'
-        FROM expired_assignments
-    )
-
-    UPDATE tasks t
-    SET
-        status = 'pending',
-        retry_count = retry_count + 1
-    WHERE t.id IN (
-        SELECT DISTINCT task_id
-        FROM expired_assignments
-    )
-    AND t.status = 'processing';
-
-END;
-$$;
-
--- Cron jobs
-SELECT cron.schedule(
-    'assignment-periodic-timeout',
-    '*/5 * * * *',
-    'CALL timeout_assignments()'
-);
 
 -- migrate:down

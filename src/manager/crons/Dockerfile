@@ -15,13 +15,16 @@ WORKDIR /app
 
 # Install Python dependencies
 RUN pip install --no-cache-dir \
-    psycopg2-binary \
-    python-dotenv \
-    fastapi
+    psycopg2-binary=="2.9.11" \
+    dotenv=="0.9.9" \
+    fastapi=="0.128.0" \
+    schedule=="1.2.2"
 
-COPY core /app/core
-COPY internal /app/internal
-COPY crons/cleaner.py /app/cleaner.py
+COPY manager/core /app/manager/core
+COPY manager/internal /app/manager/internal
+COPY manager/crons/cleaner.py /app/cleaner.py
+
+WORKDIR /app
 
 # Run the cleaner
-CMD ["python", "/app/cleaner.py"]
+CMD ["python", "cleaner.py"]

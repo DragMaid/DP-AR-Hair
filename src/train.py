@@ -13,15 +13,9 @@ from configs.pipeline_config import pipeline_config as pco
 
 def get_args():
     p = argparse.ArgumentParser()
-    p.add_argument("--ref_dir", type=str,
-                   help="Folder to find reference hair styles",
-                   default=pco.dataset.reference_dir)
-    p.add_argument("--driving_dir", type=str,
+    p.add_argument("--dataset", type=str,
                    help="Folder to find varied pose faces",
-                   default=pco.dataset.driving_dir)
-    p.add_argument("--generated_dir", type=str,
-                   help="Folder to find generated hair faces",
-                   default=pco.dataset.generated_dir)
+                   default=pco.dataset.datasetdir)
     p.add_argument("--batch_size", type=int,
                    default=pco.training.batch_size)
     p.add_argument("--mini_batch_size", type=int,
@@ -64,8 +58,7 @@ def main():
         T.ToTensor(),
     ])
 
-    dataset = CelebVHQGeneratedDataset(driving_dir=args.driving_dir,
-                                       generated_dir=args.generated_dir,
+    dataset = CelebVHQGeneratedDataset(dataset_dir=args.dataset_dir,
                                        transform=transform)
 
     sampler = DistributedSampler(dataset)

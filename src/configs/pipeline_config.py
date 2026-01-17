@@ -36,9 +36,11 @@ class TrainingConfig(BaseModel):
 
 
 class DatasetConfig(BaseModel):
+    # For dataset generation
     reference_dir: str
     driving_dir: str
-    generated_dir: str
+    # Actual dataset output folder
+    dataset_dir: str
     validated_cache_path: str
     num_workers: int
     device: int

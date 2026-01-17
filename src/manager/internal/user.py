@@ -2,8 +2,8 @@ import secrets
 from psycopg2 import IntegrityError
 from typing import Optional, List
 from .connect import get_cursor
-from core.exceptions import wrap_errors, AppError
-from schemas.user import UserRoles, User
+from manager.core.exceptions import wrap_errors, AppError
+from manager.schemas.user import UserRoles, User
 
 
 @wrap_errors(default_code="WORKER_INTERNAL_ERROR")

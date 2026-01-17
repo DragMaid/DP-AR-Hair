@@ -1,8 +1,18 @@
-from schemas.assignment import AssignmentStatus, Assignment, AssignmentHistory
 from typing import Optional, List
+from pydantic import BaseModel
+from manager.schemas.assignment import AssignmentStatus, Assignment, AssignmentHistory
+from manager.schemas.image import ImageCategories
+from manager.core.exceptions import AppError
+from manager.core.exceptions import wrap_errors
 from .connect import get_cursor
-from core.exceptions import AppError
-from core.exceptions import wrap_errors
+from .auth import require_assignment_ownership
+from .image import retrieve_upload
+
+
+class UploadPathMap(BaseModel):
+    driving: str
+    reference: str
+    generated: str
 
 
 def list_assignments(
@@ -65,53 +75,51 @@ def list_assignment_history(
 
 
 @wrap_errors(default_code="ASSIGNMENT_REPORT_FAILED")
-def require_assignment_ownership(
-    assignment_id: str,
-    worker_id: str
-):
-    with get_cursor(dict_cursor=True) as cur:
-        # Checks if assignment exists
-        cur.execute("""
-            SELECT id
-            FROM assignments
-            WHERE id = %s AND worker_id = %s
-            LIMIT 1
-        """, (assignment_id, worker_id,))
-        a_id = cur.fetchone()
-        if not a_id:
-            raise AppError("ASSIGNMENT_NOT_FOUND")
-
-
-@wrap_errors(default_code="ASSIGNMENT_REPORT_FAILED")
 def report_assignment(
     assignment_id: str,
     worker_id: str,
-    upload_id: str,
+    driving_upload_id: str,
+    reference_upload_id: str,
+    generated_upload_id: str,
     status: AssignmentStatus,
     log: str
-) -> str:
+) -> UploadPathMap | None:
     require_assignment_ownership(
         assignment_id=assignment_id,
         worker_id=worker_id
     )
 
-    with get_cursor(dict_cursor=True) as cur:
-        cur.execute("""
-            UPDATE uploads
-            SET status = 'processed'::upload_status
-            WHERE id = %s
-                AND worker_id = %s
-                AND assignment_id = %s
-                AND status = 'pending'::upload_status
-            RETURNING file_path
-        """, (upload_id, worker_id, assignment_id,))
-        upload = cur.fetchone()
-        if not upload:
-            raise AppError("UPLOAD_NOT_FOUND")
+    if status == status.SUCCEED:
+        driving_path = retrieve_upload(
+            upload_id=driving_upload_id,
+            assignment_id=assignment_id,
+            worker_id=worker_id,
+            category=[ImageCategories.DRIVING]
+        )
+
+        reference_path = retrieve_upload(
+            upload_id=reference_upload_id,
+            assignment_id=assignment_id,
+            worker_id=worker_id,
+            category=[ImageCategories.REFERENCE]
+        )
+
+        generated_path = retrieve_upload(
+            upload_id=generated_upload_id,
+            assignment_id=assignment_id,
+            worker_id=worker_id,
+            category=[ImageCategories.GENERATED]
+        )
+
+        update_assignment(assignment_id, status, log)
+
+        return UploadPathMap(
+            driving=driving_path,
+            reference=reference_path,
+            generated=generated_path
+        )
 
     update_assignment(assignment_id, status, log)
-
-    return upload["file_path"]
 
 
 @wrap_errors(default_code="ASSIGNMENT_REPORT_FAILED")
@@ -150,10 +158,10 @@ def update_assignment(
 ) -> None:
     with get_cursor(dict_cursor=True) as cur:
         # Update the task status based on report
-        if status == AssignmentStatus.FAILED:
+        if status == AssignmentStatus.SUCCEED:
             cur.execute("""
                 UPDATE tasks
-                SET status = 'pending',  retry_count = retry_count + 1
+                SET status = 'completed'
                 WHERE id = (
                     SELECT task_id
                     FROM assignments
@@ -162,7 +170,7 @@ def update_assignment(
         else:
             cur.execute("""
                 UPDATE tasks
-                SET status = 'completed'
+                SET status = 'pending',  retry_count = retry_count + 1
                 WHERE id = (
                     SELECT task_id
                     FROM assignments

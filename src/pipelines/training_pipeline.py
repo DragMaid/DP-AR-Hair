@@ -119,6 +119,7 @@ class TrainingPipeline:
         # I_d, I_r, I_s: 4D tensors (B, C, H, W)
         if self.IIHT:
             with torch.no_grad():
+                # Third I_d is for color (HairFastGanVersion)
                 I_d_dilde_o = self.IIHT.batch_swap(I_d, I_r, I_d)
                 I_d_dilde_o = I_d_dilde_o.to(self.device)
         else:

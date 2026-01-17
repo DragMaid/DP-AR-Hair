@@ -1,11 +1,11 @@
 from fastapi import Depends, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from schemas.user import UserRoles, User
 from pydantic import BaseModel
-from core.exceptions import wrap_errors, AppError
 from .connect import get_cursor
-from core.jwt_manager import decode_access_token
-from core.config import settings
+from manager.schemas.user import UserRoles, User
+from manager.core.exceptions import wrap_errors, AppError
+from manager.core.jwt_manager import decode_access_token
+from manager.core.config import settings
 
 
 class TokenData(BaseModel):
@@ -76,7 +76,7 @@ def require_admin(user=Depends(get_current_user)) -> User:
 
 
 @wrap_errors(default_code="AUTH_INTERNAL_ERROR")
-def require_ownership(
+def require_worker_ownership(
     user=Depends(get_current_user),
     owned_id: str = Query(alias="worker_id")
 ) -> None:
@@ -89,6 +89,24 @@ def require_ownership(
         admin_id = cur.fetchone()["admin_id"]
 
         if not admin_id or admin_id != user["id"]:
+            raise AppError("FORBIDDEN")
+
+
+@wrap_errors(default_code="AUTH_INTERNAL_ERROR")
+def require_assignment_ownership(
+    assignment_id: str,
+    worker_id: str
+):
+    with get_cursor(dict_cursor=True) as cur:
+        # Checks if assignment exists
+        cur.execute("""
+            SELECT id
+            FROM assignments
+            WHERE id = %s AND worker_id = %s
+            LIMIT 1
+        """, (assignment_id, worker_id,))
+        a_id = cur.fetchone()
+        if not a_id:
             raise AppError("FORBIDDEN")
 
 

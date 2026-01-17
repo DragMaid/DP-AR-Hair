@@ -1,7 +1,7 @@
 from .fetcher import APIFetcher
 from typing import List, Optional
-from schemas.task import Task, TaskStatus
-from routers.task import CreateTaskBody, CreateTaskResponse, ClaimTaskResponse
+from manager.schemas.task import Task, TaskStatus
+from manager.typings.backend import CreateTaskBody, CreateTaskResponse
 
 
 async def get_tasks(
@@ -63,14 +63,4 @@ async def delete_task(
         require_auth=True
     )
 
-
-async def claim_task(
-    fetcher: APIFetcher,
-) -> str:
-    res = await fetcher.fetch(
-        method="POST",
-        path="/tasks/claim",
-        require_auth=True,
-        response_model=ClaimTaskResponse
-    )
-    return res["assignment_id"]
+# TODO: add an endpoint to get task left count

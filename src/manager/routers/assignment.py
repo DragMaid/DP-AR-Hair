@@ -1,33 +1,21 @@
-from fastapi import APIRouter, Query, Depends
-from pydantic import BaseModel
-from internal import assignment as aapi
-from typing import Optional, List, Annotated
-from internal.auth import require_worker, require_admin
-from internal.image import move_file, get_generated_name
-from schemas.user import User
-from core.config import settings
 from pathlib import Path
-from schemas.assignment import (
-    AssignmentHistory,
-    Assignment,
-    AssignmentStatus
-)
+from uuid import uuid4
+from fastapi import APIRouter, Query, Depends
+from typing import Optional, List, Annotated
+from manager.internal import assignment as aapi
+from manager.internal.auth import require_worker, require_admin
+from manager.internal.image import move_file
+from manager.schemas.user import User
+from manager.core.config import settings
+from manager.schemas.assignment import AssignmentHistory, Assignment
+from manager.internal.assignment import UploadPathMap
+from manager.typings.backend import ReportAssignmentBody, TerminateAssignmentBody
 
 router = APIRouter(
     prefix="/assignments",
     tags=["assignments"],
     dependencies=[],
 )
-
-
-class TerminateAssignmentBody(BaseModel):
-    assignment_id: str
-    log: str
-
-
-class ReportAssignmentBody(TerminateAssignmentBody):
-    upload_id: str
-    status: AssignmentStatus
 
 
 @router.get("", response_model=List[Assignment])
@@ -55,23 +43,30 @@ def report_assignment(
     body: ReportAssignmentBody,
     worker: Annotated[User, Depends(require_worker)]
 ):
-    filename = get_generated_name(body.assignment_id)
-
-    file_path = aapi.report_assignment(
-        body.assignment_id,
-        worker["id"],
-        body.upload_id,
-        body.status,
-        body.log
+    upload_map: UploadPathMap | None = aapi.report_assignment(
+        assignment_id=body.assignment_id,
+        worker_id=worker["id"],
+        driving_upload_id=body.driving_upload_id,
+        reference_upload_id=body.reference_upload_id,
+        generated_upload_id=body.generated_upload_id,
+        status=body.status,
+        log=body.log
     )
 
-    extension = file_path.split('.')[-1]
-    filename = f"{filename}.{extension}"
+    if not upload_map:
+        return
 
-    move_file(
-        source=Path(file_path),
-        destination=Path(settings.GENERATED_IMAGE_DIR, filename)
-    )
+    file_id = uuid4()
+    for key, path in upload_map.model_dump().items():
+        extension = path.split('.')[-1]
+        filename = f"{file_id}_{key}.{extension}"
+
+        settings.GENERATED_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+
+        move_file(
+            source=Path(path),
+            destination=Path(settings.GENERATED_IMAGE_DIR, filename)
+        )
 
 
 @router.post("/terminate", status_code=204)

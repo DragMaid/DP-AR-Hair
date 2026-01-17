@@ -2,9 +2,9 @@ from time import time
 from fastapi import Request, Depends
 from fastapi.responses import JSONResponse
 from cachetools import TTLCache
-from core.exceptions import AppError
-from internal.auth import extract_bearer_token
-from core.jwt_manager import decode_access_token
+from manager.core.exceptions import AppError
+from manager.internal.auth import extract_bearer_token
+from manager.core.jwt_manager import decode_access_token
 from starlette.middleware.base import BaseHTTPMiddleware
 
 

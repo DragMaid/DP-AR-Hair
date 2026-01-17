@@ -6,8 +6,8 @@ from textual.message import Message
 from textual import work
 from textual import on
 from textual.binding import Binding
-from client.core.errors import FrontError
-from client.api.auth import authorize
+from manager.client.core.errors import FrontError
+from manager.client.api.auth import authorize
 
 
 class LoginModal(ModalScreen):

@@ -13,9 +13,11 @@ input_path = Path(__file__).resolve().parents[2] / "assets/test_images/"
 face = "phuc.jpeg"
 shape = "ken.png"
 color = "ken.png"
+side = "cropped.png"
 
 ALIGNMENT_MODE = "Auto"  # Auto, On, Off
 SAVE_PATH = "results/output.png"
+SAVE_DIR = "assets/results/"
 
 name = "IIHT1"
 record = ModelRegistry.get_registry(name)
@@ -56,23 +58,33 @@ def save_output(img, path):
     print(f"[INFO] Saved output to {path}", file=sys.stderr)
 
 
-converted_inputs = list(map(convert_input, (face, shape, color)))
+converted_inputs = list(map(convert_input, (face, shape, color, side)))
 if not all(converted_inputs):
     print("[ERROR] Failed to load input images.", file=sys.stderr)
     sys.exit(1)
 
-face_obj, shape_obj, color_obj = converted_inputs
+face_obj, shape_obj, color_obj, face_side_obj = converted_inputs
 
 need_alignment = any(img.size != (1024, 1024) for img in converted_inputs)
 perform_align = ALIGNMENT_MODE == "On" or (
     ALIGNMENT_MODE == "Auto" and need_alignment)
 
 if perform_align:
-    print("[INFO] Running alignment...", file=sys.stderr)
-    result_image, face_obj, shape_obj, color_obj = model(
-        face_obj, shape_obj, color_obj, align=True
+    result = model(
+        face_img=face_obj,
+        shape_img=shape_obj,
+        color_img=color_obj,
+        side_face_img=face_side_obj,
+        align=True
     )
+
+    generated_save_path = Path(SAVE_DIR, "generated.jpg")
+    driving_save_path = Path(SAVE_DIR, "driving.jpg")
+    reference_save_path = Path(SAVE_DIR, "reference.jpg")
+
+    save_output(result["final_image"], generated_save_path)
+    save_output(result["aligned_face"], driving_save_path)
+    save_output(result["aligned_face_side"], reference_save_path)
 else:
     result_image = model(face_obj, shape_obj, color_obj)
-
-save_output(result_image, SAVE_PATH)
+    save_output(result_image, SAVE_PATH)

@@ -15,12 +15,13 @@ Each dataset returns a dict with three entries: `front`, `side`, and `reference`
 
 ## Constructor arguments (common)
 - `driving_dir: str` — directory with driving images (expected filename suffixes: `_frontal.jpg` and `_side.jpg`).
-- `reference_dir` or `generated_dir: str` — directory containing reference or generated images.
+- `reference_dir: str` — directory with reference images (random hairstyles to be put in with driving image to get new generated image)
+- `dataset_dir: str` — directory containing all the generated dataset usuable for the training process (expect filename suffixes: `_driving.jpg`, `_reference.jpg` and `_generated.jpg` where driving and reference are the same as `_frontal` and `_side` but renamed to fit the paper terminologies)
 - `transform` — optional transform applied to the RGB HxWxC numpy array. If omitted, images are converted to float tensors in [0,1].
 
 ## Behavior details
 - File name convention: datasets expect driving files organized as `{id}_frontal.jpg` and `{id}_side.jpg` (case-sensitive suffix in code). IDs are derived by removing the trailing underscore and suffix components.
-- `CelebVHQGeneratedDataset` scans the `generated_dir` and matches each generated file to driving pair files with the same ID. It raises `RuntimeError` if no samples are found.
+- `CelebVHQGeneratedDataset` scans the `dataset_dir` and matches each generated file to driving pair files with the same ID. It raises `RuntimeError` if no samples are found.
 - `CelebVHQReferenceDataset` scans `driving_dir` for IDs that have both front and side images and keeps a list. It also collects all reference image paths up front and raises `RuntimeError` if none are found.
 
 ## Image loading and transforms

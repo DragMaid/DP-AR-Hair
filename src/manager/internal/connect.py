@@ -2,13 +2,14 @@ from typing import Iterator
 import psycopg2
 import psycopg2.extras
 from contextlib import contextmanager
-from core.exceptions import AppError
-from core.config import settings
+from manager.core.exceptions import AppError
+from manager.core.config import settings
+from typing import Optional
 
 # TODO: add typings here
 
 
-def get_connection():
+def get_connection(host: Optional[str] = None):
     """
     Create a new PostgreSQL connection.
     Caller is responsible for closing it.
@@ -19,7 +20,7 @@ def get_connection():
             dbname=settings.POSTGRES_DB,
             user=settings.POSTGRES_USER,
             password=settings.POSTGRES_PASSWORD,
-            host=settings.POSTGRES_HOST,
+            host=host if host else settings.POSTGRES_HOST,
             port=settings.POSTGRES_PORT,
         )
     except psycopg2.OperationalError as e:
@@ -30,6 +31,7 @@ def get_connection():
 def get_cursor(
     commit: bool = True,
     dict_cursor: bool = False,
+    host: Optional[str] = None
 ) -> Iterator[psycopg2.extensions.cursor]:
     """
     Context-managed database cursor with automatic commit / rollback.
@@ -38,7 +40,7 @@ def get_cursor(
         with get_cursor() as cur:
             cur.execute(...)
     """
-    conn = get_connection()
+    conn = get_connection(host=host)
     cur = None
     try:
         cursor_factory = (

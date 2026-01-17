@@ -1,7 +1,7 @@
 from .fetcher import APIFetcher
-from client.core.session import session
-from schemas.user import UserRoles
-from routers.auth import Token, LoginForm
+from manager.client.core.session import session
+from manager.schemas.user import UserRoles
+from manager.typings.backend import Token, LoginForm
 
 
 async def authorize(

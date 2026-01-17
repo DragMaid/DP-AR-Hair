@@ -1,4 +1,4 @@
-\restrict BDhVwHIdP1PxHUPcc2ZN2a2TUeP0dDnx7nXUighv2gu5J6z0EG6wcgFrsfJVKzo
+\restrict BlCR9qiMSnNLGPv6hWhW3nad7RXvY0sFHspYjbOqFy2VvgifeivuH8P6nJtkWlq
 
 -- Dumped from database version 16.11 (Debian 16.11-1.pgdg12+1)
 -- Dumped by pg_dump version 17.6
@@ -56,10 +56,10 @@ CREATE TYPE public.assignment_status AS ENUM (
 
 
 --
--- Name: image_types; Type: TYPE; Schema: public; Owner: -
+-- Name: image_categories; Type: TYPE; Schema: public; Owner: -
 --
 
-CREATE TYPE public.image_types AS ENUM (
+CREATE TYPE public.image_categories AS ENUM (
     'driving',
     'reference',
     'generated'
@@ -199,7 +199,7 @@ CREATE TABLE public.assignments (
 CREATE TABLE public.images (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     file_path text NOT NULL,
-    type public.image_types NOT NULL,
+    category public.image_categories NOT NULL,
     created_at timestamp without time zone DEFAULT now()
 );
 
@@ -273,6 +273,7 @@ CREATE TABLE public.uploads (
     assignment_id uuid,
     file_path text NOT NULL,
     status public.upload_status NOT NULL,
+    category public.image_categories NOT NULL,
     expires_at timestamp without time zone DEFAULT now(),
     created_at timestamp without time zone DEFAULT now()
 );
@@ -537,7 +538,7 @@ ALTER TABLE ONLY public.uploads
 -- PostgreSQL database dump complete
 --
 
-\unrestrict BDhVwHIdP1PxHUPcc2ZN2a2TUeP0dDnx7nXUighv2gu5J6z0EG6wcgFrsfJVKzo
+\unrestrict BlCR9qiMSnNLGPv6hWhW3nad7RXvY0sFHspYjbOqFy2VvgifeivuH8P6nJtkWlq
 
 
 --

@@ -1,10 +1,10 @@
 from textual import work
 from textual.binding import Binding
-from client.ui.components import Table
-from client.core.errors import FrontError
-from schemas.assignment import AssignmentHistory
-from client.core.session import session
-from client.api.assignment import get_assignment_history
+from manager.client.ui.components import Table
+from manager.client.core.errors import FrontError
+from manager.schemas.assignment import AssignmentHistory
+from manager.client.core.session import session
+from manager.client.api.assignment import get_assignment_history
 
 
 class AssignmentHistoriesScreen(Table):

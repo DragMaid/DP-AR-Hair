@@ -1,8 +1,8 @@
 from typing import Optional, List
 from .connect import get_cursor
-from schemas.task import TaskStatus, Task
-from core.exceptions import AppError, wrap_errors
-from core.config import settings
+from manager.schemas.task import TaskStatus, Task
+from manager.core.exceptions import AppError, wrap_errors
+from manager.core.config import settings
 
 
 @wrap_errors(default_code="TASK_INTERNAL_ERROR")
@@ -32,11 +32,9 @@ def list_tasks(
         return cur.fetchall()
 
 
-# TODO: add a timeout to clear the assignment
 @wrap_errors(default_code="TASK_INTERNAL_ERROR")
-def claim_task(worker_id: str) -> str:
+def claim_task(worker_id: str) -> dict:
 
-    # TODO: its overriding old claims
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
             SELECT id
@@ -48,7 +46,7 @@ def claim_task(worker_id: str) -> str:
         """)
         task = cur.fetchone()
         if not task:
-            return AppError("QUEUE_EMPTY")
+            raise AppError("QUEUE_EMPTY")
 
         cur.execute("""
             UPDATE tasks
@@ -59,14 +57,48 @@ def claim_task(worker_id: str) -> str:
         cur.execute("""
             INSERT INTO assignments(worker_id, task_id, expires_at)
             VALUES (%s, %s, NOW() + %s * INTERVAL '1 minute')
-            RETURNING id
+            RETURNING id, task_id
         """, (worker_id, task["id"], settings.ASSIGNMENT_TIMEOUT_MIN,))
 
-        assignment_id = cur.fetchone()
-        if not assignment_id:
+        assignment = cur.fetchone()
+        if not assignment:
             raise AppError("ASSIGNMENT_CREATION_FAILED")
 
-        return assignment_id["id"]
+        cur.execute("""
+            WITH task_data AS (
+                SELECT
+                    t.driving_image_id,
+                    t.reference_image_id,
+                    t.result_path
+                FROM tasks t
+                WHERE t.id = %s
+                LIMIT 1
+            ),
+            driving_path AS (
+                SELECT file_path
+                FROM images i
+                JOIN task_data t ON i.id = t.driving_image_id
+            ),
+            reference_path AS (
+                SELECT file_path
+                FROM images i
+                JOIN task_data t ON i.id = t.reference_image_id
+            )
+            SELECT
+                %s as assignment_id,
+                d.file_path as driving_path,
+                r.file_path as reference_path
+            FROM task_data t
+            CROSS JOIN driving_path d
+            CROSS JOIN reference_path r
+        """, (assignment["task_id"], assignment["id"]))
+
+        # TOOD: create an error for this later
+        response = cur.fetchone()
+        if not response:
+            raise
+
+        return dict(response)
 
 
 @wrap_errors(default_code="TASK_INTERNAL_ERROR")
@@ -74,9 +106,10 @@ def create_task(
     driving_id: str,
     reference_id: str,
     path: str,
-    priority: int
+    priority: int,
+    host: Optional[str] = None
 ) -> str:
-    with get_cursor(dict_cursor=True) as cur:
+    with get_cursor(dict_cursor=True, host=host) as cur:
         cur.execute("""
             INSERT INTO tasks (
                 driving_image_id,

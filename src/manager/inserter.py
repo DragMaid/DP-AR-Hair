@@ -1,21 +1,42 @@
 import os
 from pathlib import Path
-from internal.image import insert_image
-from internal.task import create_task
-from schemas.image import ImageTypes
+from manager.internal.image import insert_image
+from manager.internal.task import create_task
+from manager.schemas.image import ImageCategories
 
 
-def insert_tasks():
-    filename = Path("cache.txt")
+def insert_tasks(cache_path: str):
+    filename = Path(cache_path)
+
+    if not filename.exists():
+        print(f"File {filename} not found")
+        return
 
     with open(filename, "r") as f:
-        for line in f.readlines():
+        records = f.readlines()
+        length = len(records)
+
+        for i in range(length):
+            print(f"Inserting {i} / {length} items")
+            line = records[i]
             drive_front_path, drive_side_path, ref_path = line.strip().split(',')
             asset_dir = '/'.join(drive_front_path.split('/')[:-2])
 
-            drive_front_id = insert_image(drive_front_path, ImageTypes.DRIVING)
-            _ = insert_image(drive_side_path, ImageTypes.DRIVING)
-            ref_id = insert_image(ref_path, ImageTypes.REFERENCE)
+            drive_front_id = insert_image(
+                drive_front_path,
+                ImageCategories.DRIVING,
+                host="localhost"
+            )
+            _ = insert_image(
+                drive_side_path,
+                ImageCategories.DRIVING,
+                host="localhost"
+            )
+            ref_id = insert_image(
+                ref_path,
+                ImageCategories.REFERENCE,
+                host="localhost"
+            )
 
             drive_front_name = drive_front_path.split('/')[-1]
             # the id might also include special characters like '_' (Ex: 12_d_frontal.jpg)
@@ -31,9 +52,14 @@ def insert_tasks():
                 driving_id=drive_front_id,
                 reference_id=ref_id,
                 path=generated_path,
-                priority=1
+                priority=1,
+                host="localhost"
             )
 
 
 if __name__ == "__main__":
-    insert_tasks()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--cache", type=str, default="cache.txt")
+    args = parser.parse_args()
+    insert_tasks(cache_path=args.cache)

@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Query, Depends
 from typing import Optional, List, Annotated
-from pydantic import BaseModel
-from internal import task as tapi
-from internal.auth import require_admin, require_worker
-from schemas.task import Task
-from schemas.user import User
+from manager.internal import task as tapi
+from manager.internal.auth import require_admin, require_worker
+from manager.schemas.task import Task
+from manager.schemas.user import User
+from manager.typings.backend import CreateTaskResponse, CreateTaskBody, ClaimTaskResponse
 
 
 router = APIRouter(
@@ -12,21 +12,6 @@ router = APIRouter(
     tags=["tasks"],
     dependencies=[],
 )
-
-
-class CreateTaskBody(BaseModel):
-    driving_id: str
-    reference_id: str
-    path: str
-    priority: int
-
-
-class CreateTaskResponse(BaseModel):
-    task_id: str
-
-
-class ClaimTaskResponse(BaseModel):
-    assignment_id: str
 
 
 @router.get("", response_model=List[Task])
@@ -65,5 +50,12 @@ def delete_task(
 def claim_task(
     worker: Annotated[User, Depends(require_worker)]
 ):
-    assignment_id = tapi.claim_task(worker["id"])
-    return ClaimTaskResponse(assignment_id=assignment_id)
+    response = tapi.claim_task(worker["id"])
+
+    # TODO: return the old assignment to the worker if not finished
+    # TODO: maybe returning image id and mapping that id to nginx path would be better
+    return ClaimTaskResponse(
+        assignment_id=response["assignment_id"],
+        driving_path=response["driving_path"],
+        reference_path=response["reference_path"],
+    )

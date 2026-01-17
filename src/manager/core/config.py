@@ -36,6 +36,7 @@ class Settings(BaseModel):
     GENERATED_IMAGE_DIR: Path = Path("assets/generated/")
 
     TMP_FILE_CLEANUP_MIN: int = 10
+    TIMEDOUT_ASSIGNMENT_CLEANUP_MIN: int = 5
 
 
 settings = Settings()

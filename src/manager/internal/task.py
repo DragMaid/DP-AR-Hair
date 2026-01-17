@@ -108,9 +108,10 @@ def create_task(
     driving_id: str,
     reference_id: str,
     path: str,
-    priority: int
+    priority: int,
+    host: Optional[str] = None
 ) -> str:
-    with get_cursor(dict_cursor=True) as cur:
+    with get_cursor(dict_cursor=True, host=host) as cur:
         cur.execute("""
             INSERT INTO tasks (
                 driving_image_id,

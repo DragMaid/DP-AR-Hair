@@ -85,8 +85,9 @@ def list_images(
 def insert_image(
     file_path: str,
     image_type: ImageCategories,
+    host: Optional[str] = None,
 ) -> str:
-    with get_cursor(dict_cursor=True) as cur:
+    with get_cursor(dict_cursor=True, host=host) as cur:
         cur.execute("""
             INSERT INTO images (file_path, category)
             VALUES (%s, %s)

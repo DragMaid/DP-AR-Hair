@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 from PIL import Image
 from urllib.parse import urljoin
-from collections import Optional
+from typing import Optional
 
 import torch
 import torchvision.transforms.functional as TF

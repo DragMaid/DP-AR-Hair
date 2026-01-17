@@ -28,5 +28,6 @@ RUN pip install --no-cache-dir \
     pydantic=="2.7.1" \
     pydantic-core=="2.18.2"
 
+
 # Run the server
 CMD ["uvicorn", "manager.server:app", "--host", "0.0.0.0", "--port", "8000"]

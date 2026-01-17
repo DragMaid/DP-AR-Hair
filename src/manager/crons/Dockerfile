@@ -17,7 +17,8 @@ WORKDIR /app
 RUN pip install --no-cache-dir \
     psycopg2-binary=="2.9.11" \
     dotenv=="0.9.9" \
-    fastapi=="0.128.0"
+    fastapi=="0.128.0" \
+    schedule=="1.2.2"
 
 COPY manager/core /app/manager/core
 COPY manager/internal /app/manager/internal

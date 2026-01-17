@@ -19,9 +19,20 @@ def insert_tasks():
             asset_dir = '/'.join(drive_front_path.split('/')[:-2])
 
             drive_front_id = insert_image(
-                drive_front_path, ImageCategories.DRIVING)
-            _ = insert_image(drive_side_path, ImageCategories.DRIVING)
-            ref_id = insert_image(ref_path, ImageCategories.REFERENCE)
+                drive_front_path,
+                ImageCategories.DRIVING,
+                host="localhost"
+            )
+            _ = insert_image(
+                drive_side_path,
+                ImageCategories.DRIVING,
+                host="localhost"
+            )
+            ref_id = insert_image(
+                ref_path,
+                ImageCategories.REFERENCE,
+                host="localhost"
+            )
 
             drive_front_name = drive_front_path.split('/')[-1]
             # the id might also include special characters like '_' (Ex: 12_d_frontal.jpg)
@@ -37,7 +48,8 @@ def insert_tasks():
                 driving_id=drive_front_id,
                 reference_id=ref_id,
                 path=generated_path,
-                priority=1
+                priority=1,
+                host="localhost"
             )
 
 

@@ -47,6 +47,7 @@ BACKEND_PKG  := src.manager
 DB_DIR       := src/manager/db
 
 POETRY_RUN   := poetry run python -m
+INIT_ROOT    := PYTHONPATH=src:libs
 
 # =========================
 # Safety
@@ -147,17 +148,17 @@ db-migrate:
 # =========================
 
 seed:
-	$(POETRY_RUN) $(BACKEND_PKG).seed
+	$(INIT_ROOT) $(POETRY_RUN) $(BACKEND_PKG).seed
 
 seed-debug:
-	$(POETRY_RUN) $(BACKEND_PKG).seed -d
+	$(INIT_ROOT) $(POETRY_RUN) $(BACKEND_PKG).seed -d
 
 worker:
-	$(POETRY_RUN) $(BACKEND_PKG).worker
+	$(INIT_ROOT) $(POETRY_RUN) $(BACKEND_PKG).worker
 
 tui:
-	$(POETRY_RUN) $(BACKEND_PKG).tui
+	$(INIT_ROOT) $(POETRY_RUN) $(BACKEND_PKG).tui
 
 db-insert:
-	$(POETRY_RUN) $(BACKEND_PKG).inserter
+	$(INIT_ROOT) $(POETRY_RUN) $(BACKEND_PKG).inserter
 

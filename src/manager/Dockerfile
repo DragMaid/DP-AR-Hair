@@ -17,13 +17,16 @@ WORKDIR /app
 RUN pip install --no-cache-dir \
     psycopg2-binary=="2.9.11" \
     dotenv=="0.9.9" \
-    fastapi=="0.128.0"
+    fastapi=="0.128.0" \
+    pillow=="10.3.0" \
+    httpx=="0.28.1" \
+    pyjwt=="2.10.1" \
+    cachetools=="6.2.4" \
+    starlette=="0.50.0" \
+    uvicorn=="0.40.0" \
+    python-multipart=="0.0.21" \
+    pydantic=="2.7.1" \
+    pydantic-core=="2.18.2"
 
-COPY manager/core /app/manager/core
-COPY manager/internal /app/manager/internal
-COPY manager/crons/cleaner.py /app/cleaner.py
-
-WORKDIR /app
-
-# Run the cleaner
-CMD ["python", "cleaner.py"]
+# Run the server
+CMD ["uvicorn", "manager.server:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,20 +1,25 @@
-.PHONY: install poetry ninja submodules test download
+# =========================
+# Bootstrap / tooling
+# =========================
 
-install: poetry ninja submodules download
+.PHONY: bootstrap bootstrap-tools bootstrap-models \
+        tool-poetry tool-ninja tool-dbmate
 
-# Install Poetry if not present
-# Will have to manually download python 3.10.5 and set poetry to use it
-poetry:
-	command -v poetry >/dev/null 2>&1 || \
+bootstrap: bootstrap-tools bootstrap-models
+
+bootstrap-tools: tool-poetry tool-ninja tool-dbmate
+
+bootstrap-models: models-download
+
+# ---- Tools ----
+
+tool-poetry:
+	command -v poetry >/dev/null 2>&1 || ( \
 		echo "Installing Poetry..."; \
-		curl -sSL https://install.python-poetry.org \
-		| python3 - \
-		| grep -o 'export PATH="[^"]*"' \
-		| sh
+		curl -sSL https://install.python-poetry.org | python3 - \
 	)
 
-# Install Ninja
-ninja:
+tool-ninja:
 	command -v ninja >/dev/null 2>&1 || ( \
 		echo "Installing Ninja..."; \
 		wget https://github.com/ninja-build/ninja/releases/download/v1.8.2/ninja-linux.zip -O /tmp/ninja.zip; \
@@ -23,51 +28,136 @@ ninja:
 	)
 	@echo "Ninja is ready"
 
-init-roots = PYTHONPATH=src:libs 
-# Run tests
-test:
-	$(init-roots) poetry run pytest
+tool-dbmate:
+	command -v dbmate >/dev/null 2>&1 || ( \
+		echo "Installing dbmate..."; \
+		sudo curl -fsSL -o /usr/local/bin/dbmate \
+			https://github.com/amacneil/dbmate/releases/latest/download/dbmate-linux-amd64; \
+		sudo chmod +x /usr/local/bin/dbmate; \
+	)
 
-# Download all weights for dataset
-download:
-	git clone https://huggingface.co/AIRI-Institute/HairFastGAN
-	mv HairFastGAN/pretrained_models/ .
-	rm -rf HairFastGAN
+# =========================
+# Global configuration
+# =========================
 
-backend-docker = src/manager/docker-compose.yml
-backend-dir = src.manager
-db-dir = ./src/manager/db
+COMPOSE_FILE := src/manager/docker-compose.yml
+COMPOSE      := docker compose -f $(COMPOSE_FILE)
 
-dbup:
-	docker compose -f $(backend-docker) up db
+BACKEND_PKG  := src.manager
+DB_DIR       := src/manager/db
 
-dbclear:
-	docker compose -f $(backend-docker) down -v db
+POETRY_RUN   := poetry run python -m
 
-backend:
-	$(init-roots) poetry run uvicorn $(backend-dir).server:app --host 0.0.0.0 --port 8000 --reload
+# =========================
+# Safety
+# =========================
 
-nginx:
-	docker compose -f $(backend-docker) down -v nginx
-	docker compose -f $(backend-docker) up nginx
+.PHONY: help \
+        stack-up stack-down stack-destroy \
+        svc-backend svc-nginx svc-cron \
+        db-up db-down db-reset db-migrate \
+        seed seed-debug \
+        worker tui db-insert
+
+# =========================
+# Help
+# =========================
+
+help:
+	@echo ""
+	@echo "Available targets:"
+	@echo ""
+	@echo "Stack:"
+	@echo "  stack-up           Start all services"
+	@echo "  stack-down         Stop all services"
+	@echo "  stack-destroy      Stop services AND remove volumes (DANGEROUS)"
+	@echo ""
+	@echo "Services:"
+	@echo "  svc-backend        Start backend service"
+	@echo "  svc-nginx          Recreate nginx service"
+	@echo "  svc-cron           Start cron job service"
+	@echo ""
+	@echo "Database:"
+	@echo "  db-up              Start database"
+	@echo "  db-down            Stop database"
+	@echo "  db-reset           Drop DB volumes and restart (DANGEROUS)"
+	@echo "  db-migrate         Run dbmate migrations"
+	@echo ""
+	@echo "Dev tools:"
+	@echo "  seed               Seed database"
+	@echo "  seed-debug         Seed database (debug)"
+	@echo "  worker             Run worker"
+	@echo "  tui                Run TUI"
+	@echo "  db-insert          Run inserter"
+	@echo ""
+
+# =========================
+# Stack lifecycle
+# =========================
+
+stack-up:
+	$(COMPOSE) up -d db
+	$(COMPOSE) up -d migration
+	$(COMPOSE) up -d backend nginx cronjob
+
+stack-down:
+	$(COMPOSE) down
+
+stack-destroy:
+	$(COMPOSE) down -v
+
+# =========================
+# Services
+# =========================
+
+svc-backend:
+	$(COMPOSE) up backend
+
+svc-nginx:
+	$(COMPOSE) down nginx
+	$(COMPOSE) up nginx
+
+svc-cron:
+	$(COMPOSE) up cronjob
+
+# =========================
+# Database
+# =========================
+
+db-up:
+	$(COMPOSE) up db
+
+db-down:
+	$(COMPOSE) down db
+
+db-reset:
+	@echo "⚠️  This will DELETE database volumes."
+	@read -p "Continue? [y/N] " ans; \
+	if [ "$$ans" = "y" ]; then \
+		$(COMPOSE) down -v db; \
+	else \
+		echo "Aborted."; \
+	fi
+
+db-migrate:
+	dbmate -d $(DB_DIR)/migrations -s $(DB_DIR)/schema.sql --env-file "./src/manager/.env" migrate
+
+# =========================
+# Dev / tooling
+# =========================
 
 seed:
-	$(init-roots) poetry run python -m $(backend-dir).seed
+	$(POETRY_RUN) $(BACKEND_PKG).seed
 
-seeddebug:
-	$(init-roots) poetry run python -m $(backend-dir).seed -d
-
-cron:
-	docker compose -f $(backend-docker) up cronjob
-
-migrate:
-	dbmate -d $(db-dir)/migrations -s $(db-dir)schema.sql migrate
-
-tui:
-	$(init-roots) poetry run python -m $(backend-dir).tui
+seed-debug:
+	$(POETRY_RUN) $(BACKEND_PKG).seed -d
 
 worker:
-	$(init-roots) poetry run python -m $(backend-dir).worker
+	$(POETRY_RUN) $(BACKEND_PKG).worker
 
-make dbinsert:
-	$(init-roots) poetry run python -m $(backend-dir).inserter
+tui:
+	$(POETRY_RUN) $(BACKEND_PKG).tui
+
+db-insert:
+	$(POETRY_RUN) $(BACKEND_PKG).inserter
+

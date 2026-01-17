@@ -2,8 +2,8 @@ services:
   db:
     env_file: ".env"
     build:
-      context: .
-      dockerfile: ./db/Dockerfile
+      context: ./db
+      dockerfile: postgres.Dockerfile
     container_name: postgres_db
     restart: unless-stopped
     environment:
@@ -20,6 +20,45 @@ services:
       postgres
       -c shared_preload_libraries=pg_cron
       -c cron.database_name=${POSTGRES_DB}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $POSTGRES_DB -U $POSTGRES_USER"]
+      interval: 5s
+      retries: 5
+
+  migration:
+    env_file: ".env"
+    build:
+      context: ./db
+      dockerfile: migration.Dockerfile
+    volumes:
+      - ./db/migrations:/db/migrations:ro
+      - ./db/schema.sql:/db/schema.sql:rw
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/migration_done"]
+      interval: 2s
+      retries: 30
+    restart: "no"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD_ENCODED}@db:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable
+    command: >
+      dbmate -d /db/migrations -s /db/schema.sql migrate && touch /tmp/migration_done
+
+    depends_on:
+        db:
+          condition: service_healthy
+        
+  backend:
+    env_file: ".env"
+    container_name: backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    restart: unless-stopped
+    volumes:
+      - ../:/app
+    ports:
+      - "8000:8000"
 
   nginx:
     image: nginx:stable
@@ -41,12 +80,12 @@ services:
     environment:
       POSTGRES_HOST: db
     build:
-      context: .
-      dockerfile: ./crons/Dockerfile
+      context: ../
+      dockerfile: ./manager/crons/Dockerfile
     restart: unless-stopped
-    working_dir: /app
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
 volumes:
   db_data:

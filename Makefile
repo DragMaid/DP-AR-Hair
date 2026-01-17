@@ -167,12 +167,18 @@ db-insert:
 # Dataset for hosting
 # =========================
 
+dataset-download: tool-download ref-download drive-download
+
+tool-download:
+	pip install gdown
+	sudo apt install unrar
+
 ref-download:
 	curl -L -o ./assets/celebahq-resized-256x256.zip \
 	https://www.kaggle.com/api/v1/datasets/download/badasstechie/celebahq-resized-256x256 && \
 	unzip ./assets/celebahq-resized-256x256.zip -d ./assets/reference_images && \
 	mv ./assets/reference_images/celeba_hq_256/* ./assets/reference_images/ && \
-	rm -r ./assets/reference_images/celeba_hq_256 && \
+	rm -r ./assets/reference_images/celeba_hq_256
 
 drive-download:
 	gdown --fuzzy https://drive.google.com/file/d/1ZV3pdgHbTpToFesBbvns_mk-yZrimYVP/view -O ./assets/ && \

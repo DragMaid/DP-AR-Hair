@@ -15,11 +15,12 @@ services:
       - "${POSTGRES_PORT}:5432"
     volumes:
       - db_data:/var/lib/postgresql/data:rw
-      - ./db/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./db/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
     command: >
       postgres
       -c shared_preload_libraries=pg_cron
       -c cron.database_name=${POSTGRES_DB}
+      -c hba_file=/etc/postgresql/pg_hba.conf
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $POSTGRES_DB -U $POSTGRES_USER"]
       interval: 5s
@@ -42,7 +43,6 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD_ENCODED}@db:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable
     command: >
       dbmate -d /db/migrations -s /db/schema.sql migrate && touch /tmp/migration_done
-
     depends_on:
         db:
           condition: service_healthy

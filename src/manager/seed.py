@@ -164,11 +164,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     try:
-        with get_cursor(dict_cursor=True) as cur:
+        with get_cursor(dict_cursor=True, host="localhost") as cur:
             seed_god(cur)
 
         if args.debug:
-            with get_cursor(dict_cursor=True) as cur:
+            with get_cursor(dict_cursor=True, host="localhost") as cur:
                 seed_images(cur, 20)
 
             client = AsyncClient()

@@ -1,6 +1,10 @@
 from .fetcher import APIFetcher
-from manager.routers.image import UploadResponse
 from manager.schemas.image import ImageCategories
+from pydantic import BaseModel
+
+
+class UploadResponse(BaseModel):
+    upload_id: str
 
 
 async def upload(
@@ -19,7 +23,8 @@ async def upload(
             path="/images/upload",
             files=files,
             require_auth=True,
-            params={"assignment_id": assignment_id, "category": category.value},
+            params={"assignment_id": assignment_id,
+                    "category": category.value},
             response_model=UploadResponse
         )
 

@@ -1,37 +1,21 @@
 from pathlib import Path
 from uuid import uuid4
 from fastapi import APIRouter, Query, Depends
-from pydantic import BaseModel
 from typing import Optional, List, Annotated
 from manager.internal import assignment as aapi
 from manager.internal.auth import require_worker, require_admin
 from manager.internal.image import move_file
 from manager.schemas.user import User
 from manager.core.config import settings
-from manager.schemas.assignment import (
-    AssignmentHistory,
-    Assignment,
-    AssignmentStatus,
-)
+from manager.schemas.assignment import AssignmentHistory, Assignment
 from manager.internal.assignment import UploadPathMap
+from manager.typings.backend import ReportAssignmentBody, TerminateAssignmentBody
 
 router = APIRouter(
     prefix="/assignments",
     tags=["assignments"],
     dependencies=[],
 )
-
-
-class TerminateAssignmentBody(BaseModel):
-    assignment_id: str
-    log: str
-
-
-class ReportAssignmentBody(TerminateAssignmentBody):
-    generated_upload_id: Optional[str]
-    driving_upload_id: Optional[str]
-    reference_upload_id: Optional[str]
-    status: AssignmentStatus
 
 
 @router.get("", response_model=List[Assignment])

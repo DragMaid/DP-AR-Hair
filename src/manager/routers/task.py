@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Query, Depends
 from typing import Optional, List, Annotated
-from pydantic import BaseModel
 from manager.internal import task as tapi
 from manager.internal.auth import require_admin, require_worker
 from manager.schemas.task import Task
 from manager.schemas.user import User
+from manager.typings.backend import CreateTaskResponse, CreateTaskBody, ClaimTaskResponse
 
 
 router = APIRouter(
@@ -12,23 +12,6 @@ router = APIRouter(
     tags=["tasks"],
     dependencies=[],
 )
-
-
-class CreateTaskBody(BaseModel):
-    driving_id: str
-    reference_id: str
-    path: str
-    priority: int
-
-
-class CreateTaskResponse(BaseModel):
-    task_id: str
-
-
-class ClaimTaskResponse(BaseModel):
-    assignment_id: str
-    driving_path: str
-    reference_path: str
 
 
 @router.get("", response_model=List[Task])

@@ -1,28 +1,16 @@
 from fastapi import APIRouter
-from pydantic import BaseModel
 from datetime import timedelta
 from manager.internal.auth import authenticate_user
-from manager.schemas.user import UserRoles, User
+from manager.schemas.user import User
 from manager.core.config import settings
 from manager.core.jwt_manager import create_token
+from manager.typings.backend import Token, LoginForm
 
 router = APIRouter(
     prefix="/login",
     tags=["auth"],
     dependencies=[],
 )
-
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-    user_id: str
-
-
-class LoginForm(BaseModel):
-    username: str
-    password: str
-    role: UserRoles
 
 
 @router.post("", response_model=Token)

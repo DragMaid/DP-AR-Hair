@@ -1,7 +1,7 @@
 from .fetcher import APIFetcher
 from typing import List, Optional
 from manager.schemas.task import Task, TaskStatus
-from manager.routers.task import CreateTaskBody, CreateTaskResponse, ClaimTaskResponse
+from manager.typings.backend import CreateTaskBody, CreateTaskResponse
 
 
 async def get_tasks(
@@ -62,15 +62,3 @@ async def delete_task(
         params={"task_id": task_id},
         require_auth=True
     )
-
-
-async def claim_task(
-    fetcher: APIFetcher,
-) -> ClaimTaskResponse:
-    res = await fetcher.fetch(
-        method="POST",
-        path="/tasks/claim",
-        require_auth=True,
-        response_model=ClaimTaskResponse,
-    )
-    return res

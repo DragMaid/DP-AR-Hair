@@ -15,7 +15,6 @@ from httpx import AsyncClient
 from manager.client.core.session import session
 from manager.client.api.fetcher import APIFetcher
 from manager.client.core.config import settings
-from manager.client.api.tasks import claim_task
 from manager.client.api.auth import authorize
 from manager.schemas.user import UserRoles
 from manager.schemas.image import ImageCategories
@@ -107,7 +106,12 @@ class Worker:
         return f"{drive_dir}/{drive_id}_side.{drive_ext}"
 
     async def claim_task(self):
-        response = await claim_task(self.fetcher)
+        response = await self.fetcher.fetch(
+            method="POST",
+            path="/tasks/claim",
+            require_auth=True,
+            response_model=ClaimTaskResponse,
+        )
 
         driving_path = response["driving_path"]
         reference_path = response["reference_path"]

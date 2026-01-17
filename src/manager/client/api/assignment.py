@@ -1,7 +1,7 @@
 from .fetcher import APIFetcher
 from typing import List, Optional
 from manager.schemas.assignment import Assignment, AssignmentHistory, AssignmentStatus
-from manager.routers.assignment import ReportAssignmentBody, TerminateAssignmentBody
+from manager.typings.backend import ReportAssignmentBody, TerminateAssignmentBody
 
 
 async def get_assignments(

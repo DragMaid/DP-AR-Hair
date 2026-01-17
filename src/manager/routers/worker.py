@@ -1,23 +1,15 @@
 from fastapi import APIRouter, Query, Depends
 from typing import Optional, List, Annotated
-from pydantic import BaseModel
 from manager.internal import user as uapi
 from manager.internal.auth import require_admin, require_worker_ownership
 from manager.schemas.user import User, UserRoles
+from manager.typings.backend import CreateWorkerResponse, ResetWorkerResponse
 
 router = APIRouter(
     prefix="/workers",
     tags=["workers"],
     dependencies=[],
 )
-
-
-class CreateWorkerResponse(BaseModel):
-    password: str
-
-
-class ResetWorkerResponse(BaseModel):
-    password: str
 
 
 @router.get("", response_model=List[User])

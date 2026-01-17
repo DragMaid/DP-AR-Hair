@@ -1,7 +1,7 @@
 from .fetcher import APIFetcher
 from typing import List, Optional
 from manager.schemas.user import User
-from manager.routers.worker import ResetWorkerResponse, CreateWorkerResponse
+from manager.typings.backend import ResetWorkerResponse, CreateWorkerResponse
 
 
 async def get_workers(

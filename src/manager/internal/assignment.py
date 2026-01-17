@@ -75,7 +75,7 @@ def list_assignment_history(
 
 
 @wrap_errors(default_code="ASSIGNMENT_REPORT_FAILED")
-def report_assignment(
+def require_assignment_ownership(
     assignment_id: str,
     worker_id: str,
     driving_upload_id: str,
@@ -111,7 +111,37 @@ def report_assignment(
             category=[ImageCategories.GENERATED]
         )
 
-        update_assignment(assignment_id, status, log)
+
+@wrap_errors(default_code="ASSIGNMENT_REPORT_FAILED")
+def report_assignment(
+    assignment_id: str,
+    worker_id: str,
+    upload_id: str,
+    status: AssignmentStatus,
+    log: str
+) -> str:
+    require_assignment_ownership(
+        assignment_id=assignment_id,
+        worker_id=worker_id
+    )
+
+    with get_cursor(dict_cursor=True) as cur:
+        cur.execute("""
+            UPDATE uploads
+            SET status = 'processed'::upload_status
+            WHERE id = %s
+                AND worker_id = %s
+                AND assignment_id = %s
+                AND status = 'pending'::upload_status
+            RETURNING file_path
+        """, (upload_id, worker_id, assignment_id,))
+        upload = cur.fetchone()
+        if not upload:
+            raise AppError("UPLOAD_NOT_FOUND")
+
+    update_assignment(assignment_id, status, log)
+
+    return upload["file_path"]
 
         return UploadPathMap(
             driving=driving_path,

@@ -1,10 +1,5 @@
 from .fetcher import APIFetcher
-from manager.schemas.image import ImageCategories
-from pydantic import BaseModel
-
-
-class UploadResponse(BaseModel):
-    upload_id: str
+from routers.image import UploadResponse
 
 
 async def upload(

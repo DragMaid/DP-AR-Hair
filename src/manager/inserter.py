@@ -61,5 +61,5 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--cache", type=str, default="cache.txt")
-    args = parser._get_args()
+    args = parser.parse_args()
     insert_tasks(cache_path=args.cache)

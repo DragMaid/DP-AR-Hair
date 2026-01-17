@@ -4,8 +4,6 @@ from manager.schemas.user import UserRoles
 from manager.typings.backend import Token, LoginForm
 
 
-# TODO: move all the fucking types to a mutual place
-
 async def authorize(
     fetcher: APIFetcher,
     username: str,

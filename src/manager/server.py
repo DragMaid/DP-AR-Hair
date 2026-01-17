@@ -48,5 +48,3 @@ register_fallback_error_handler(app)
 @app.get("/health")
 async def health():
     return {"message": "Server is up and running!"}
-
-# TODO: make it so everything can be ran from root (or probably just the client)

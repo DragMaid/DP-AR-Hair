@@ -108,7 +108,6 @@ class HairFast:
 
             images.append(img)
 
-        # TODO: return the aligned images also
         if align:
             images = align_face(images)
 

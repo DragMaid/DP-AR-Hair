@@ -5,8 +5,12 @@ from manager.internal.task import create_task
 from manager.schemas.image import ImageCategories
 
 
-def insert_tasks():
-    filename = Path("cache.txt")
+def insert_tasks(cache_path: str):
+    filename = Path(cache_path)
+
+    if not filename.exists():
+        print(f"File {filename} not found")
+        return
 
     with open(filename, "r") as f:
         records = f.readlines()
@@ -54,4 +58,8 @@ def insert_tasks():
 
 
 if __name__ == "__main__":
-    insert_tasks()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--cache", type=str, default="cache.txt")
+    args = parser._get_args()
+    insert_tasks(cache_path=args.cache)

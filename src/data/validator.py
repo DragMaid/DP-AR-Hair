@@ -149,7 +149,6 @@ def permute_till_goal_reached(goal: int):
             added_count += 1
 
 
-# TODO: write another function to add variation in case there's no enough images
 def test_dangerous_images():
     DANGEROUS_IMAGES = [
         "0bR6pUOhZo4_2_frontal",

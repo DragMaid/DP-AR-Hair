@@ -1,3 +1,4 @@
+import time
 import requests
 import sys
 from pathlib import Path
@@ -22,6 +23,7 @@ from manager.schemas.assignment import AssignmentStatus
 from manager.client.api.image import upload
 from manager.client.api.assignment import report_assignment
 from manager.client.core.errors import FrontError, ErrorCategories
+from manager.typings.backend import ClaimTaskResponse
 
 SAVE_DIR = "./assets/results/"
 TMP_DIR = "./assets/tmp/"
@@ -37,17 +39,17 @@ class Worker:
     ):
         self.username = username
         self.password = password
-
-        self.model = self.init_generator()
         self.base_url = base_url if base_url else settings.BASE_URL
 
         self.client = AsyncClient()
         self.fetcher = APIFetcher(
-            base_url=self.base_url,
+            base_url=urljoin(self.base_url, '/api'),
             client=self.client,
             session=session,
             strict=False
         )
+
+        self.task = None
 
     def init_generator(self):
         """Initialize the weights and return the generator instance."""
@@ -62,7 +64,7 @@ class Worker:
             download_weights(record["weight"]["type"], w_options)
 
         # The model load weights by itself so pretrained is False
-        return load_models(name, pretrained=False)
+        self.model = load_models(name, pretrained=False)
 
     def convert_input(self, file_path: str):
         """Load local image from INPUT_DIR. Cache images."""
@@ -83,7 +85,8 @@ class Worker:
     def save_output(self, img, path: Path):
         """Save PIL.Image or torch.Tensor to file."""
 
-        # os.makedirs(os.path.dirname(path), exist_ok=True)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
         if isinstance(img, torch.Tensor):
             img = TF.to_pil_image(img.clamp(0, 1))
         img.save(path)
@@ -136,7 +139,7 @@ class Worker:
     def download_image(self, source_path: str, output_path: str) -> None:
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        url = urljoin(settings.BASE_URL, source_path)
+        url = urljoin(self.base_url, source_path)
         response = requests.get(url, timeout=30)
         response.raise_for_status()
         output_path.write_bytes(response.content)
@@ -225,19 +228,20 @@ class Worker:
             await self.authorize()
 
         while True:
+            start = time.time()
             try:
-                task = await self.claim_task()
+                self.task = await self.claim_task()
 
-                for p in list(task.values())[1::]:
+                for p in list(self.task.values())[1::]:
                     if not Path(p).exists:
                         raise Exception(f"Cannot find saved image: {p}")
 
                 path_map = self.inference(
-                    face_path=task["driving_save_path"],
-                    shape_path=task["reference_save_path"],
+                    face_path=self.task["driving_save_path"],
+                    shape_path=self.task["reference_save_path"],
                     # Keep same color as original
-                    color_path=task["driving_save_path"],
-                    face_side_path=task["drving_side_save_path"],
+                    color_path=self.task["driving_save_path"],
+                    face_side_path=self.task["driving_side_save_path"],
                 )
 
                 for p in path_map.values():
@@ -246,10 +250,13 @@ class Worker:
 
                 await self.report(
                     path_map=path_map,
-                    assignment_id=task["assignment_id"],
+                    assignment_id=self.task["assignment_id"],
                     log="Sucessfully ran task",
                     status=AssignmentStatus.SUCCEED
                 )
+
+                # TODO: calculate number of images per second
+                print("Finshed processing image")
 
             # Map error (only unauthorized will be handled)
             except FrontError as e:
@@ -257,14 +264,18 @@ class Worker:
                     await self.authorize()
 
             except Exception as e:
-                if task and task.get("assignment_id"):
-                    self.report(
+                if self.task and self.task.get("assignment_id"):
+                    await self.report(
                         path_map=None,
-                        assignment_id=task.get("assignment_id"),
+                        assignment_id=self.task.get("assignment_id"),
                         log=str(e),
                         status=AssignmentStatus.FAILED
                     )
                 raise
+            finally:
+                self.task = None
+                duration = time.time() - start
+                print(f"Processing speed: {duration}s / image")
 
 
 if __name__ == "__main__":
@@ -278,10 +289,14 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    worker = Worker(
-        username=args.username,
-        password=args.password,
-        base_url=args.base_url,
-    )
+    async def run():
+        worker = Worker(
+            username=args.username,
+            password=args.password,
+            base_url=args.base_url,
+        )
+        await worker.authorize()
+        worker.init_generator()
+        await worker.run()
 
-    asyncio.run(worker.run())
+    asyncio.run(run())

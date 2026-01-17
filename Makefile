@@ -167,7 +167,7 @@ db-insert:
 # Dataset for hosting
 # =========================
 
-dataset-download: tool-download ref-download drive-download
+dataset-download: tool-download ref-download drive-download cache-download
 
 tool-download:
 	pip install gdown
@@ -183,3 +183,6 @@ ref-download:
 drive-download:
 	gdown --fuzzy https://drive.google.com/file/d/1ZV3pdgHbTpToFesBbvns_mk-yZrimYVP/view -O ./assets/ && \
 	unrar e ./assets/driving_images.rar ./assets/driving_images
+
+cache-download:
+	gdown --fuzzy https://drive.google.com/file/d/1FOVlTRojbclgf3RjaXraw5fH2C0QIvSb/view

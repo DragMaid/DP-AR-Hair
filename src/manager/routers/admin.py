@@ -3,7 +3,7 @@ from typing import Optional, List, Annotated
 from manager.internal.auth import require_god, require_admin
 from manager.internal import user as uapi
 from manager.schemas.user import User, UserRoles
-from manger.typings.backend import CreateAdminResponse, ResetAdminResponse
+from manager.typings.backend import CreateAdminResponse, ResetAdminResponse
 
 router = APIRouter(
     prefix="/admin",

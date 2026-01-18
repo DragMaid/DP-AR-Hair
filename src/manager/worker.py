@@ -52,6 +52,8 @@ class Worker:
 
         self.task = None
         self.auth_failed_count = 0
+        self._last_claim_ts = 0.0
+        self._min_claim_interval = 2.0  # seconds (30 req / 60s safe)
 
     def init_generator(self):
         """Initialize the weights and return the generator instance."""
@@ -225,6 +227,16 @@ class Worker:
                 status=status,
                 log=log
             )
+
+    async def _rate_limited_claim(self):
+        now = time.time()
+        elapsed = now - self._last_claim_ts
+
+        if elapsed < self._min_claim_interval:
+            await asyncio.sleep(self._min_claim_interval - elapsed)
+
+        self._last_claim_ts = time.time()
+        return await self.claim_task()
 
     async def run(self):
         if not session.is_authenticated():

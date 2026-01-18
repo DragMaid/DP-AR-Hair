@@ -76,12 +76,16 @@ if __name__ == "__main__":
         T.ToTensor(),
     ])
 
-    dataset = CelebVHQGeneratedDataset(dataset_dir="./src/manager/assets/generated/",
-                                       transform=transform)
+    dataset = CelebVHQGeneratedDataset(
+        dataset_dir="./src/manager/assets/generated/",
+        transform=transform
+    )
 
-    dataloader = DataLoader(dataset, batch_size=1,
-                            shuffle=True, num_workers=2,
-                            pin_memory=True, drop_last=True)
+    dataloader = DataLoader(
+        dataset, batch_size=1,
+        shuffle=True, num_workers=2,
+        pin_memory=True, drop_last=True
+    )
 
     epoch_iterator = tqdm(enumerate(dataloader), total=len(dataloader))
     for step, batch in epoch_iterator:

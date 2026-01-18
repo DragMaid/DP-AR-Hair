@@ -64,6 +64,8 @@ def report_assignment(
     result_path = Path(upload_map["result_path"])
     result_dir = result_path.parent
 
+    result_dir.mkdir(parents=True, exist_ok=True)
+
     # TODO: should have moved this to a util function
     result_filename = str(result_path).split('/')[-1]
     result_id = '_'.join(result_filename.split('_')[:-1])
@@ -80,6 +82,8 @@ def report_assignment(
             source=Path(path),
             destination=Path(result_dir, filename)
         )
+
+        print(f"[{key}] Saved image to {Path(result_dir, filename)}")
 
 
 @router.post("/terminate", status_code=204)

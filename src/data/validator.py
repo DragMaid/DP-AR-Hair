@@ -84,17 +84,17 @@ def show_mask_overlay(image_ori: Image, prediction: torch.Tensor):
 
 def validate_dataset():
     dataset = CelebVHQReferenceDataset(
-        driving_dir=pipeline_config.dataset.driving_dir,
-        reference_dir=pipeline_config.dataset.reference_dir,
+        driving_dir=pipeline_config.generation.driving_dir,
+        reference_dir=pipeline_config.generation.reference_dir,
         transform=transform
     )
 
-    with open(pipeline_config.dataset.validated_cache_path, "a") as f:
+    with open(pipeline_config.generation.cache_path, "a") as f:
         count = 0
         total = len(dataset)
 
         reference_paths = list(
-            Path(pipeline_config.dataset.reference_dir).glob("*.[jp][pn]g"))
+            Path(pipeline_config.generation.reference_dir).glob("*.[jp][pn]g"))
 
         for combinations in dataset:
             print(f"Processing {count} / {total} items ...")
@@ -116,7 +116,7 @@ def validate_dataset():
 
 
 def permute_till_goal_reached(goal: int):
-    with open(pipeline_config.dataset.validated_cache_path, "r") as f:
+    with open(pipeline_config.generation.cache_path, "r") as f:
         lines = f.readlines()
         cache_combs = set()
         for line in lines:
@@ -124,11 +124,11 @@ def permute_till_goal_reached(goal: int):
             cache_combs.add((record[0], record[-1]))
         original_len = len(lines)
 
-    with open(pipeline_config.dataset.validated_cache_path, "a") as f:
+    with open(pipeline_config.generation.cache_path, "a") as f:
         added_count = 0
 
         reference_paths = list(
-            Path(pipeline_config.dataset.reference_dir).glob("*.[jp][pn]g"))
+            Path(pipeline_config.generation.reference_dir).glob("*.[jp][pn]g"))
 
         while original_len + added_count < goal:
             print(f"Processing {original_len + added_count} / {goal} ...")
@@ -171,6 +171,6 @@ def test_dangerous_images():
 
 
 if __name__ == "__main__":
-    if not Path(pipeline_config.dataset.reference_dir).exists():
+    if not Path(pipeline_config.generation.reference_dir).exists():
         validate_dataset()
     permute_till_goal_reached(16000)

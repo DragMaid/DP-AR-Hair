@@ -168,23 +168,42 @@ db-insert:
 # =========================
 
 ASSET_DIR := ./src/manager/assets
+REF_ZIP := $(ASSET_DIR)/celebahq-resized-256x256.zip
+REF_TMP := $(ASSET_DIR)/reference_images_tmp
+REF_OUT := $(ASSET_DIR)/reference_images
 
-dataset-download: tool-download ref-download drive-download cache-download
+dataset-download: tool-download download-prepare ref-download drive-download cache-download
 
 tool-download:
 	pip install gdown
-	sudo apt install unrar
+	sudo apt install -y unrar
+
+download-prepare:
+	mkdir -p $(ASSET_DIR)
 
 ref-download:
-	curl -L -o ${ASSET_DIR}/celebahq-resized-256x256.zip \
-	https://www.kaggle.com/api/v1/datasets/download/badasstechie/celebahq-resized-256x256 && \
-	unzip ${ASSET_DIR}/celebahq-resized-256x256.zip -d ${ASSET_DIR}/reference_images && \
-	mv ${ASSET_DIR}/reference_images/celeba_hq_256/* ${ASSET_DIR}/reference_images/ && \
-	rm -r ${ASSET_DIR}/reference_images/celeba_hq_256
+	@if [ ! -f "$(REF_ZIP)" ]; then \
+		echo "[INFO] Downloading CelebA-HQ dataset..."; \
+		curl -L -o "$(REF_ZIP)" \
+			https://www.kaggle.com/api/v1/datasets/download/badasstechie/celebahq-resized-256x256; \
+	else \
+		echo "[INFO] Zip already exists, skipping download"; \
+	fi
+	@rm -rf "$(REF_TMP)"
+	@mkdir -p "$(REF_TMP)"
+	@unzip -q "$(REF_ZIP)" -d "$(REF_TMP)"
+	@mkdir -p "$(REF_OUT)"
+	@rsync -a "$(REF_TMP)/celeba_hq_256/" "$(REF_OUT)/"
+	@rm -rf "$(REF_TMP)"
 
 drive-download:
-	gdown --fuzzy https://drive.google.com/file/d/1ZV3pdgHbTpToFesBbvns_mk-yZrimYVP/view -O ./assets/ && \
-	unrar e ${ASSET_DIR}/driving_images.rar ${ASSET_DIR}/driving_images
+	@if [ ! -d "$(ASSET_DIR)/driving_images" ]; then \
+		echo "[INFO] Downloading driving images..."; \
+		gdown --fuzzy https://drive.google.com/file/d/1ZV3pdgHbTpToFesBbvns_mk-yZrimYVP/view -O "$(ASSET_DIR)/driving_images.rar"; \
+		unrar e "$(ASSET_DIR)/driving_images.rar" "$(ASSET_DIR)/driving_images"; \
+	else \
+		echo "[INFO] Driving images already exist, skipping"; \
+	fi
 
 cache-download:
-	gdown --fuzzy https://drive.google.com/file/d/1FOVlTRojbclgf3RjaXraw5fH2C0QIvSb/view -O ${ASSET_DIR}/
+	gdown --fuzzy https://drive.google.com/file/d/1FOVlTRojbclgf3RjaXraw5fH2C0QIvSb/view -O "$(ASSET_DIR)/"

@@ -11,7 +11,6 @@ from manager.core.config import settings
 
 # TODO: map image errors to frontend
 UPLOAD_DIR = Path(settings.IMAGE_TMP_FOLDER)
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @wrap_errors(default_code="IMAGE_INTERNAL_ERROR")
@@ -26,6 +25,7 @@ def save_upload_file(
     upload_file: UploadFile,
     name: str
 ) -> str:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     upload_dir = Path(UPLOAD_DIR)
     upload_dir.mkdir(parents=True, exist_ok=True)
 

@@ -1,12 +1,10 @@
 from pathlib import Path
-from uuid import uuid4
 from fastapi import APIRouter, Query, Depends
 from typing import Optional, List, Annotated
 from manager.internal import assignment as aapi
 from manager.internal.auth import require_worker, require_admin
 from manager.internal.image import move_file
 from manager.schemas.user import User
-from manager.core.config import settings
 from manager.schemas.assignment import AssignmentHistory, Assignment
 from manager.internal.assignment import UploadPathMap
 from manager.typings.backend import ReportAssignmentBody, TerminateAssignmentBody

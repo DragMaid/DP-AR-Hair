@@ -5,7 +5,7 @@ from manager.schemas.user import User
 from manager.schemas.image import UploadStatus, ImageCategories
 from manager.internal.auth import require_worker
 from manager.internal.image import validate_image, insert_upload, save_upload_file
-from manager.internal.assignment import require_assignment_ownership
+from manager.internal.auth import require_assignment_ownership
 from manager.typings.backend import UploadResponse
 
 

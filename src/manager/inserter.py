@@ -1,10 +1,9 @@
-import os
 from uuid import uuid4
 from pathlib import Path
 from manager.internal.image import insert_image
 from manager.internal.task import create_task
 from manager.schemas.image import ImageCategories
-from core.config import settings
+from manager.core.config import settings
 
 
 def insert_tasks(cache_path: str):
@@ -45,7 +44,7 @@ def insert_tasks(cache_path: str):
             create_task(
                 driving_id=drive_front_id,
                 reference_id=ref_id,
-                path=generated_path,
+                path=str(generated_path),
                 priority=1,
                 host="localhost"
             )

@@ -24,7 +24,7 @@ dataset:
     driving_dir: './assets/driving_images/'
 
     # All dataset for training process is here
-    dataset_dir: './assets/dataset/'
+    dataset_dir: './assets/generated_images/'
     validated_cache_path: './src/manager/cache.txt'
     num_workers: 1
     device: -1

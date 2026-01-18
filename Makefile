@@ -202,10 +202,10 @@ drive-download:
 	@if [ ! -d "$(ASSET_DIR)/driving_images" ]; then \
 		echo "[INFO] Downloading driving images..."; \
 		gdown --fuzzy https://drive.google.com/file/d/1ZV3pdgHbTpToFesBbvns_mk-yZrimYVP/view -O "$(ASSET_DIR)/driving_images.rar"; \
-		unrar e "$(ASSET_DIR)/driving_images.rar" "$(ASSET_DIR)/driving_images/"; \
 	else \
 		echo "[INFO] Driving images already exist, skipping"; \
 	fi
+	@unrar e "$(ASSET_DIR)/driving_images.rar" "$(ASSET_DIR)/driving_images/"; \
 
 cache-download:
 	gdown --fuzzy https://drive.google.com/file/d/1FOVlTRojbclgf3RjaXraw5fH2C0QIvSb/view -O "$(ASSET_DIR)/"

@@ -86,8 +86,10 @@ def insert_image(
     image_type: ImageCategories,
     host: Optional[str] = None,
 ) -> str:
-    if not Path(file_path).exists():
-        raise ValueError("Image path does not exists!")
+    # Check using absolute path but insert only relative path
+    path = Path(settings.PROJECT_ROOT, file_path)
+    if not path.exists():
+        raise ValueError(f"Image path {path} does not exists!")
 
     with get_cursor(dict_cursor=True, host=host) as cur:
         cur.execute("""

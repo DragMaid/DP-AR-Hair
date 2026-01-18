@@ -1,5 +1,6 @@
 from uuid import uuid4
 from pathlib import Path
+from typing import Union
 from manager.internal.image import insert_image
 from manager.internal.task import create_task
 from manager.schemas.image import ImageCategories
@@ -25,19 +26,6 @@ def insert_tasks(cache_path: str):
             print(f"Inserting {i} / {length} items")
             line = records[i]
             drive_front_path, drive_side_path, ref_path = line.strip().split(',')
-
-            drive_front_path = replace_parent(
-                settings.GENERATED_IMAGE_DIR,
-                drive_front_path
-            )
-            drive_side_path = replace_parent(
-                settings.GENERATED_IMAGE_DIR,
-                drive_side_path
-            )
-            ref_path = replace_parent(
-                settings.GENERATED_IMAGE_DIR,
-                ref_path
-            )
 
             drive_front_id = insert_image(
                 drive_front_path,
@@ -69,7 +57,12 @@ def insert_tasks(cache_path: str):
 
 if __name__ == "__main__":
     import argparse
+    DEFAULT_CACHE_PATH = Path(Path(__file__).parent, "cache.txt")
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cache", type=str, default="./src/manager/cache.txt")
+    parser.add_argument(
+        "--cache",
+        type=Union[str, Path],
+        default=DEFAULT_CACHE_PATH
+    )
     args = parser.parse_args()
     insert_tasks(cache_path=args.cache)

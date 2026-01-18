@@ -1,8 +1,10 @@
 import os
+from uuid import uuid4
 from pathlib import Path
 from manager.internal.image import insert_image
 from manager.internal.task import create_task
 from manager.schemas.image import ImageCategories
+from core.config import settings
 
 
 def insert_tasks(cache_path: str):
@@ -20,7 +22,6 @@ def insert_tasks(cache_path: str):
             print(f"Inserting {i} / {length} items")
             line = records[i]
             drive_front_path, drive_side_path, ref_path = line.strip().split(',')
-            asset_dir = '/'.join(drive_front_path.split('/')[:-2])
 
             drive_front_id = insert_image(
                 drive_front_path,
@@ -38,15 +39,8 @@ def insert_tasks(cache_path: str):
                 host="localhost"
             )
 
-            drive_front_name = drive_front_path.split('/')[-1]
-            # the id might also include special characters like '_' (Ex: 12_d_frontal.jpg)
-            drive_front_ori_id = '_'.join(drive_front_name.split('_')[:-1])
-
-            generated_path = os.path.join(
-                asset_dir,
-                "generated_images/",
-                f"{drive_front_ori_id}_generated.jpg"
-            )
+            generated_name = f"{uuid4()}_generated.jpg"
+            generated_path = Path(settings.GENERATED_IMAGE_DIR, generated_name)
 
             create_task(
                 driving_id=drive_front_id,

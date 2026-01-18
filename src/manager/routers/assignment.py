@@ -10,6 +10,7 @@ from manager.core.config import settings
 from manager.schemas.assignment import AssignmentHistory, Assignment
 from manager.internal.assignment import UploadPathMap
 from manager.typings.backend import ReportAssignmentBody, TerminateAssignmentBody
+from manager.internal.auth import require_assignment_ownership
 
 router = APIRouter(
     prefix="/assignments",
@@ -43,6 +44,11 @@ def report_assignment(
     body: ReportAssignmentBody,
     worker: Annotated[User, Depends(require_worker)]
 ):
+    require_assignment_ownership(
+        assignment_id=body.assignment_id,
+        worker_id=worker["id"]
+    )
+
     upload_map: UploadPathMap | None = aapi.report_assignment(
         assignment_id=body.assignment_id,
         worker_id=worker["id"],
@@ -56,16 +62,25 @@ def report_assignment(
     if not upload_map:
         return
 
-    file_id = uuid4()
-    for key, path in upload_map.model_dump().items():
-        extension = path.split('.')[-1]
-        filename = f"{file_id}_{key}.{extension}"
+    upload_map = upload_map.model_dump()
+    result_path = Path(upload_map["result_path"])
+    result_dir = result_path.parent
 
-        settings.GENERATED_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+    # TODO: should have moved this to a util function
+    result_filename = str(result_path).split('/')[-1]
+    result_id = '_'.join(result_filename.split('_')[:-1])
+
+    # Remove the result path
+    upload_map.pop('result_path')
+    for key, path in upload_map.items():
+        extension = path.split('.')[-1]
+        filename = f"{result_id}_{key}.{extension}"
+
+        result_dir.mkdir(parents=True, exist_ok=True)
 
         move_file(
             source=Path(path),
-            destination=Path(settings.GENERATED_IMAGE_DIR, filename)
+            destination=Path(result_dir, filename)
         )
 
 

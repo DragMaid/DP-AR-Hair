@@ -32,8 +32,8 @@ class Settings(BaseModel):
     ASSIGNMENT_TIMEOUT_MIN: int = 20
     UPLOAD_TIMEOUT_MIN: int = 5
 
-    IMAGE_TMP_FOLDER: Path = Path("../assets/tmp/")
-    GENERATED_IMAGE_DIR: Path = Path("../assets/generated_images/")
+    IMAGE_TMP_FOLDER: Path = Path("./manager/assets/tmp/")
+    GENERATED_IMAGE_DIR: Path = Path("./manager/assets/generated_images/")
 
     TMP_FILE_CLEANUP_MIN: int = 10
     TIMEDOUT_ASSIGNMENT_CLEANUP_MIN: int = 5

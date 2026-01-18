@@ -15,7 +15,6 @@ def get_connection(host: Optional[str] = None):
     Caller is responsible for closing it.
     """
     try:
-        print(settings.POSTGRES_HOST)
         return psycopg2.connect(
             dbname=settings.POSTGRES_DB,
             user=settings.POSTGRES_USER,

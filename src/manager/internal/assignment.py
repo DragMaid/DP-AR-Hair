@@ -5,7 +5,6 @@ from manager.schemas.image import ImageCategories
 from manager.core.exceptions import AppError
 from manager.core.exceptions import wrap_errors
 from .connect import get_cursor
-from .auth import require_assignment_ownership
 from .image import retrieve_upload
 
 
@@ -13,6 +12,7 @@ class UploadPathMap(BaseModel):
     driving: str
     reference: str
     generated: str
+    result_path: str
 
 
 def list_assignments(
@@ -84,11 +84,6 @@ def report_assignment(
     status: AssignmentStatus,
     log: str
 ) -> UploadPathMap | None:
-    require_assignment_ownership(
-        assignment_id=assignment_id,
-        worker_id=worker_id
-    )
-
     if status == status.SUCCEED:
         driving_path = retrieve_upload(
             upload_id=driving_upload_id,
@@ -111,12 +106,13 @@ def report_assignment(
             category=[ImageCategories.GENERATED]
         )
 
-        update_assignment(assignment_id, status, log)
+        result_path = update_assignment(assignment_id, status, log)
 
         return UploadPathMap(
             driving=driving_path,
             reference=reference_path,
-            generated=generated_path
+            generated=generated_path,
+            result_path=result_path
         )
 
     update_assignment(assignment_id, status, log)
@@ -155,7 +151,7 @@ def update_assignment(
     assignment_id: str,
     status: AssignmentStatus,
     log: str
-) -> None:
+) -> str:
     with get_cursor(dict_cursor=True) as cur:
         # Update the task status based on report
         if status == AssignmentStatus.SUCCEED:
@@ -166,6 +162,7 @@ def update_assignment(
                     SELECT task_id
                     FROM assignments
                     WHERE id = %s)
+                returning result_path
                 """, (assignment_id,))
         else:
             cur.execute("""
@@ -175,7 +172,10 @@ def update_assignment(
                     SELECT task_id
                     FROM assignments
                     WHERE id = %s)
+                returning result_path
                 """, (assignment_id,))
+
+        result_path = cur.fetchone()["result_path"]
 
         # Insert into history after assignment is done
         cur.execute("""
@@ -199,3 +199,5 @@ def update_assignment(
             DELETE FROM assignments
             WHERE id = %s;
         """, (assignment_id,))
+
+        return result_path

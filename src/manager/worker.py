@@ -50,6 +50,7 @@ class Worker:
         )
 
         self.task = None
+        self.fail_count = 0
 
     def init_generator(self):
         """Initialize the weights and return the generator instance."""
@@ -227,7 +228,7 @@ class Worker:
         if not session.is_authenticated():
             await self.authorize()
 
-        while True:
+        while self.fail_count < 3:
             start = time.time()
             try:
                 self.task = await self.claim_task()
@@ -255,15 +256,17 @@ class Worker:
                     status=AssignmentStatus.SUCCEED
                 )
 
-                # TODO: calculate number of images per second
+                self.fail_count = 0
                 print("Finshed processing image")
 
             # Map error (only unauthorized will be handled)
             except FrontError as e:
+                self.fail_count += 1
                 if e.category == ErrorCategories.UNAUTHORIZED:
                     await self.authorize()
 
             except Exception as e:
+                self.fail_count += 1
                 if self.task and self.task.get("assignment_id"):
                     await self.report(
                         path_map=None,
@@ -271,7 +274,6 @@ class Worker:
                         log=str(e),
                         status=AssignmentStatus.FAILED
                     )
-                raise
             finally:
                 self.task = None
                 duration = time.time() - start

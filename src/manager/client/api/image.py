@@ -1,5 +1,6 @@
 from .fetcher import APIFetcher
-from routers.image import UploadResponse
+from manager.typings.backend import UploadResponse
+from manager.schemas.image import ImageCategories
 
 
 async def upload(
@@ -18,6 +19,7 @@ async def upload(
             path="/images/upload",
             files=files,
             require_auth=True,
+            # TODO: make it so it accepts both string and enum
             params={"assignment_id": assignment_id,
                     "category": category.value},
             response_model=UploadResponse

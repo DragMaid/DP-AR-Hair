@@ -1,5 +1,4 @@
 import tempfile
-import mimetypes
 from fastapi import UploadFile
 from typing import Optional, List
 from PIL import Image as PILImage, UnidentifiedImageError
@@ -87,6 +86,9 @@ def insert_image(
     image_type: ImageCategories,
     host: Optional[str] = None,
 ) -> str:
+    if not Path(file_path).exists():
+        raise ValueError("Image path does not exists!")
+
     with get_cursor(dict_cursor=True, host=host) as cur:
         cur.execute("""
             INSERT INTO images (file_path, category)

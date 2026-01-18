@@ -167,6 +167,8 @@ db-insert:
 # Dataset for hosting
 # =========================
 
+ASSET_DIR := ./src/manager/assets
+
 dataset-download: tool-download ref-download drive-download cache-download
 
 tool-download:
@@ -174,15 +176,15 @@ tool-download:
 	sudo apt install unrar
 
 ref-download:
-	curl -L -o ./assets/celebahq-resized-256x256.zip \
+	curl -L -o ${ASSET_DIR}/celebahq-resized-256x256.zip \
 	https://www.kaggle.com/api/v1/datasets/download/badasstechie/celebahq-resized-256x256 && \
-	unzip ./assets/celebahq-resized-256x256.zip -d ./assets/reference_images && \
-	mv ./assets/reference_images/celeba_hq_256/* ./assets/reference_images/ && \
-	rm -r ./assets/reference_images/celeba_hq_256
+	unzip ${ASSET_DIR}/celebahq-resized-256x256.zip -d ${ASSET_DIR}/reference_images && \
+	mv ${ASSET_DIR}/reference_images/celeba_hq_256/* ${ASSET_DIR}/reference_images/ && \
+	rm -r ${ASSET_DIR}/reference_images/celeba_hq_256
 
 drive-download:
 	gdown --fuzzy https://drive.google.com/file/d/1ZV3pdgHbTpToFesBbvns_mk-yZrimYVP/view -O ./assets/ && \
-	unrar e ./assets/driving_images.rar ./assets/driving_images
+	unrar e ${ASSET_DIR}/driving_images.rar ${ASSET_DIR}/driving_images
 
 cache-download:
-	gdown --fuzzy https://drive.google.com/file/d/1FOVlTRojbclgf3RjaXraw5fH2C0QIvSb/view
+	gdown --fuzzy https://drive.google.com/file/d/1FOVlTRojbclgf3RjaXraw5fH2C0QIvSb/view -O ${ASSET_DIR}/

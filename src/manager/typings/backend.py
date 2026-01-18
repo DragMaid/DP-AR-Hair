@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional
 from manager.schemas.assignment import AssignmentStatus
 from manager.schemas.user import UserRoles
 

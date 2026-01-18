@@ -1,5 +1,4 @@
 import tempfile
-import mimetypes
 from fastapi import UploadFile
 from typing import Optional, List
 from PIL import Image as PILImage, UnidentifiedImageError

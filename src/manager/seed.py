@@ -92,16 +92,22 @@ async def seed_tasks(fetcher, n=1):
                 fetcher,
                 str(image_ids[i]),
                 str(image_ids[j]),
-                path=f"generated{cnt}.png",
+                path=f"./manager/assets/generated_images/generated{cnt}.png",
                 priority=randint(0, 10)
             )
             task_ids.append(task_id)
 
 
 async def seed_assignments(fetcher, n=1):
-    from manager.client.api.tasks import claim_task
+    from manager.typings.backend import ClaimTaskResponse
+
     for i in range(n):
-        response = await claim_task(fetcher)
+        response = await fetcher.fetch(
+            method="POST",
+            path="/tasks/claim",
+            require_auth=True,
+            response_model=ClaimTaskResponse,
+        )
         assignment_ids.append(response["assignment_id"])
 
 
@@ -127,13 +133,14 @@ async def seed_assignment_history(fetcher, n=1):
 
 async def seed_upload(fetcher, n=1):
     from manager.client.api.image import upload
-    path = Path("../../assets/test_images/cropped.png")
+    path = Path("assets/test_images/cropped.png")
 
     for i in range(min(n, len(assignment_ids))):
         if not os.path.isfile(path):
+            print(f"{path} is not a real file")
             return
 
-        for category in [e.value for e in ImageCategories]:
+        for category in [e for e in ImageCategories]:
             assignment_id = assignment_ids[i]
             id = await upload(
                 fetcher=fetcher,

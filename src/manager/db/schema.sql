@@ -1,6 +1,6 @@
-\restrict BlCR9qiMSnNLGPv6hWhW3nad7RXvY0sFHspYjbOqFy2VvgifeivuH8P6nJtkWlq
+\restrict HXDu11QhdO2MH56nR4J1g2n8Ebhk7zygVTaGIlArgaCkdcDEHOJAQNKsq2bs2zr
 
--- Dumped from database version 16.11 (Debian 16.11-1.pgdg12+1)
+-- Dumped from database version 17.7 (Debian 17.7-3.pgdg13+1)
 -- Dumped by pg_dump version 17.6
 
 SET statement_timeout = 0;
@@ -14,20 +14,6 @@ SET check_function_bodies = false;
 SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
-
---
--- Name: pg_cron; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
-
-
---
--- Name: EXTENSION pg_cron; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION pg_cron IS 'Job scheduler for PostgreSQL';
-
 
 --
 -- Name: pgcrypto; Type: EXTENSION; Schema: -; Owner: -
@@ -95,49 +81,6 @@ CREATE TYPE public.user_roles AS ENUM (
     'worker',
     'admin'
 );
-
-
---
--- Name: timeout_assignments(); Type: PROCEDURE; Schema: public; Owner: -
---
-
-CREATE PROCEDURE public.timeout_assignments()
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    WITH expired_assignments AS (
-        DELETE FROM assignments
-        WHERE expires_at < NOW()
-        RETURNING task_id, worker_id
-    ),
-
-    history_insert AS (
-        INSERT INTO assignment_history (
-            task_id,
-            worker_id,
-            status,
-            log
-        )
-        SELECT
-            task_id,
-            worker_id,
-            'timeout'::assignment_status,
-            'Assignment timed out'
-        FROM expired_assignments
-    )
-
-    UPDATE tasks t
-    SET
-        status = 'pending',
-        retry_count = retry_count + 1
-    WHERE t.id IN (
-        SELECT DISTINCT task_id
-        FROM expired_assignments
-    )
-    AND t.status = 'processing';
-
-END;
-$$;
 
 
 SET default_tablespace = '';
@@ -538,7 +481,7 @@ ALTER TABLE ONLY public.uploads
 -- PostgreSQL database dump complete
 --
 
-\unrestrict BlCR9qiMSnNLGPv6hWhW3nad7RXvY0sFHspYjbOqFy2VvgifeivuH8P6nJtkWlq
+\unrestrict HXDu11QhdO2MH56nR4J1g2n8Ebhk7zygVTaGIlArgaCkdcDEHOJAQNKsq2bs2zr
 
 
 --

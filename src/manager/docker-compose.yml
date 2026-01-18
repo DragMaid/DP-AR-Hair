@@ -46,11 +46,16 @@ services:
       context: .
       dockerfile: Dockerfile
     working_dir: /app
+    environment:
+      POSTGRES_HOST: db
     restart: unless-stopped
     volumes:
       - ../:/app
     ports:
       - "8000:8000"
+    depends_on:
+        db:
+          condition: service_healthy
 
   nginx:
     image: nginx:stable

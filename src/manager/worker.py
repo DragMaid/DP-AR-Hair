@@ -295,6 +295,9 @@ class Worker:
                     self.auth_failed_count += 1
                     await self.authorize()
 
+                if e.category == ErrorCategories.QUEUE_EMPTY:
+                    break
+
                 if self.task and self.task.get("assignment_id"):
                     await self.report(
                         path_map=None,

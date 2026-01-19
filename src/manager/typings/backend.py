@@ -63,3 +63,8 @@ class CreateWorkerResponse(BaseModel):
 
 class ResetWorkerResponse(BaseModel):
     password: str
+
+
+class ProgressResponse(BaseModel):
+    done: int
+    total: int

@@ -50,11 +50,13 @@ class NoteModal(ModalScreen):
         self,
         title: str = "INFO",
         message: str = "",
+        copyable=True
     ):
         super().__init__()
         self.title = title
         self.message = message.strip() if len(
             message.strip()) > 0 else "Nothing to read here!"
+        self.copyable = copyable
 
     def compose(self) -> ComposeResult:
         with Vertical(classes="modal"):
@@ -65,7 +67,8 @@ class NoteModal(ModalScreen):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "ok":
-            copy(self.message)
+            if self.copyable:
+                copy(self.message)
             self.dismiss()
 
     def action_close(self) -> None:

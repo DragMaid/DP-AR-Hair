@@ -136,3 +136,19 @@ def delete_task(task_id: str) -> None:
         """, (task_id,))
         if cur.rowcount == 0:
             raise AppError("TASK_NOT_FOUND")
+
+
+@wrap_errors(default_code="TASK_INTERNAL_ERROR")
+def get_progress() -> dict:
+    with get_cursor(dict_cursor=True) as cur:
+        cur.execute("""
+            SELECT
+                COUNT(*) AS total_tasks,
+                COUNT(*) FILTER (WHERE status = 'completed'::task_status) AS completed_tasks
+            FROM tasks;
+        """, ())
+        row = cur.fetchone()
+        return {
+            "total_count": row["total_tasks"],
+            "completed_count": row["completed_tasks"]
+        }

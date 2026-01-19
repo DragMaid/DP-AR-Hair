@@ -1,7 +1,7 @@
 from .fetcher import APIFetcher
 from typing import List, Optional
 from manager.schemas.task import Task, TaskStatus
-from manager.typings.backend import CreateTaskBody, CreateTaskResponse
+from manager.typings.backend import CreateTaskBody, CreateTaskResponse, ProgressResponse
 
 
 async def get_tasks(
@@ -64,3 +64,11 @@ async def delete_task(
     )
 
 # TODO: add an endpoint to get task left count
+
+
+async def get_progress(fetcher: APIFetcher) -> ProgressResponse:
+    return await fetcher.fetch(
+        method="GET",
+        path="/tasks/progress",
+        response_model=ProgressResponse
+    )

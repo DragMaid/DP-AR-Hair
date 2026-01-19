@@ -71,9 +71,7 @@ def clear_timedout_assignments():
             )
 
             UPDATE tasks t
-            SET
-                status = 'pending',
-                retry_count = retry_count + 1
+            SET status = 'pending'
             WHERE t.id IN (
                 SELECT DISTINCT task_id
                 FROM expired_assignments

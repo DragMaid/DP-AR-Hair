@@ -60,14 +60,18 @@ def list_assignment_history(
             WHERE (
                 %s IS NULL
                 OR a.status = ANY(%s::assignment_status[])
-                AND EXISTS (
-                    SELECT 1
-                    FROM ownership o
-                    WHERE a.worker_id = o.worker_id
-                        AND o.admin_id = %s
-                )
             )
-            ORDER BY a.created_at ASC, t.priority DESC
+            AND EXISTS (
+                SELECT 1
+                FROM ownership o
+                WHERE a.worker_id = o.worker_id
+                    AND o.admin_id = %s
+            )
+            ORDER BY
+                a.task_id,
+                a.assignment_history_rank ASC,
+                a.created_at ASC,
+                t.priority DESC
             LIMIT %s
         """, (status, status, owner_id, limit,))
         assignments = cur.fetchall()

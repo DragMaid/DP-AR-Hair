@@ -41,7 +41,7 @@ def claim_task(worker_id: str) -> dict:
             SELECT id
             FROM tasks
             WHERE status = 'pending' AND retry_count < 3
-            ORDER BY priority, created_at, retry_count ASC
+            ORDER BY retry_count ASC, priority DESC, created_at
             FOR UPDATE SKIP LOCKED
             LIMIT 1
         """)

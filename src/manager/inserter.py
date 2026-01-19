@@ -27,6 +27,7 @@ def insert_tasks(cache_path: str):
             line = records[i]
             drive_front_path, drive_side_path, ref_path = line.strip().split(',')
 
+            # TODO: implement batch insert here
             drive_front_id = insert_image(
                 drive_front_path,
                 ImageCategories.DRIVING,

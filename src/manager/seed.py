@@ -123,7 +123,12 @@ class Seeder:
 
         for assignment_id in assignment_ids:
             for category in ImageCategories:
-                upload_id = await upload(fetcher, assignment_id, path, category)
+                upload_id = await upload(
+                    fetcher=fetcher,
+                    assignment_id=assignment_id,
+                    path=path,
+                    category=category
+                )
                 self.upload_id_maps[assignment_id][category] = upload_id
         return self.upload_id_maps
 
@@ -141,28 +146,25 @@ class Seeder:
                 driving_upload_id=upload_map["driving"],
                 reference_upload_id=upload_map["reference"],
                 generated_upload_id=upload_map["generated"],
-                status=AssignmentStatus.SUCCEED,
+                status=random.choice(list(AssignmentStatus)),
                 log=""
             )
 
-    async def seed_all(self, fetcher, cursor, image_count=10, task_count=5):
-        # DB seed
-        self.seed_god(cursor)
-        image_ids = self.seed_images(cursor, image_count)
-
-        # API seed
+    async def seed_all(self, fetcher, image_count=10, task_count=5):
+        with get_cursor(dict_cursor=True, host="localhost") as cur:
+            image_ids = seeder.seed_images(cur, image_count)
         await self.seed_admins(fetcher, 1)
-        # await self.seed_workers(fetcher, 1)
-        # task_ids = await self.seed_tasks(fetcher, image_ids, task_count)
-        # assignment_ids = await self.seed_assignments(fetcher, len(task_ids))
-        # await self.seed_uploads(fetcher, assignment_ids)
-        # await self.seed_assignment_history(fetcher, assignment_ids)
-        # return {
-            # "images": image_ids,
-            # "tasks": task_ids,
-            # "assignments": assignment_ids,
-            # "uploads": self.upload_id_maps
-        # }
+        task_ids = await self.seed_tasks(fetcher, image_ids, task_count)
+        await self.seed_workers(fetcher, 1)
+        assignment_ids = await self.seed_assignments(fetcher, len(task_ids))
+        await self.seed_uploads(fetcher, assignment_ids)
+        await self.seed_assignment_history(fetcher, assignment_ids)
+        return {
+            "images": image_ids,
+            "tasks": task_ids,
+            "assignments": assignment_ids,
+            "uploads": self.upload_id_maps
+        }
 
 
 if __name__ == "__main__":
@@ -170,6 +172,7 @@ if __name__ == "__main__":
     from httpx import AsyncClient
     from manager.client.api.fetcher import APIFetcher
     from argparse import ArgumentParser
+    from manager.client.core.config import settings
 
     parser = ArgumentParser()
     parser.add_argument("-d", "--debug", action="store_true")
@@ -177,21 +180,20 @@ if __name__ == "__main__":
 
     try:
         seeder = Seeder()
-
         with get_cursor(dict_cursor=True, host="localhost") as cur:
-            if args.debug:
-                client = AsyncClient()
-                fetcher = APIFetcher(
-                    base_url="http://localhost:80/api/",
-                    client=client,
-                    session=session,
-                    strict=False
-                )
+            seeder.seed_god(cur)
 
-                asyncio.run(seeder.seed_all(
-                    fetcher, cur, image_count=20, task_count=5))
-            else:
-                seeder.seed_god(cur)
+        if args.debug:
+            client = AsyncClient()
+            fetcher = APIFetcher(
+                base_url=settings.BASE_URL,
+                client=client,
+                session=session,
+                strict=False
+            )
+
+            asyncio.run(seeder.seed_all(
+                fetcher, image_count=20, task_count=10))
 
     except Exception as e:
         print("Error during seeding:", e)

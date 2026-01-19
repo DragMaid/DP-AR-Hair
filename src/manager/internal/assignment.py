@@ -46,6 +46,7 @@ def list_assignment_history(
     owner_id: Optional[str],
     limit: int = 100
 ) -> List[AssignmentHistory]:
+    status = status if status else None
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
             SELECT
@@ -57,25 +58,23 @@ def list_assignment_history(
                 a.created_at
             FROM assignment_history_ordered a
             JOIN tasks_ordered t ON a.task_id = t.id
-            WHERE (
-                %s IS NULL
-                OR a.status = ANY(%s::assignment_status[])
-            )
-            AND EXISTS (
-                SELECT 1
-                FROM ownership o
-                WHERE a.worker_id = o.worker_id
-                    AND o.admin_id = %s
-            )
+            WHERE
+                (%s IS NULL OR a.status = ANY(%s::assignment_status[]))
+            AND
+                (%s IS NULL OR EXISTS (
+                    SELECT 1
+                    FROM ownership o
+                    WHERE o.worker_id = a.worker_id
+                      AND o.admin_id = %s
+                ))
             ORDER BY
-                a.task_id,
                 a.assignment_history_rank ASC,
                 a.created_at ASC,
                 t.priority DESC
             LIMIT %s
-        """, (status, status, owner_id, limit,))
-        assignments = cur.fetchall()
-        return assignments
+        """, (status, status, owner_id, owner_id, limit))
+
+        return cur.fetchall()
 
 
 @wrap_errors(default_code="ASSIGNMENT_REPORT_FAILED")

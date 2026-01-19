@@ -7,12 +7,16 @@ from manager.client.core.session import session
 from manager.client.api.assignment import get_assignment_history
 
 
+class History:
+    pass
+
+
 class AssignmentHistoriesScreen(Table):
     """Screen displaying all assignment histories in a table."""
     BINDINGS = [
         Binding("r", "reload", "Reload", show=True),
         Binding("f", "filter", "Filter", show=True),
-        Binding("b", "read", "Read", show=True)
+        Binding("b", "read", "Read", show=True),
     ]
 
     FILTER_MODES = ["all", "own"]
@@ -21,7 +25,8 @@ class AssignmentHistoriesScreen(Table):
         super().__init__(
             name="Histories",
             max_length=30,
-            schema=AssignmentHistory
+            schema=AssignmentHistory,
+            collection_name="histories"
         )
         self.histories = None
         self.filter_mode_index = 0

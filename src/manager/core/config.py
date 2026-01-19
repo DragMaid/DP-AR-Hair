@@ -25,13 +25,14 @@ class Settings(BaseModel):
     TOKEN_INACTIVE_EXPIRATION_SEC: int = 20 * 60  # 20 minutes
     TOKEN_STORAGE_CAPACITY: int = 10000
 
-    RATE_LIMITER_LIMIT: int = 30
+    RATE_LIMITER_LIMIT: int = 40
     RATE_LIMITER_WINDOW_SEC: int = 60
     RATE_LIMITER_CAPACITY: int = 10000
 
     ASSIGNMENT_TIMEOUT_MIN: int = 20
     UPLOAD_TIMEOUT_MIN: int = 5
 
+    PROJECT_ROOT: Path = Path(__file__).parent.parent
     IMAGE_TMP_FOLDER: Path = Path("./manager/assets/tmp/")
     GENERATED_IMAGE_DIR: Path = Path("./manager/assets/generated_images/")
 

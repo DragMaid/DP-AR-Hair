@@ -11,7 +11,6 @@ from manager.core.config import settings
 
 # TODO: map image errors to frontend
 UPLOAD_DIR = Path(settings.IMAGE_TMP_FOLDER)
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @wrap_errors(default_code="IMAGE_INTERNAL_ERROR")
@@ -26,6 +25,7 @@ def save_upload_file(
     upload_file: UploadFile,
     name: str
 ) -> str:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     upload_dir = Path(UPLOAD_DIR)
     upload_dir.mkdir(parents=True, exist_ok=True)
 
@@ -86,8 +86,10 @@ def insert_image(
     image_type: ImageCategories,
     host: Optional[str] = None,
 ) -> str:
-    if not Path(file_path).exists():
-        raise ValueError("Image path does not exists!")
+    # Check using absolute path but insert only relative path
+    path = Path(settings.PROJECT_ROOT, file_path)
+    if not path.exists():
+        raise ValueError(f"Image path {path} does not exists!")
 
     with get_cursor(dict_cursor=True, host=host) as cur:
         cur.execute("""

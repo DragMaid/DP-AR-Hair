@@ -1,6 +1,7 @@
 import time
 import requests
 import sys
+import traceback
 from pathlib import Path
 from PIL import Image
 from urllib.parse import urljoin
@@ -50,7 +51,9 @@ class Worker:
         )
 
         self.task = None
-        self.fail_count = 0
+        self.auth_failed_count = 0
+        self._last_claim_ts = 0.0
+        self._min_claim_interval = 2.5
 
     def init_generator(self):
         """Initialize the weights and return the generator instance."""
@@ -100,6 +103,7 @@ class Worker:
             password=self.password,
             role=UserRoles.WORKER
         )
+        self.auth_failed_count = 0
 
     # TODO: this is just absurd
     def get_driving_side_path(self, drive_path):
@@ -224,60 +228,105 @@ class Worker:
                 log=log
             )
 
+    async def _rate_limited_claim(self):
+        now = time.time()
+        elapsed = now - self._last_claim_ts
+
+        if elapsed < self._min_claim_interval:
+            await asyncio.sleep(self._min_claim_interval - elapsed)
+
+        self._last_claim_ts = time.time()
+        return await self.claim_task()
+
     async def run(self):
         if not session.is_authenticated():
             await self.authorize()
 
-        while self.fail_count < 3:
+        print("[WORKER] Started")
+
+        while self.auth_failed_count < 5:
             start = time.time()
+            self.task = None
+
             try:
                 self.task = await self.claim_task()
 
-                for p in list(self.task.values())[1::]:
-                    if not Path(p).exists:
-                        raise Exception(f"Cannot find saved image: {p}")
+                if not self.task:
+                    await asyncio.sleep(1)
+                    continue
 
-                path_map = self.inference(
+                input_paths = [
+                    self.task["driving_save_path"],
+                    self.task["driving_side_save_path"],
+                    self.task["reference_save_path"],
+                ]
+
+                for p in input_paths:
+                    if not Path(p).exists():
+                        raise FileNotFoundError(
+                            f"Missing input image: {p}")
+
+                path_map = await asyncio.to_thread(
+                    self.inference,
                     face_path=self.task["driving_save_path"],
                     shape_path=self.task["reference_save_path"],
-                    # Keep same color as original
                     color_path=self.task["driving_save_path"],
                     face_side_path=self.task["driving_side_save_path"],
                 )
 
                 for p in path_map.values():
                     if not Path(p).exists():
-                        raise Exception(f"Cannot find generated image: {p}")
+                        raise FileNotFoundError(
+                            f"Missing generated image: {p}")
 
                 await self.report(
                     path_map=path_map,
                     assignment_id=self.task["assignment_id"],
-                    log="Sucessfully ran task",
-                    status=AssignmentStatus.SUCCEED
+                    log="Successfully ran task",
+                    status=AssignmentStatus.SUCCEED,
                 )
 
-                self.fail_count = 0
-                print("Finshed processing image")
+                print("[WORKER] Finished task")
 
-            # Map error (only unauthorized will be handled)
             except FrontError as e:
-                self.fail_count += 1
+                print(f"[ERROR] FrontError: {e}")
+
                 if e.category == ErrorCategories.UNAUTHORIZED:
+                    self.auth_failed_count += 1
                     await self.authorize()
 
-            except Exception as e:
-                self.fail_count += 1
+                if e.category == ErrorCategories.QUEUE_EMPTY:
+                    break
+
                 if self.task and self.task.get("assignment_id"):
                     await self.report(
                         path_map=None,
-                        assignment_id=self.task.get("assignment_id"),
+                        assignment_id=self.task["assignment_id"],
                         log=str(e),
-                        status=AssignmentStatus.FAILED
+                        status=AssignmentStatus.FAILED,
                     )
+
+                await asyncio.sleep(2)
+
+            except Exception as e:
+                print("[ERROR] Task failed:")
+                traceback.print_exc()
+
+                if self.task and self.task.get("assignment_id"):
+                    await self.report(
+                        path_map=None,
+                        assignment_id=self.task["assignment_id"],
+                        log=str(e),
+                        status=AssignmentStatus.FAILED,
+                    )
+
+                # Backoff prevents Colab/network thrashing
+                await asyncio.sleep(2)
+
             finally:
-                self.task = None
                 duration = time.time() - start
-                print(f"Processing speed: {duration}s / image")
+                print(f"[WORKER] Task duration: {duration:.2f}s")
+                self.task = None
 
 
 if __name__ == "__main__":

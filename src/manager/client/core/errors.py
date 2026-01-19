@@ -15,6 +15,7 @@ class ErrorCategories(str, Enum):
     CLIENT_ERROR = "CLIENT_ERROR"
     CANCELLED = "CANCELLED"
     UNKNOWN = "UNKNOWN"
+    QUEUE_EMPTY = "QUEUE_EMPTY"
 
 
 class ErrorSources(str, Enum):
@@ -192,7 +193,7 @@ BACK_TO_FRONT_ERRORS = {
     },
     "QUEUE_EMPTY": {
         "source": ErrorSources.BACKEND,
-        "category": ErrorCategories.CLIENT_ERROR,
+        "category": ErrorCategories.QUEUE_EMPTY,
         "retryable": False,
     },
 

@@ -1,9 +1,14 @@
 from uuid import uuid4
 from pathlib import Path
+from typing import Union
 from manager.internal.image import insert_image
 from manager.internal.task import create_task
 from manager.schemas.image import ImageCategories
 from manager.core.config import settings
+
+
+def replace_parent(parent_dir: str, path: str):
+    return str(Path(parent_dir, path.split('/')[-1]))
 
 
 def insert_tasks(cache_path: str):
@@ -52,7 +57,12 @@ def insert_tasks(cache_path: str):
 
 if __name__ == "__main__":
     import argparse
+    DEFAULT_CACHE_PATH = Path(Path(__file__).parent, "cache.txt")
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cache", type=str, default="cache.txt")
+    parser.add_argument(
+        "--cache",
+        type=Union[str, Path],
+        default=DEFAULT_CACHE_PATH
+    )
     args = parser.parse_args()
     insert_tasks(cache_path=args.cache)

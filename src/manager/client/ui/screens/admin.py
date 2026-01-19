@@ -26,7 +26,8 @@ class AdminsScreen(Table):
         super().__init__(
             name="Admins",
             max_length=24,
-            schema=User
+            schema=User, 
+            collection_name="admin_nodes"
         )
         self.admin_nodes = None
         self.filter_mode_index = 0

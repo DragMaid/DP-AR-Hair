@@ -28,6 +28,7 @@ from manager.typings.backend import ClaimTaskResponse
 
 SAVE_DIR = "./assets/results/"
 TMP_DIR = "./assets/tmp/"
+MAX_AUTH_COUNT = 5
 
 
 class Worker:
@@ -51,7 +52,8 @@ class Worker:
         )
 
         self.task = None
-        self.auth_failed_count = 0
+        self._auth_failed_count = 0
+
         self._last_claim_ts = 0.0
         self._min_claim_interval = 2.5
 
@@ -95,51 +97,6 @@ class Worker:
             img = TF.to_pil_image(img.clamp(0, 1))
         img.save(path)
         print(f"[INFO] Saved output to {path}", file=sys.stderr)
-
-    async def authorize(self):
-        await authorize(
-            fetcher=self.fetcher,
-            username=self.username,
-            password=self.password,
-            role=UserRoles.WORKER
-        )
-        self.auth_failed_count = 0
-
-    # TODO: this is just absurd
-    def get_driving_side_path(self, drive_path):
-        drive_name = drive_path.split('/')[-1]
-        drive_dir = '/'.join(drive_path.split('/')[:-1])
-        drive_id = '_'.join(drive_name.split('_')[:-1])
-        drive_ext = drive_name.split('.')[-1]
-        return f"{drive_dir}/{drive_id}_side.{drive_ext}"
-
-    async def claim_task(self):
-        response = await self.fetcher.fetch(
-            method="POST",
-            path="/tasks/claim",
-            require_auth=True,
-            response_model=ClaimTaskResponse,
-        )
-
-        driving_path = response["driving_path"]
-        reference_path = response["reference_path"]
-        driving_side_path = self.get_driving_side_path(driving_path)
-        assignment_id = response["assignment_id"]
-
-        driving_save_path = Path(TMP_DIR, "driving.jpg")
-        reference_save_path = Path(TMP_DIR, "reference.jpg")
-        driving_side_save_path = Path(TMP_DIR, "driving_side.jpg")
-
-        self.download_image(driving_path, driving_save_path)
-        self.download_image(reference_path, reference_save_path)
-        self.download_image(driving_side_path, driving_side_save_path)
-
-        return {
-            "assignment_id": assignment_id,
-            "driving_save_path": driving_save_path,
-            "driving_side_save_path": driving_side_save_path,
-            "reference_save_path": reference_save_path
-        }
 
     def download_image(self, source_path: str, output_path: str) -> None:
         output_path = Path(output_path)
@@ -187,46 +144,35 @@ class Worker:
             "reference_path": reference_save_path
         }
 
-    async def report(self, path_map, assignment_id, log, status):
-        if status == AssignmentStatus.SUCCEED:
-            driving_id = await upload(
-                fetcher=self.fetcher,
-                assignment_id=assignment_id,
-                path=path_map["driving_path"],
-                category=ImageCategories.DRIVING
-            )
-            reference_id = await upload(
-                fetcher=self.fetcher,
-                assignment_id=assignment_id,
-                path=path_map["reference_path"],
-                category=ImageCategories.REFERENCE
-            )
-            generated_id = await upload(
-                fetcher=self.fetcher,
-                assignment_id=assignment_id,
-                path=path_map["generated_path"],
-                category=ImageCategories.GENERATED
-            )
+    # TODO: this is just absurd
+    def get_driving_side_path(self, drive_path):
+        drive_name = drive_path.split('/')[-1]
+        drive_dir = '/'.join(drive_path.split('/')[:-1])
+        drive_id = '_'.join(drive_name.split('_')[:-1])
+        drive_ext = drive_name.split('.')[-1]
+        return f"{drive_dir}/{drive_id}_side.{drive_ext}"
 
-            await report_assignment(
+    async def authorize(self):
+        try:
+            await authorize(
                 fetcher=self.fetcher,
-                assignment_id=assignment_id,
-                driving_upload_id=driving_id,
-                reference_upload_id=reference_id,
-                generated_upload_id=generated_id,
-                status=status,
-                log=log
+                username=self.username,
+                password=self.password,
+                role=UserRoles.WORKER
             )
-        else:
-            await report_assignment(
-                fetcher=self.fetcher,
-                assignment_id=assignment_id,
-                driving_upload_id=None,
-                reference_upload_id=None,
-                generated_upload_id=None,
-                status=status,
-                log=log
-            )
+            self.auth_failed_count = 0
+        except Exception as e:
+            print(f"Authorization error: {e}")
+            # If this fail then end it
+            exit(1)
+
+    async def handle_unauthorized(self, callback):
+        if self._auth_failed_count >= MAX_AUTH_COUNT:
+            exit(1)
+
+        await self.authorize()
+        self._auth_failed_count += 1
+        await self.callback()
 
     async def _rate_limited_claim(self):
         now = time.time()
@@ -238,90 +184,160 @@ class Worker:
         self._last_claim_ts = time.time()
         return await self.claim_task()
 
-    async def run(self):
-        if not session.is_authenticated():
-            await self.authorize()
+    async def claim_task(self):
+        try:
+            response = await self.fetcher.fetch(
+                method="POST",
+                path="/tasks/claim",
+                require_auth=True,
+                response_model=ClaimTaskResponse,
+            )
 
+            driving_path = response["driving_path"]
+            reference_path = response["reference_path"]
+            driving_side_path = self.get_driving_side_path(driving_path)
+            assignment_id = response["assignment_id"]
+
+            driving_save_path = Path(TMP_DIR, "driving.jpg")
+            reference_save_path = Path(TMP_DIR, "reference.jpg")
+            driving_side_save_path = Path(TMP_DIR, "driving_side.jpg")
+
+            self.download_image(driving_path, driving_save_path)
+            self.download_image(reference_path, reference_save_path)
+            self.download_image(driving_side_path, driving_side_save_path)
+
+            return {
+                "assignment_id": assignment_id,
+                "driving_save_path": driving_save_path,
+                "driving_side_save_path": driving_side_save_path,
+                "reference_save_path": reference_save_path
+            }
+        except FrontError as e:
+            if e.category == ErrorCategories.UNAUTHORIZED:
+                await self.handle_unauthorized(self.claim_task)
+            else:
+                raise
+
+    async def report(self, path_map, assignment_id, log, status):
+        try:
+            if status == AssignmentStatus.SUCCEED:
+                driving_id = await upload(
+                    fetcher=self.fetcher,
+                    assignment_id=assignment_id,
+                    path=path_map["driving_path"],
+                    category=ImageCategories.DRIVING
+                )
+                reference_id = await upload(
+                    fetcher=self.fetcher,
+                    assignment_id=assignment_id,
+                    path=path_map["reference_path"],
+                    category=ImageCategories.REFERENCE
+                )
+                generated_id = await upload(
+                    fetcher=self.fetcher,
+                    assignment_id=assignment_id,
+                    path=path_map["generated_path"],
+                    category=ImageCategories.GENERATED
+                )
+
+                await report_assignment(
+                    fetcher=self.fetcher,
+                    assignment_id=assignment_id,
+                    driving_upload_id=driving_id,
+                    reference_upload_id=reference_id,
+                    generated_upload_id=generated_id,
+                    status=status,
+                    log=log
+                )
+            else:
+                await report_assignment(
+                    fetcher=self.fetcher,
+                    assignment_id=assignment_id,
+                    driving_upload_id=None,
+                    reference_upload_id=None,
+                    generated_upload_id=None,
+                    status=status,
+                    log=log
+                )
+        except FrontError as e:
+            if e.category == ErrorCategories.UNAUTHORIZED:
+                await self.handle_unauthorized(
+                    error=e,
+                    callback=lambda _: self.report(
+                        path_map, assignment_id, log, status)
+                )
+            else:
+                raise
+
+    async def process(self):
+        self.task = await self._rate_limited_claim()
+
+        if not self.task:
+            return
+
+        input_paths = [
+            self.task["driving_save_path"],
+            self.task["driving_side_save_path"],
+            self.task["reference_save_path"],
+        ]
+
+        for p in input_paths:
+            if not Path(p).exists():
+                raise FileNotFoundError(
+                    f"Missing input image: {p}")
+
+        path_map = await asyncio.to_thread(
+            self.inference,
+            face_path=self.task["driving_save_path"],
+            shape_path=self.task["reference_save_path"],
+            color_path=self.task["driving_save_path"],
+            face_side_path=self.task["driving_side_save_path"],
+        )
+
+        for p in path_map.values():
+            if not Path(p).exists():
+                raise FileNotFoundError(
+                    f"Missing generated image: {p}")
+
+        await self.report(
+            path_map=path_map,
+            assignment_id=self.task["assignment_id"],
+            log="Successfully ran task",
+            status=AssignmentStatus.SUCCEED,
+        )
+
+        print("[WORKER] Finished task")
+
+    async def report_failed(self, error: Exception):
+        if self.task and self.task.get("assignment_id"):
+            await self.report(
+                path_map=None,
+                assignment_id=self.task["assignment_id"],
+                log=str(error),
+                status=AssignmentStatus.FAILED,
+            )
+
+    async def run(self):
+        # TODO: implement a authentication persistent flow
         print("[WORKER] Started")
 
-        while self.auth_failed_count < 5:
+        while True:
             start = time.time()
             self.task = None
 
             try:
-                self.task = await self.claim_task()
-
-                if not self.task:
-                    await asyncio.sleep(1)
-                    continue
-
-                input_paths = [
-                    self.task["driving_save_path"],
-                    self.task["driving_side_save_path"],
-                    self.task["reference_save_path"],
-                ]
-
-                for p in input_paths:
-                    if not Path(p).exists():
-                        raise FileNotFoundError(
-                            f"Missing input image: {p}")
-
-                path_map = await asyncio.to_thread(
-                    self.inference,
-                    face_path=self.task["driving_save_path"],
-                    shape_path=self.task["reference_save_path"],
-                    color_path=self.task["driving_save_path"],
-                    face_side_path=self.task["driving_side_save_path"],
-                )
-
-                for p in path_map.values():
-                    if not Path(p).exists():
-                        raise FileNotFoundError(
-                            f"Missing generated image: {p}")
-
-                await self.report(
-                    path_map=path_map,
-                    assignment_id=self.task["assignment_id"],
-                    log="Successfully ran task",
-                    status=AssignmentStatus.SUCCEED,
-                )
-
-                print("[WORKER] Finished task")
+                await self.process()
 
             except FrontError as e:
                 print(f"[ERROR] FrontError: {e}")
-
-                if e.category == ErrorCategories.UNAUTHORIZED:
-                    self.auth_failed_count += 1
-                    await self.authorize()
-
                 if e.category == ErrorCategories.QUEUE_EMPTY:
                     break
-
-                if self.task and self.task.get("assignment_id"):
-                    await self.report(
-                        path_map=None,
-                        assignment_id=self.task["assignment_id"],
-                        log=str(e),
-                        status=AssignmentStatus.FAILED,
-                    )
-
-                await asyncio.sleep(2)
+                await self.report_failed(e)
 
             except Exception as e:
                 print("[ERROR] Task failed:")
                 traceback.print_exc()
-
-                if self.task and self.task.get("assignment_id"):
-                    await self.report(
-                        path_map=None,
-                        assignment_id=self.task["assignment_id"],
-                        log=str(e),
-                        status=AssignmentStatus.FAILED,
-                    )
-
-                # Backoff prevents Colab/network thrashing
-                await asyncio.sleep(2)
+                await self.report_failed(e)
 
             finally:
                 duration = time.time() - start

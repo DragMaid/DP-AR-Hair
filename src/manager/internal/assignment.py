@@ -67,7 +67,11 @@ def list_assignment_history(
                         AND o.admin_id = %s
                 )
             )
-            ORDER BY a.created_at ASC, t.priority DESC
+            ORDER BY
+                a.task_id,
+                a.assignment_history_rank ASC,
+                a.created_at ASC,
+                t.priority DESC
             LIMIT %s
         """, (status, status, owner_id, limit,))
         assignments = cur.fetchall()

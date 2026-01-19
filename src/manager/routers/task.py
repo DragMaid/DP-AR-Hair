@@ -4,7 +4,12 @@ from manager.internal import task as tapi
 from manager.internal.auth import require_admin, require_worker
 from manager.schemas.task import Task
 from manager.schemas.user import User
-from manager.typings.backend import CreateTaskResponse, CreateTaskBody, ClaimTaskResponse
+from manager.typings.backend import (
+    CreateTaskResponse,
+    CreateTaskBody,
+    ClaimTaskResponse,
+    ProgressResponse
+)
 
 
 router = APIRouter(
@@ -21,6 +26,15 @@ def get_tasks(
 ):
     tasks = tapi.list_tasks(status, limit)
     return [Task(**t) for t in tasks]
+
+
+@router.get("/progress", response_model=ProgressResponse)
+def get_progress():
+    progress = tapi.get_progress()
+    return ProgressResponse(
+        done=progress["completed_count"],
+        total=progress["total_count"]
+    )
 
 
 @router.post("/create", response_model=CreateTaskResponse)

@@ -1,3 +1,4 @@
+from textual import work
 from textual.app import App
 from textual.binding import Binding
 from textual.containers import Container, Horizontal
@@ -14,6 +15,7 @@ from manager.client.core.session import session
 from manager.client.api.fetcher import APIFetcher
 from manager.client.core.config import settings
 from manager.client.ui.modals import LoginModal, ErrorModal, ConfirmModal, FormModal, NoteModal
+from manager.client.api.tasks import get_progress
 
 from textual import on
 
@@ -24,6 +26,7 @@ class DQSDashboard(App):
     BINDINGS = [
         Binding("q", "quit", "Quit", show=True),
         Binding("l", "login()", "Login", show=True),
+        Binding("p", "progress", "Progress", show=True),
         Binding("1", "nav('workers')"),
         Binding("2", "nav('tasks')"),
         Binding("3", "nav('assignments')"),
@@ -55,6 +58,16 @@ class DQSDashboard(App):
 
     def action_login(self) -> None:
         self.show_modal("login")
+
+    @work(exclusive=True)
+    async def action_progress(self) -> None:
+        progress = await get_progress(self.fetcher)
+        self.show_modal(
+            target="note",
+            title="PROGRESS",
+            message=f"Completed {progress['done']} / {progress['total']} tasks",
+            copyable=False
+        )
 
     # Utility functions
     def show_modal(self, target: str, **kwargs) -> None:

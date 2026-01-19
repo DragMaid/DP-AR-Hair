@@ -18,6 +18,7 @@ def move_file(source: Path, destination: Path):
     if not source.exists():
         raise AppError("UPLOAD_NOT_FOUND")
     move(source, destination)
+    destination.chmod(0o644)
 
 
 @wrap_errors(default_code="IMAGE_INTERNAL_ERROR")

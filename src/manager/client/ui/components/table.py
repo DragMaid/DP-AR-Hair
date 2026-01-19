@@ -6,10 +6,22 @@ from typing import List
 from pydantic import BaseModel
 
 
+class VimTable(DataTable):
+    BINDINGS = [
+        Binding("j", "cursor_down", "Cursor down", show=False),
+        Binding("k", "cursor_up", "Cursor up", show=False),
+        Binding("ctrl+d", "page_down", "Page down", show=False),
+        Binding("ctrl+u", "page_up", "Page up", show=False)
+    ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
 class Table(Container):
     """Screen displaying all tasks in a table."""
     BINDINGS = [
-        Binding("C", "copy", "Copy", show=True)
+        Binding("C", "copy", "Copy", show=True),
     ]
 
     def __init__(
@@ -30,7 +42,7 @@ class Table(Container):
         return self.app.fetcher
 
     def compose(self) -> ComposeResult:
-        self.table = DataTable(
+        self.table = VimTable(
             id=f"{self.cname}_table",
             cursor_type="row",
             fixed_rows=0,

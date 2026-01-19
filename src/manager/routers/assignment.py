@@ -28,7 +28,7 @@ def get_assignments(
 
 @router.get("/history", response_model=List[AssignmentHistory])
 def get_assignment_history(
-    status: Optional[List[aapi.AssignmentStatus]] = Query(default='failed'),
+    status: Optional[List[aapi.AssignmentStatus]] = Query(default=None),
     owner_id: Optional[str] = Query(default=None),
     limit: int = Query(default=100, ge=1, le=1000)
 ):

@@ -55,7 +55,7 @@ class Worker:
         self._auth_failed_count = 0
 
         self._last_claim_ts = 0.0
-        self._min_claim_interval = 2.5
+        self._min_claim_interval = 3
 
     def init_generator(self):
         """Initialize the weights and return the generator instance."""

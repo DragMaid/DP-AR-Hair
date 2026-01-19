@@ -23,7 +23,8 @@ class AssignmentsScreen(Table):
         super().__init__(
             name="Workers",
             max_length=24,
-            schema=Assignment
+            schema=Assignment,
+            collection_name="assignments"
         )
         self.assignments = None
         self.filter_mode_index = 0

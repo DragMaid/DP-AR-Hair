@@ -35,12 +35,13 @@ def list_tasks(
 @wrap_errors(default_code="TASK_INTERNAL_ERROR")
 def claim_task(worker_id: str) -> dict:
 
+    # TODO: Remove the hard coded 3 later
     with get_cursor(dict_cursor=True) as cur:
         cur.execute("""
             SELECT id
             FROM tasks
-            WHERE status = 'pending'
-            ORDER BY priority, created_at
+            WHERE status = 'pending' AND retry_count < 3
+            ORDER BY priority, created_at, retry_count ASC
             FOR UPDATE SKIP LOCKED
             LIMIT 1
         """)

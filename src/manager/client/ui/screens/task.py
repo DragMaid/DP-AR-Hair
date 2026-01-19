@@ -22,7 +22,8 @@ class TasksScreen(Table):
         super().__init__(
             name="Tasks",
             max_length=24,
-            schema=Task
+            schema=Task,
+            collection_name="tasks"
         )
         self.tasks = None
         self.filter_mode_index = 0

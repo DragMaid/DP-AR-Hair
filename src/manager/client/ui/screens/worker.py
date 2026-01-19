@@ -29,7 +29,8 @@ class WorkersScreen(Table):
         super().__init__(
             name="Workers",
             max_length=24,
-            schema=User
+            schema=User,
+            collection_name="worker_nodes"
         )
         self.worker_nodes = None
         self.filter_mode_index = 0

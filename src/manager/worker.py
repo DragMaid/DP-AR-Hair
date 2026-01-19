@@ -53,7 +53,7 @@ class Worker:
         self.task = None
         self.auth_failed_count = 0
         self._last_claim_ts = 0.0
-        self._min_claim_interval = 2.0  # seconds (30 req / 60s safe)
+        self._min_claim_interval = 2.5
 
     def init_generator(self):
         """Initialize the weights and return the generator instance."""

@@ -1,4 +1,5 @@
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.containers import Container, VerticalScroll
 from textual.widgets import Header, Footer, DataTable, Static
 from typing import List
@@ -7,12 +8,22 @@ from pydantic import BaseModel
 
 class Table(Container):
     """Screen displaying all tasks in a table."""
+    BINDINGS = [
+        Binding("C", "copy", "Copy", show=True)
+    ]
 
-    def __init__(self, name: str, max_length: int, schema: BaseModel):
+    def __init__(
+        self,
+            name: str,
+            max_length: int,
+            schema: BaseModel,
+            collection_name: str
+    ):
         super().__init__()
         self.cname = name
         self.max_length = max_length
         self.schema = schema
+        self.collection_name = collection_name
 
     @property
     def fetcher(self):
@@ -46,3 +57,20 @@ class Table(Container):
             else:
                 res.append(value)
         return res
+
+    def format_dict(self, dictionary: dict):
+        formatted = "Result\n"
+        for key, value in dictionary.items():
+            formatted += f"{key}: {value}\n"
+        return formatted
+
+    def action_copy(self):
+        index = self.table.cursor_row
+        if index < 0:
+            return
+        collection = getattr(self, self.collection_name)
+        self.log(collection[index])
+        self.app.show_modal(
+            target="note",
+            message=self.format_dict(collection[index])
+        )

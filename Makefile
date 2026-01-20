@@ -156,8 +156,27 @@ seed-debug:
 worker:
 	$(INIT_ROOT) $(POETRY_RUN) $(BACKEND_PKG).worker
 
+tui-install:
+	@if command -v poetry >/dev/null 2>&1; then \
+		poetry config virtualenvs.in-project true; \
+		poetry install --with dqs; \
+	elif command -v pip >/dev/null 2>&1; then \
+		pip install -r src/manager/client/requirements.txt; \
+	else \
+		echo "Error: neither poetry nor pip found in PATH" >&2; \
+		exit 1; \
+	fi
+
 tui:
-	$(INIT_ROOT) $(POETRY_RUN) $(BACKEND_PKG).tui
+	@if command -v poetry >/dev/null 2>&1; then \
+		$(INIT_ROOT) $(POETRY_RUN) $(BACKEND_PKG).tui; \
+	elif command -v python >/dev/null 2>&1; then \
+		$(INIT_ROOT) python -m $(BACKEND_PKG).tui; \
+	else \
+		echo "Error: neither poetry nor python found in PATH" >&2; \
+		exit 1; \
+	fi
+
 
 db-insert:
 	$(INIT_ROOT) $(POETRY_RUN) $(BACKEND_PKG).inserter

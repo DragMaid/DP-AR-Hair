@@ -67,7 +67,6 @@ def main():
                             num_workers=args.num_workers,
                             pin_memory=True, drop_last=True, sampler=sampler)
 
-    # TODO: implement generate on go later, for now its too inefficient
     pipeline = TrainingPipeline(device, local_rank, generate_on_go=False)
 
     scaler = torch.cuda.amp.GradScaler(
@@ -92,11 +91,14 @@ def main():
         running = {"total_loss": 0.0, "disc_loss": 0.0, "steps": 0}
         for step, batch in epoch_iterator:
             save_image = (running["steps"]+1) % args.save_image_every == 0
+
+            # Get the 3 images: original front / side and hair transfered image
             I_s = batch["front"]["content"]
             I_d = batch["side"]["content"]
-            I_r = batch["reference"]["content"]
+            I_d_dilde = batch["reference"]["content"]
+
             logs = pipeline.train_step(
-                I_s, I_d, I_r,
+                I_s, I_d, I_d_dilde,
                 mini_batch_size=args.mini_batch_size,
                 scaler=scaler,
                 save_debug=save_image,

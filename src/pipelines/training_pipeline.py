@@ -8,10 +8,8 @@ from torchvision.utils import save_image
 from losses.adversarial_loss import PatchGANDiscriminator, weights_init
 from face_parsing.models.utils import get_mask_by_idx
 from configs.pipeline_config import pipeline_config as pco
-from loaders.loader import load_models, ModelRegistry
-from loaders.downloader import download_weights
+from loaders.loader import load_models
 from models.msg_spade_decoder import MSGSpadeDecoder
-from pipelines.gan_wrapper import HairFastBatchWrapper
 from losses.loss_handler import LossHandler
 from torch.nn.parallel import DistributedDataParallel as DDP
 
@@ -24,7 +22,7 @@ class TrainingPipeline:
     - collects a minimal set of modules to save
     """
 
-    def __init__(self, device, local_rank=None, loaded=True, generate_on_go=False):
+    def __init__(self, device, local_rank=None, loaded=True):
         self.device = device
 
         # --- Generator (G) ---
@@ -64,20 +62,6 @@ class TrainingPipeline:
             lr=pco.training.generator.learn_rate,
             betas=pco.training.generator.betas)
 
-        # --- Iterative Implicit Hair Transfer (IIHT) ---
-        self.IIHT = None
-        if generate_on_go:
-            IIHT_NAME = "IIHT1"
-            record = ModelRegistry.get_registry(IIHT_NAME)
-            w_options = record["weight"]["options"]
-            dest = w_options["local_dir"] / \
-                w_options["allow_patterns"][0].split("/")[0]
-            if not dest.exists():
-                download_weights(record["weight"]["type"], w_options)
-            self.IIHT = load_models(IIHT_NAME, pretrained=False)
-            # TODO: add a more dynamic way to set the device ids
-            self.IIHT = HairFastBatchWrapper(self.IIHT)
-
         # --- Adversarial discriminator ---
         self.L_adv = PatchGANDiscriminator(n_in_channels=3).to(self.device)
         self.L_adv.apply(weights_init)
@@ -100,32 +84,20 @@ class TrainingPipeline:
             "L_adv": self.L_adv
         }
 
-    def train_step(self, I_s, I_d, I_r, scaler,
+    def train_step(self, I_s, I_d, I_d_dilde, scaler,
                    mini_batch_size,
                    save_debug=False,
                    save_path=Path(".")):
         """
         Perform a single training step (one batch).
-        - I_s, I_d, I_r: tensors (BCHW) on CPU or device
+        - I_s, I_d, I_d_dilde: tensors (BCHW) on CPU or device
         - scaler: optional torch.cuda.amp.GradScaler for mixed precision
         Returns dict of scalars (floats) for logging.
         """
 
         I_s_o = I_s.to(self.device)
         I_d_o = I_d.to(self.device)
-        I_r_o = I_r.to(self.device)
-
-        # TODO: add resizing to 1024x1024 for HairFastGan
-        # I_d, I_r, I_s: 4D tensors (B, C, H, W)
-        if self.IIHT:
-            with torch.no_grad():
-                # Third I_d is for color (HairFastGanVersion)
-                I_d_dilde_o = self.IIHT.batch_swap(I_d, I_r, I_d)
-                I_d_dilde_o = I_d_dilde_o.to(self.device)
-        else:
-            # If the generate_on_go mode is not set then
-            # passed in value for I_r would be generated I_d_dilde
-            I_d_dilde_o = I_r
+        I_d_dilde_o = I_d_dilde.to(self.device)
 
         batch_size = I_s.shape[0]
         assert mini_batch_size <= batch_size
@@ -134,12 +106,14 @@ class TrainingPipeline:
         steps = ceil(batch_size / mini_batch_size)
         for i in range(steps):
             done = i == steps - 1
+
+            # This is for gradient accumulation
             start = mini_batch_size * i
             end = min(start + mini_batch_size, batch_size)
 
+            # TODO: wait sth is wrong with the passing arguments
             I_s = I_s_o[start:end]
             I_d = I_d_o[start:end]
-            I_r = I_r_o[start:end]
             I_d_dilde = I_d_dilde_o[start:end]
 
             f_c = self.E_C(I_d_dilde)
@@ -155,7 +129,7 @@ class TrainingPipeline:
                     m_c = get_mask_by_idx(I_d_dilde, self.M_C,
                                           device=self.device, class_idx=17)
                     m_f = 1 - m_c  # Inverted m_c or non-hair binary mask
-            del I_r, I_d_dilde
+            del I_d_dilde
 
             # Final predicted image tensor
             with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):

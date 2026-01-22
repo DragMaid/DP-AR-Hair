@@ -41,7 +41,8 @@ def get_landmark(filepath, predictor):
     print(f"{filepath.name}: Number of faces detected: {len(dets)}")
     shapes = [predictor(img, d) for k, d in enumerate(dets)]
 
-    lms = [np.array([[tt.x, tt.y] for tt in shape.parts()]) for shape in shapes]
+    lms = [np.array([[tt.x, tt.y] for tt in shape.parts()])
+           for shape in shapes]
 
     return lms
 
@@ -69,12 +70,24 @@ def get_landmark_from_tensors(tensors: list[torch.Tensor | Image.Image | np.ndar
             print(f"Number of faces detected: {len(dets)}, get largest face")
 
         # Find the largest face
-        dets = sorted(dets, key=lambda det: det.width() * det.height(), reverse=True)
+        dets = sorted(dets, key=lambda det: det.width()
+                      * det.height(), reverse=True)
         shape = predictor(img, dets[0])
         lm = np.array([[tt.x, tt.y] for tt in shape.parts()])
         lms.append(lm)
 
     return images, lms
+
+
+def get_landmark_detector():
+    predictor_path = 'pretrained_models/ShapeAdaptor/shape_predictor_68_face_landmarks.dat'
+    if not os.path.isfile(predictor_path):
+        print("Downloading Shape Predictor")
+        data_io = open_url(
+            "https://drive.google.com/uc?id=1huhv8PYpNNKbGCLOaYUjOgR1pY5pmbJx")
+        with open(predictor_path, 'wb') as f:
+            f.write(data_io.getbuffer())
+    return dlib.shape_predictor(predictor_path)
 
 
 def align_face(data, predictor=None, is_filepath=False, return_tensors=True):
@@ -83,15 +96,7 @@ def align_face(data, predictor=None, is_filepath=False, return_tensors=True):
     :return: list of PIL Images
     """
     if predictor is None:
-        predictor_path = 'pretrained_models/ShapeAdaptor/shape_predictor_68_face_landmarks.dat'
-
-        if not os.path.isfile(predictor_path):
-            print("Downloading Shape Predictor")
-            data_io = open_url("https://drive.google.com/uc?id=1huhv8PYpNNKbGCLOaYUjOgR1pY5pmbJx")
-            with open(predictor_path, 'wb') as f:
-                f.write(data_io.getbuffer())
-
-        predictor = dlib.shape_predictor(predictor_path)
+        predictor = get_landmark_detector()
 
     if is_filepath:
         lms = get_landmark(data, predictor)
@@ -145,7 +150,8 @@ def align_face(data, predictor=None, is_filepath=False, return_tensors=True):
         # Shrink.
         shrink = int(np.floor(qsize / output_size * 0.5))
         if shrink > 1:
-            rsize = (int(np.rint(float(img.size[0]) / shrink)), int(np.rint(float(img.size[1]) / shrink)))
+            rsize = (int(np.rint(
+                float(img.size[0]) / shrink)), int(np.rint(float(img.size[1]) / shrink)))
             img = img.resize(rsize, PIL.Image.ANTIALIAS)
             quad /= shrink
             qsize /= shrink
@@ -167,15 +173,19 @@ def align_face(data, predictor=None, is_filepath=False, return_tensors=True):
                max(pad[3] - img.size[1] + border, 0))
         if enable_padding and max(pad) > border - 4:
             pad = np.maximum(pad, int(np.rint(qsize * 0.3)))
-            img = np.pad(np.float32(img), ((pad[1], pad[3]), (pad[0], pad[2]), (0, 0)), 'reflect')
+            img = np.pad(np.float32(
+                img), ((pad[1], pad[3]), (pad[0], pad[2]), (0, 0)), 'reflect')
             h, w, _ = img.shape
             y, x, _ = np.ogrid[:h, :w, :1]
             mask = np.maximum(1.0 - np.minimum(np.float32(x) / pad[0], np.float32(w - 1 - x) / pad[2]),
                               1.0 - np.minimum(np.float32(y) / pad[1], np.float32(h - 1 - y) / pad[3]))
             blur = qsize * 0.02
-            img += (scipy.ndimage.gaussian_filter(img, [blur, blur, 0]) - img) * np.clip(mask * 3.0 + 1.0, 0.0, 1.0)
-            img += (np.median(img, axis=(0, 1)) - img) * np.clip(mask, 0.0, 1.0)
-            img = PIL.Image.fromarray(np.uint8(np.clip(np.rint(img), 0, 255)), 'RGB')
+            img += (scipy.ndimage.gaussian_filter(img,
+                    [blur, blur, 0]) - img) * np.clip(mask * 3.0 + 1.0, 0.0, 1.0)
+            img += (np.median(img, axis=(0, 1)) - img) * \
+                np.clip(mask, 0.0, 1.0)
+            img = PIL.Image.fromarray(
+                np.uint8(np.clip(np.rint(img), 0, 255)), 'RGB')
             quad += pad[:2]
 
         # Transform.

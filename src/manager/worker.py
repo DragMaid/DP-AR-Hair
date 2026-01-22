@@ -12,6 +12,7 @@ import torchvision.transforms.functional as TF
 
 from loaders.downloader import download_weights
 from loaders.loader import load_models, ModelRegistry
+from loaders.utils import load_hfg_generator
 
 from httpx import AsyncClient
 from manager.client.core.session import session
@@ -58,19 +59,8 @@ class Worker:
         self._min_claim_interval = 3
 
     def init_generator(self):
-        """Initialize the weights and return the generator instance."""
-
-        name = "IIHT1"
-        record = ModelRegistry.get_registry(name)
-        w_options = record["weight"]["options"]
-        dest = w_options["local_dir"] / \
-            w_options["allow_patterns"][0].split("/")[0]
-
-        if not dest.exists():
-            download_weights(record["weight"]["type"], w_options)
-
-        # The model load weights by itself so pretrained is False
-        self.model = load_models(name, pretrained=False)
+        """Load the hair fast gan generator and make it available."""
+        self.model = load_hfg_generator()
 
     def convert_input(self, file_path: str):
         """Load local image from INPUT_DIR. Cache images."""
@@ -172,7 +162,7 @@ class Worker:
 
         await self.authorize()
         self._auth_failed_count += 1
-        await self.callback()
+        await callback()
 
     async def _rate_limited_claim(self):
         now = time.time()

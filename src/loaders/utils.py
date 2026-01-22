@@ -1,7 +1,8 @@
-import os
 import torch
 import shutil
 from pathlib import Path
+from loaders.loader import load_models, ModelRegistry
+from loaders.downloader import download_weights
 
 
 def model_ram_usage(model: torch.nn.Module, dtype=torch.float32):
@@ -41,3 +42,19 @@ def move_all_files_to_root(root_dir: str | Path) -> None:
                 folder.rmdir()
             except OSError:
                 pass
+
+
+def load_hfg_generator():
+    """Initialize the weights and return the generator instance."""
+
+    name = "IIHT1"
+    record = ModelRegistry.get_registry(name)
+    w_options = record["weight"]["options"]
+    dest = w_options["local_dir"] / \
+        w_options["allow_patterns"][0].split("/")[0]
+
+    if not dest.exists():
+        download_weights(record["weight"]["type"], w_options)
+
+    # The model load weights by itself so pretrained is False
+    return load_models(name, pretrained=False)

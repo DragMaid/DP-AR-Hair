@@ -4,9 +4,8 @@ from PIL import Image
 
 import torch
 import torchvision.transforms.functional as TF
+from loaders.utils import load_hfg_generator
 
-from loaders.downloader import download_weights
-from loaders.loader import load_models, ModelRegistry
 
 input_path = Path(__file__).resolve().parents[2] / "assets/test_images/"
 
@@ -19,14 +18,7 @@ ALIGNMENT_MODE = "Auto"  # Auto, On, Off
 SAVE_PATH = "results/output.png"
 SAVE_DIR = "assets/results/"
 
-name = "IIHT1"
-record = ModelRegistry.get_registry(name)
-w_options = record["weight"]["options"]
-dest = w_options["local_dir"] / w_options["allow_patterns"][0].split("/")[0]
-if not dest.exists():
-    download_weights(record["weight"]["type"], w_options)
-
-model = load_models(name, pretrained=False)
+model = load_hfg_generator()
 path_to_imgs = {}
 
 

@@ -67,7 +67,7 @@ def main():
                             num_workers=args.num_workers,
                             pin_memory=True, drop_last=True, sampler=sampler)
 
-    pipeline = TrainingPipeline(device, local_rank, generate_on_go=False)
+    pipeline = TrainingPipeline(device, local_rank)
 
     scaler = torch.cuda.amp.GradScaler(
         enabled=args.mixed_precision and device.type == "cuda")

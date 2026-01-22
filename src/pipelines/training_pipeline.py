@@ -111,7 +111,6 @@ class TrainingPipeline:
             start = mini_batch_size * i
             end = min(start + mini_batch_size, batch_size)
 
-            # TODO: wait sth is wrong with the passing arguments
             I_s = I_s_o[start:end]
             I_d = I_d_o[start:end]
             I_d_dilde = I_d_dilde_o[start:end]

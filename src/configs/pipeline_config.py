@@ -38,6 +38,7 @@ class TrainingConfig(BaseModel):
 class InferenceConfig(BaseModel):
     video_path: str
     reference_path: str
+    output_path: str
     checkpoint_path: str
     batch_size: int
 

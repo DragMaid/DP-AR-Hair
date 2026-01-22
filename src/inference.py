@@ -1,4 +1,3 @@
-import os
 import cv2
 import argparse
 import torch
@@ -76,7 +75,7 @@ class HairShifter:
             face_img=anchor_frame,
             shape_img=ref_img,
             color_img=ref_img,
-            align=False
+            align=False  # All aligned already
         )
 
         driving_tensors = []
@@ -117,6 +116,8 @@ class HairShifter:
                     frame = frame[:, :, ::-1]
                     out_video.write(frame)
 
+        print(f"Video created at: {output_path}")
+
 
 def get_args():
     p = argparse.ArgumentParser()
@@ -124,7 +125,9 @@ def get_args():
                    default=pco.inference.checkpoint_path)
     p.add_argument("--video", type=str, help="Path to input video",
                    default=pco.inference.video_path)
-    p.add_argument("--reference", type=str, help="Path to input video",
+    p.add_argument("--reference", type=str, help="Path to reference image",
+                   default=pco.inference.reference_path)
+    p.add_argument("--output", type=str, help="Path to output video",
                    default=pco.inference.reference_path)
     p.add_argument("--batch_size", type=str, help="Batch size to pass into model",
                    default=pco.inference.batch_size)
@@ -136,7 +139,16 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     device = torch.device(device)
 
-    os.makedirs(args.save_dir, exist_ok=True)
+    shifter = HairShifter(
+        device=device,
+        batch_size=args.batch_size
+    )
+
+    shifter.tranfer(
+        video_path=args.video,
+        reference_path=args.reference,
+        output_path=args.output,
+    )
 
     print("Inference complete.")
 

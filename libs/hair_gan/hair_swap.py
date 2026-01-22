@@ -66,34 +66,11 @@ class HairFast:
 
         return final_image
 
-    def swap(
-        self,
-            face_img: TImage | TPath,
-            shape_img: TImage | TPath,
-            color_img: TImage | TPath,
-            side_face_img: TImage | TPath,
-            benchmark=False,
-            align=False,
-            seed=None,
-            exp_name=None,
-            **kwargs
-    ) -> TReturn:
-        """
-        Run HairFast on the input images to transfer hair shape and color to the desired images.
-        :param face_img:  face image in Tensor, PIL Image, array or file path format
-        :param shape_img: shape image in Tensor, PIL Image, array or file path format
-        :param color_img: color image in Tensor, PIL Image, array or file path format
-        :param side_img:  variant of frontal image for multiview training
-        :param benchmark: starts counting the speed of the session
-        :param align:     for arbitrary photos crops images to faces
-        :param seed:      fixes seed for reproducibility, default 3407
-        :param exp_name:  used as a folder name when 'save_all' model is enabled
-        :return:          returns the final image as a Tensor
-        """
-        images: list[torch.Tensor] = []
+    def _process_image(self, path_to_images):
+        images = []
         path_to_images: dict[TPath, torch.Tensor] = {}
 
-        for img in (face_img, shape_img, color_img, side_face_img):
+        for img in path_to_images.values():
             if isinstance(img, (torch.Tensor, Image.Image, np.ndarray)):
                 if not isinstance(img, torch.Tensor):
                     img = F.to_tensor(img)
@@ -108,14 +85,41 @@ class HairFast:
 
             images.append(img)
 
+        return images
+
+    def swap(
+        self,
+            face_img: TImage | TPath,
+            shape_img: TImage | TPath,
+            color_img: TImage | TPath,
+            predictor=None,
+            benchmark=False,
+            align=False,
+            seed=None,
+            exp_name=None,
+            **kwargs
+    ) -> TReturn:
+        """
+        Run HairFast on the input images to transfer hair shape and color to the desired images.
+        :param face_img:  face image in Tensor, PIL Image, array or file path format
+        :param shape_img: shape image in Tensor, PIL Image, array or file path format
+        :param color_img: color image in Tensor, PIL Image, array or file path format
+        :param benchmark: starts counting the speed of the session
+        :param align:     for arbitrary photos crops images to faces
+        :param seed:      fixes seed for reproducibility, default 3407
+        :param exp_name:  used as a folder name when 'save_all' model is enabled
+        :return:          returns the final image as a Tensor
+        """
+        images = self._process_images([face_img, shape_img, color_img])
+
         if align:
-            images = align_face(images)
+            images = align_face(images, predictor=predictor)
 
         # Reference the same image to reduce ram usage if they are similar
         images = equal_replacer(images)
 
         final_image = self.__swap_from_tensors(
-            *images[:-1],  # Drop the last side image
+            *images,
             seed=seed,
             benchmark=benchmark,
             exp_name=exp_name,
@@ -128,7 +132,6 @@ class HairFast:
                 "aligned_face": images[0],
                 "aligned_hair": images[1],
                 "aligned_color": images[2],
-                "aligned_face_side": images[3],
             }
 
         return final_image

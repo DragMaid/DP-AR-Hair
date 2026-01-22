@@ -1,0 +1,28 @@
+from .fetcher import APIFetcher
+from manager.typings.backend import UploadResponse
+from manager.schemas.image import ImageCategories
+
+
+async def upload(
+    fetcher: APIFetcher,
+    assignment_id: str,
+    category: ImageCategories,
+    path: str
+) -> str:
+    with open(path, 'rb') as f:
+        filename = str(path).split('/')[-1]
+        extension = filename.split('.')[-1]
+        files = {"file": (filename, f, f"image/{extension}")}
+
+        response = await fetcher.fetch(
+            method="POST",
+            path="/images/upload",
+            files=files,
+            require_auth=True,
+            # TODO: make it so it accepts both string and enum
+            params={"assignment_id": assignment_id,
+                    "category": category.value},
+            response_model=UploadResponse
+        )
+
+        return response["upload_id"]

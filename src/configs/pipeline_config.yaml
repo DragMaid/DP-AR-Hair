@@ -19,8 +19,11 @@ training:
   steps_till_save: 1000
 
 dataset:
-    reference_dir: './assets/reference_images/'
-    driving_dir: './assets/driving_images/'
-    generated_dir: './assets/generated_images/'
-    num_workers: 1
-    device: -1
+  dataset_dir: './assets/dataset'
+  num_workers: 1
+  device: -1
+
+generation:
+  driving_dir: './src/manager/assets/driving_images/'
+  reference_dir: './src/manager/assets/reference_images/'
+  cache_path: './src/manager/assets/cache.txt'

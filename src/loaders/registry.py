@@ -196,7 +196,7 @@ ModelRegistry.register(
 ModelRegistry.register(
     {"gan_hair", "IIHT1"},
     {
-        "model_builder": "hairfastgan.models.hairfast.HairFast",
+        "model_builder": "hair_gan.hair_swap.HairFast",
         "params": model_config.hair_gan_params,
         "weight": {
             "type": "hf_folder",

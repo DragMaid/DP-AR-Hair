@@ -1,3 +1,5 @@
+import requests
+import bz2
 import os
 from pathlib import Path
 
@@ -38,7 +40,6 @@ def get_landmark(filepath, predictor):
     img = dlib.load_rgb_image(filepath)
     dets = detector(img, 1)
     filepath = Path(filepath)
-    print(f"{filepath.name}: Number of faces detected: {len(dets)}")
     shapes = [predictor(img, d) for k, d in enumerate(dets)]
 
     lms = [np.array([[tt.x, tt.y] for tt in shape.parts()])
@@ -64,10 +65,6 @@ def get_landmark_from_tensors(tensors: list[torch.Tensor | Image.Image | np.ndar
         dets = detector(img, 1)
         if len(dets) == 0:
             raise ValueError(f"No faces detected in the image {k}.")
-        elif len(dets) == 1:
-            print(f"Number of faces detected: {len(dets)}")
-        else:
-            print(f"Number of faces detected: {len(dets)}, get largest face")
 
         # Find the largest face
         dets = sorted(dets, key=lambda det: det.width()
@@ -80,14 +77,45 @@ def get_landmark_from_tensors(tensors: list[torch.Tensor | Image.Image | np.ndar
 
 
 def get_landmark_detector():
-    predictor_path = 'pretrained_models/ShapeAdaptor/shape_predictor_68_face_landmarks.dat'
-    if not os.path.isfile(predictor_path):
-        print("Downloading Shape Predictor")
-        data_io = open_url(
-            "https://drive.google.com/uc?id=1huhv8PYpNNKbGCLOaYUjOgR1pY5pmbJx")
-        with open(predictor_path, 'wb') as f:
-            f.write(data_io.getbuffer())
-    return dlib.shape_predictor(predictor_path)
+    base_dir = Path("pretrained_models/ShapeAdaptor")
+    base_dir.mkdir(parents=True, exist_ok=True)
+
+    predictor_path = base_dir / "shape_predictor_68_face_landmarks.dat"
+    compressed_path = base_dir / "shape_predictor_68_face_landmarks.dat.bz2"
+
+    url = (
+        "https://raw.githubusercontent.com/"
+        "davisking/dlib-models/master/"
+        "shape_predictor_68_face_landmarks.dat.bz2"
+    )
+
+    # If already extracted, just load
+    if predictor_path.is_file():
+        return dlib.shape_predictor(str(predictor_path))
+
+    print("Downloading shape predictor (.bz2)...")
+
+    with requests.get(url, stream=True, timeout=60) as r:
+        r.raise_for_status()
+        with open(compressed_path, "wb") as f:
+            for chunk in r.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    f.write(chunk)
+
+    print("Extracting shape predictor...")
+
+    # Decompress the bz2 file
+    try:
+        with bz2.open(compressed_path, "rb") as src, open(
+            predictor_path, "wb"
+        ) as dst:
+            for chunk in iter(lambda: src.read(1024 * 1024), b""):
+                dst.write(chunk)
+    finally:
+        if compressed_path.exists():
+            compressed_path.unlink()
+
+    return dlib.shape_predictor(str(predictor_path))
 
 
 def align_face(data, predictor=None, is_filepath=False, return_tensors=True):

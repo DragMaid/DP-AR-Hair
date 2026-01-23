@@ -89,7 +89,7 @@ class TrainingPipeline:
                    save_debug=False,
                    save_path=Path(".")):
         """
-        Perform a single training step (one batch).
+        Perform a single training step (one batch) with gradient accumulation.
         - I_s, I_d, I_d_dilde: tensors (BCHW) on CPU or device
         - scaler: optional torch.cuda.amp.GradScaler for mixed precision
         Returns dict of scalars (floats) for logging.
@@ -105,8 +105,6 @@ class TrainingPipeline:
         logs = defaultdict(float)
         steps = ceil(batch_size / mini_batch_size)
         for i in range(steps):
-            done = i == steps - 1
-
             # This is for gradient accumulation
             start = mini_batch_size * i
             end = min(start + mini_batch_size, batch_size)
@@ -115,70 +113,80 @@ class TrainingPipeline:
             I_d = I_d_o[start:end]
             I_d_dilde = I_d_dilde_o[start:end]
 
-            f_c = self.E_C(I_d_dilde)
-            # Other components are just for inference
+            # Get mask for hair segment
             with torch.no_grad():
-                with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):
-                    f_h = self.E_H(I_s)
-                    f_m = self.E_M(I_s)["kp"].view(I_s.size(0), -1, 3)
-                    f_m_d = self.E_M(I_d)["kp"].view(I_s.size(0), -1, 3)
-                    f_w = self.W(feature_3d=f_h, kp_source=f_m,
-                                 kp_driving=f_m_d)['out']
-                    # Get mask for hair segment
-                    m_c = get_mask_by_idx(I_d_dilde, self.M_C,
-                                          device=self.device, class_idx=17)
-                    m_f = 1 - m_c  # Inverted m_c or non-hair binary mask
-            del I_d_dilde
+                m_c = get_mask_by_idx(I_d_dilde, self.M_C,
+                                      device=self.device, class_idx=17)
+                m_f = 1 - m_c  # Inverted m_c or non-hair binary mask
 
-            # Final predicted image tensor
-            with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):
+            with torch.no_grad():
+                f_c = self.E_C(I_d_dilde)
+                f_h = self.E_H(I_s)
+                f_m = self.E_M(I_s)["kp"].view(I_s.size(0), -1, 3)
+                f_m_d = self.E_M(I_d)["kp"].view(I_s.size(0), -1, 3)
+                f_w = self.W(feature_3d=f_h, kp_source=f_m,
+                             kp_driving=f_m_d)['out']
+                # Final predicted image tensor
                 I_p = self.D(f_c, f_w, m_c)
-            I_p_detached = I_p.detach()
-
-            # Save image for debug purposes
-            if done and save_debug:
-                img = I_p_detached[0]
-                img = (img + 1) / 2
-                os.makedirs(save_path, exist_ok=True)
-                path = Path.joinpath(
-                    save_path, f"{datetime.datetime.now()}.png")
-                save_image(img, path)
-                print(f"Debug image saved to {path}")
 
             # --- Discriminator update ---
             disc_loss = self.losses.compute_discriminator_loss(
-                I_d, I_p_detached, self.L_adv)
+                I_d, I_p, self.L_adv)
 
             # backprop discriminator
-            disc_loss = disc_loss / batch_size
+            disc_loss = disc_loss / steps
             disc_loss.backward()
 
-            if done:
-                self.disc_optimizer.step()
-                self.disc_optimizer.zero_grad(set_to_none=True)
+            with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):
+                f_c = self.E_C(I_d_dilde)
+                del I_d_dilde
+                f_h = self.E_H(I_s)
+                f_m = self.E_M(I_s)["kp"].view(I_s.size(0), -1, 3)
+                f_m_d = self.E_M(I_d)["kp"].view(I_s.size(0), -1, 3)
+                f_w = self.W(feature_3d=f_h, kp_source=f_m,
+                             kp_driving=f_m_d)['out']
+                # Final predicted image tensor
+                I_p = self.D(f_c, f_w, m_c)
+
+            I_p_detached = I_p.detach().float()
+            del f_c, f_h, f_m, f_m_d, f_w
 
             # --- Generator update ---
             losses = self.losses.compute_generator_losses(
-                I_d, I_p, m_c, m_f, self.L_adv)
+                I_d, I_p, I_p_detached, m_c, m_f, self.L_adv)
             gen_loss = losses["total_loss"]
-            gen_loss = gen_loss / batch_size
+
+            gen_loss = gen_loss / steps
 
             for k, v in losses.items():
-                logs[k] += float(v.detach().cpu()) / batch_size
+                logs[k] += float(v.detach().cpu()) / steps
             del I_d, I_p
 
             # Backward the generator
             scaler.scale(gen_loss).backward()
 
-            if done:
-                scaler.step(self.generator_optimizer)
-                self.generator_optimizer.zero_grad(set_to_none=True)
-                scaler.update()
-
-            logs["disc_loss"] += float(disc_loss.detach().cpu()) / batch_size
+            logs["disc_loss"] += float(disc_loss.detach().cpu())
             del losses, disc_loss
 
-            # return python scalars for logging
+        # Update the weights and reset optimizer
+        self.disc_optimizer.step()
+        self.disc_optimizer.zero_grad(set_to_none=True)
+
+        # Update the weights and reset optimizer
+        scaler.step(self.generator_optimizer)
+        self.generator_optimizer.zero_grad(set_to_none=True)
+        scaler.update()
+
+        # Save image for debug purposes
+        if save_debug:
+            img = I_p_detached[0]
+            img = (img + 1) / 2
+            os.makedirs(save_path, exist_ok=True)
+            path = Path.joinpath(
+                save_path, f"{datetime.datetime.now()}.png")
+            save_image(img, path)
+            print(f"Debug image saved to {path}")
+
         return logs
 
     def save_checkpoint(self, path: str, epoch: int, extra: dict = None):

@@ -40,8 +40,13 @@ class HairFast:
 
     @seed_setter
     @bench_session
-    def __swap_from_tensors(self, face: torch.Tensor, shape: torch.Tensor, color: torch.Tensor,
-                            **kwargs) -> torch.Tensor:
+    def __swap_from_tensors(
+        self,
+        face: torch.Tensor,
+        shape: torch.Tensor,
+        color: torch.Tensor,
+        **kwargs
+    ) -> torch.Tensor:
         images_to_name = defaultdict(list)
         for image, name in zip((face, shape, color), ('face', 'shape', 'color')):
             images_to_name[image].append(name)
@@ -66,11 +71,11 @@ class HairFast:
 
         return final_image
 
-    def _process_image(self, path_to_images):
-        images = []
+    def _process_images(self, images):
+        processed_images = []
         path_to_images: dict[TPath, torch.Tensor] = {}
 
-        for img in path_to_images.values():
+        for img in images:
             if isinstance(img, (torch.Tensor, Image.Image, np.ndarray)):
                 if not isinstance(img, torch.Tensor):
                     img = F.to_tensor(img)
@@ -83,9 +88,9 @@ class HairFast:
             else:
                 raise TypeError(f'Unsupported image format {type(img)}')
 
-            images.append(img)
+            processed_images.append(img)
 
-        return images
+        return processed_images
 
     def swap(
         self,

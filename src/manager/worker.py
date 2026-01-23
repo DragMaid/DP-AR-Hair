@@ -24,7 +24,7 @@ from manager.client.api.assignment import report_assignment
 from manager.client.core.errors import FrontError, ErrorCategories
 from manager.typings.backend import ClaimTaskResponse
 
-from hair_gan.utils import get_landmark_detector, align_face
+from hair_gan.utils.shape_predictor import get_landmark_detector, align_face
 
 SAVE_DIR = "./assets/results/"
 TMP_DIR = "./assets/tmp/"
@@ -43,8 +43,6 @@ class Worker:
         self.password = password
         self.base_url = base_url if base_url else settings.BASE_URL
 
-        self.predictor = get_landmark_detector()
-
         self.client = AsyncClient()
         self.fetcher = APIFetcher(
             base_url=urljoin(self.base_url, '/api'),
@@ -62,6 +60,8 @@ class Worker:
     def init_generator(self):
         """Load the hair fast gan generator and make it available."""
         self.model = load_hfg_generator()
+        # The predictor is provided by HFG so please do only use it after init
+        self.predictor = get_landmark_detector()
 
     def convert_input(self, file_path: str):
         """Load local image from INPUT_DIR. Cache images."""
@@ -316,7 +316,6 @@ class Worker:
             )
 
     async def run(self):
-        # TODO: implement a authentication persistent flow
         print("[WORKER] Started")
 
         while True:

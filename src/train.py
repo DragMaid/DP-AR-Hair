@@ -15,7 +15,7 @@ def get_args():
     p = argparse.ArgumentParser()
     p.add_argument("--dataset", type=str,
                    help="Folder to find varied pose faces",
-                   default=pco.dataset.datasetdir)
+                   default=pco.dataset.dataset_dir)
     p.add_argument("--batch_size", type=int,
                    default=pco.training.batch_size)
     p.add_argument("--mini_batch_size", type=int,
@@ -58,7 +58,7 @@ def main():
         T.ToTensor(),
     ])
 
-    dataset = CelebVHQGeneratedDataset(dataset_dir=args.dataset_dir,
+    dataset = CelebVHQGeneratedDataset(dataset_dir=args.dataset,
                                        transform=transform)
 
     sampler = DistributedSampler(dataset)
@@ -81,6 +81,7 @@ def main():
 
     os.makedirs(args.save_dir, exist_ok=True)
 
+    # TODO: check if the input images are actually legit
     # TODO: check if the input retrieval actually works or not
     # TODO: check if epochs is saved automatically
     # TODO: check the unbalanced weight impact
@@ -93,9 +94,9 @@ def main():
             save_image = (running["steps"]+1) % args.save_image_every == 0
 
             # Get the 3 images: original front / side and hair transfered image
-            I_s = batch["front"]["content"]
-            I_d = batch["side"]["content"]
-            I_d_dilde = batch["reference"]["content"]
+            I_s = batch["reference"]["content"]
+            I_d = batch["driving"]["content"]
+            I_d_dilde = batch["generated"]["content"]
 
             logs = pipeline.train_step(
                 I_s, I_d, I_d_dilde,

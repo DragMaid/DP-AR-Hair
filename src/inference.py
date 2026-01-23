@@ -6,7 +6,7 @@ from torchvision import transforms as T
 from pipelines.inference_pipeline import InferencePipeline
 from configs.pipeline_config import pipeline_config as pco
 from sixdrepnet import SixDRepNet
-from loaders.utils import load_hfg_generator
+from loaders.loader import load_hfg_generator
 from hair_gan.utils.shape_predictor import align_face
 
 
@@ -55,6 +55,7 @@ class HairShifter:
         video = cv2.VideoCapture(video_path)
         length = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
 
+        # TODO: check for size consistency
         # TODO: move this to a config file
         fps = 30
         frame_size = (512, 512)

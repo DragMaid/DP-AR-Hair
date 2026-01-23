@@ -9,7 +9,7 @@ from typing import Optional
 
 import torch
 import torchvision.transforms.functional as TF
-from loaders.utils import load_hfg_generator
+from loaders.loader import load_hfg_generator
 
 from httpx import AsyncClient
 from manager.client.core.session import session

@@ -5,15 +5,15 @@ from data.celebvhq_base import _CelebVHQBase
 class CelebVHQGeneratedDataset(_CelebVHQBase):
     """
     Optimized Dataset for:
-      - {id}_frontal.jpg
-      - {id}_side.jpg
+      - {id}_driving.jpg
+      - {id}_reference.jpg
       - {id}_generated.*
 
     Returns:
       {
-          "front": Tensor[C,H,W],
-          "side": Tensor[C,H,W],
-          "reference": Tensor[C,H,W]
+          "driving": Tensor[C,H,W],
+          "reference": Tensor[C,H,W],
+          "generated": Tensor[C,H,W]
       }
     """
 

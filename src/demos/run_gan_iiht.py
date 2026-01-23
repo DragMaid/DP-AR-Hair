@@ -4,7 +4,7 @@ from PIL import Image
 
 import torch
 import torchvision.transforms.functional as TF
-from loaders.utils import load_hfg_generator
+from loaders.loader import load_hfg_generator
 
 
 input_path = Path(__file__).resolve().parents[2] / "assets/test_images/"

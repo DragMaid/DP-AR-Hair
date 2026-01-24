@@ -21,9 +21,6 @@ This script serves as the main training launcher for distributed training using 
 - `--epochs` — number of training epochs.
 - `--mini_batch_size` — sub-batch size used inside a single optimizer step (useful for memory-limited GPUs).
 - `--batch_size` — global batch size passed to DataLoader.
-- `--generated_dir` — folder containing generated images (used for certain modes).
-- `--driving_dir` — folder containing driving images with pose variation.
-- `--ref_dir` — folder containing reference hairstyle images (default from pipeline config).
-
+- `--dataset` — folder containing generated images (used for training stage).
 ## Read also
 - `docs/training_pipeline.md` — detailed explanation of the `TrainingPipeline` class and how it uses DDP, autocast, scalers, and checkpointing.

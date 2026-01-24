@@ -1,0 +1,125 @@
+from fastapi import Depends, Query
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel
+from .connect import get_cursor
+from manager.schemas.user import UserRoles, User
+from manager.core.exceptions import wrap_errors, AppError
+from manager.core.jwt_manager import decode_access_token
+from manager.core.config import settings
+
+
+class TokenData(BaseModel):
+    username: str
+
+
+@wrap_errors(default_code="AUTH_INTERNAL_ERROR")
+def extract_bearer_token(
+    credentials: HTTPAuthorizationCredentials = Depends(
+        HTTPBearer(auto_error=False))
+) -> str:
+    if credentials is None:
+        raise AppError("MISSING_AUTH_HEADER")
+
+    if credentials.scheme.lower() != "bearer":
+        raise AppError("INVALID_CREDENTIALS")
+
+    return credentials.credentials
+
+
+@wrap_errors(default_code="AUTH_INTERNAL_ERROR")
+def get_user(user_id: str) -> User:
+    with get_cursor(dict_cursor=True) as cur:
+        cur.execute("""
+            SELECT id, username, role, created_at
+            FROM users
+            WHERE id = %s
+        """, (user_id,))
+        user = cur.fetchone()
+        if not user:
+            raise AppError("USER_NOT_FOUND")
+        return user
+
+
+@wrap_errors(default_code="AUTH_INTERNAL_ERROR")
+def get_current_user(token: str = Depends(extract_bearer_token)) -> User:
+    user_id = decode_access_token(token)
+    try:
+        user = get_user(user_id=user_id)
+    except AppError as e:
+        if e.code == "USER_NOT_FOUND":
+            raise AppError("INVALID_CREDENTIALS")
+        raise
+
+    return user
+
+
+@wrap_errors(default_code="AUTH_INTERNAL_ERROR")
+def require_god(user=Depends(get_current_user)) -> User:
+    # TODO: this is considerable
+    if user["username"] != settings.ADMIN_USERNAME:
+        raise AppError("FORBIDDEN")
+    return user
+
+
+@wrap_errors(default_code="AUTH_INTERNAL_ERROR")
+def require_worker(user=Depends(get_current_user)) -> User:
+    if user["role"] != UserRoles.WORKER:
+        raise AppError("FORBIDDEN")
+    return user
+
+
+@wrap_errors(default_code="AUTH_INTERNAL_ERROR")
+def require_admin(user=Depends(get_current_user)) -> User:
+    if user["role"] != UserRoles.ADMIN:
+        raise AppError("FORBIDDEN")
+    return user
+
+
+@wrap_errors(default_code="AUTH_INTERNAL_ERROR")
+def require_worker_ownership(
+    user=Depends(get_current_user),
+    owned_id: str = Query(alias="worker_id")
+) -> None:
+    with get_cursor(dict_cursor=True) as cur:
+        cur.execute("""
+            SELECT admin_id
+            FROM ownership
+            WHERE worker_id = %s
+        """, (owned_id,))
+        admin_id = cur.fetchone()["admin_id"]
+
+        if not admin_id or admin_id != user["id"]:
+            raise AppError("FORBIDDEN")
+
+
+@wrap_errors(default_code="AUTH_INTERNAL_ERROR")
+def require_assignment_ownership(
+    assignment_id: str,
+    worker_id: str
+):
+    with get_cursor(dict_cursor=True) as cur:
+        # Checks if assignment exists
+        cur.execute("""
+            SELECT id
+            FROM assignments
+            WHERE id = %s AND worker_id = %s
+            LIMIT 1
+        """, (assignment_id, worker_id,))
+        a_id = cur.fetchone()
+        if not a_id:
+            raise AppError("FORBIDDEN")
+
+
+@wrap_errors(default_code="AUTH_INTERNAL_ERROR")
+def authenticate_user(username: str, password: str, role: str) -> User:
+    with get_cursor(dict_cursor=True) as cur:
+        cur.execute("""
+            SELECT id, username, role, created_at
+            FROM users
+            WHERE username = %s AND role = %s::user_roles
+                AND password_hash = crypt(%s, password_hash);
+        """, (username, role, password,))
+        user = cur.fetchone()
+        if not user:
+            raise AppError("INVALID_CREDENTIALS")
+        return user

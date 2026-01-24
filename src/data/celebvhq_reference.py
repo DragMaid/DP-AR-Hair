@@ -59,6 +59,7 @@ if __name__ == "__main__":
     from tqdm import tqdm
     from torch.utils.data import DataLoader
     from torchvision import transforms as T
+    from configs.pipeline_config import pipeline_config
 
     transform = T.Compose([
         T.ToPILImage(),
@@ -66,13 +67,18 @@ if __name__ == "__main__":
         T.ToTensor(),
     ])
 
-    dataset = CelebVHQReferenceDataset(driving_dir="./assets/driving_images",
-                                       reference_dir="./assets/reference_images",
-                                       transform=transform)
+    dataset = CelebVHQReferenceDataset(
+        driving_dir=pipeline_config.generation.driving_dir,
+        reference_dir=pipeline_config.generation.reference_dir,
+        transform=transform
+    )
 
-    dataloader = DataLoader(dataset, batch_size=1,
-                            shuffle=True, num_workers=2,
-                            pin_memory=True, drop_last=True)
+    dataloader = DataLoader(
+        dataset,
+        batch_size=1,
+        shuffle=True, num_workers=2,
+        pin_memory=True, drop_last=True
+    )
 
     epoch_iterator = tqdm(enumerate(dataloader), total=len(dataloader))
     for step, batch in epoch_iterator:

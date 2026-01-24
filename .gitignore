@@ -218,3 +218,6 @@ debug_images/
 *.rar
 *.pt
 **/node_modules/
+
+**/cache.txt.*
+**/assets/*

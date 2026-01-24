@@ -19,7 +19,7 @@ from pixel2style2pixel.models.stylegan2.model import Generator, get_keys
 
 from nets.feature_style_encoder import *
 from arcface.iresnet import *
-from face_parsing.model import BiSeNet
+from hair_gan.models.face_parsing.model import BiSeNet
 from ranger import Ranger
 
 import os

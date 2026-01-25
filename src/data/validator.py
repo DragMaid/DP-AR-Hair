@@ -5,6 +5,7 @@ import dlib
 import numpy as np
 import argparse
 import torch.nn.functional as F
+from tqdm import tqdm
 from PIL import Image
 from pathlib import Path
 from collections import Counter
@@ -114,15 +115,12 @@ class Validator:
         )
 
         with open(self.cache_path, "a") as f:
-            count = 0
             total = len(dataset)
 
             reference_paths = list(
                 Path(self.reference_dir).glob("*.[jp][pn]g"))
 
-            for combinations in dataset:
-                print(f"Processing {count} / {total} items ...")
-                count += 1
+            for combinations in tqdm(dataset, total=total):
 
                 if not self.validate_image(combinations["front"]["path"]):
                     continue
@@ -157,25 +155,33 @@ class Validator:
             reference_paths = list(
                 Path(self.reference_dir).glob("*.[jp][pn]g"))
 
-            while original_len + added_count < goal:
-                print(f"Processing {original_len + added_count} / {goal} ...")
-                line = random.choice(lines)
-                drive_front_path, drive_side_path, _ = line.strip().split(',')
+            with tqdm(total=goal, initial=original_len) as pbar:
+                while original_len + added_count < goal:
+                    line = random.choice(lines)
+                    drive_front_path, drive_side_path, _ = line.strip().split(',')
 
-                ref_path = random.choice(reference_paths)
-                current_comb = (drive_front_path, ref_path)
-
-                while current_comb not in cache_combs and \
-                        not self.validate_image(str(ref_path)):
+                    # WARN: This is to omit the src/manager/, hard-coded yes, but good for now
                     ref_path = random.choice(reference_paths)
+                    root_dir = '/'.join(str(ref_path).split('/')[:2])
+                    ref_path = '/'.join(str(ref_path).split('/')[2:])
+                    current_comb = (drive_front_path, ref_path)
 
-                cache_combs.add(current_comb)
-                f.write(
-                    f"{drive_front_path},{drive_side_path},{ref_path}\n")
-                patch.write(
-                    f"{drive_front_path},{drive_side_path},{ref_path}\n")
+                    while current_comb not in cache_combs and \
+                            not self.validate_image(str(Path(root_dir, ref_path))):
+                        ref_path = random.choice(reference_paths)
+                        ref_path = '/'.join(str(ref_path).split('/')[2:])
+                        current_comb = (drive_front_path, ref_path)
 
-                added_count += 1
+                    cache_combs.add(current_comb)
+                    f.write(
+                        f"{drive_front_path},{drive_side_path},{ref_path}\n")
+
+                    if patch:
+                        patch.write(
+                            f"{drive_front_path},{drive_side_path},{ref_path}\n")
+
+                    added_count += 1
+                    pbar.update(1)
 
             if patch:
                 patch.close()
@@ -191,8 +197,8 @@ if __name__ == "__main__":
                         default=pipeline_config.generation.driving_dir)
     parser.add_argument("--size", type=int, help="Dataset size to generate",
                         default=20_000)
-    parser.add_argument("--patch", type=bool, help="Patch mode to output a patch file",
-                        default=False)
+    parser.add_argument("--patch", help="Patch mode to output a patch file",
+                        action="store_true")
 
     args = parser.parse_args()
     validator = Validator(

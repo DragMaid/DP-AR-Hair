@@ -179,7 +179,10 @@ tui:
 
 
 db-insert:
-	$(INIT_ROOT) $(POETRY_RUN) $(BACKEND_PKG).inserter
+	$(INIT_ROOT) $(POETRY_RUN) $(BACKEND_PKG).utils --action insert
+
+db-cache:
+	$(INIT_ROOT) $(POETRY_RUN) $(BACKEND_PKG).utils --action retrieve --cache auto
 
 
 # =========================

@@ -227,4 +227,4 @@ drive-download:
 	@unrar e "$(ASSET_DIR)/driving_images.rar" "$(ASSET_DIR)/driving_images/"; \
 
 cache-download:
-	gdown --fuzzy https://drive.google.com/file/d/1FOVlTRojbclgf3RjaXraw5fH2C0QIvSb/view -O "$(ASSET_DIR)/"
+	gdown --fuzzy https://drive.google.com/file/d/1FegzETY0U0iMuRs74B7_gTCzDUlka9a0/view -O "$(ASSET_DIR)/"

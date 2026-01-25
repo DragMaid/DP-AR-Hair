@@ -1,6 +1,7 @@
 import random
 import torch
 import cv2
+import dlib
 import numpy as np
 import torch.nn.functional as F
 from PIL import Image
@@ -12,6 +13,7 @@ from loaders.loader import load_models
 from face_parsing.models.utils import normalize_image
 from data.celebvhq_reference import CelebVHQReferenceDataset
 from configs.pipeline_config import pipeline_config
+from hair_gan.utils.shape_predictor import get_landmark_detector
 
 # 5% will be the threshold for both hat and bald
 UPSCALE_SIZE = 512
@@ -26,11 +28,14 @@ transform = T.Compose([
 ])
 
 masker = load_models("M_C", pretrained=True, freeze=True)
+landmarker = get_landmark_detector()
+detector = dlib.get_frontal_face_detector()
 
 
-def validate_image(path: str, view=False) -> bool:
+def validate_image(path: str, view=False, landmark=True) -> bool:
     image_ori = cv2.imread(path)
     image = transform(image_ori)
+    gray = cv2.cvtColor(image_ori, cv2.COLOR_BGR2GRAY)
 
     image = normalize_image(image)
     image = image.unsqueeze(0)
@@ -54,6 +59,19 @@ def validate_image(path: str, view=False) -> bool:
 
     if (counter[17] / (DOWNSCALE_SIZE ** 2) * 100) < INVALID_THRESHOLD:
         return False
+
+    if landmark:
+        detections = detector(gray, 1)
+        if len(detections) == 0:
+            return False
+
+        detections = sorted(detections, key=lambda detections: detections.width()
+                            * detections.height(), reverse=True)
+        try:
+            landmarker(gray, detections[0])
+        except RuntimeError as e:
+            print(e)
+            return False
 
     return True
 
@@ -103,7 +121,8 @@ def validate_dataset():
             if not validate_image(combinations["front"]["path"]):
                 continue
 
-            if not validate_image(combinations["side"]["path"]):
+            # Side images do not need landmark check
+            if not validate_image(combinations["side"]["path"], landmark=False):
                 continue
 
             ref_path = random.choice(reference_paths)
@@ -124,6 +143,7 @@ def permute_till_goal_reached(goal: int):
             cache_combs.add((record[0], record[-1]))
         original_len = len(lines)
 
+    # # TODO: this shit is not very extensible
     with open(pipeline_config.generation.cache_path, "a") as f:
         added_count = 0
 

@@ -119,6 +119,8 @@ def create_task(
                 priority
             )
             VALUES (%s, %s, %s, %s)
+            ON CONFLICT ON CONSTRAINT unique_task_image_combination
+            DO NOTHING
             RETURNING id
         """, (driving_id, reference_id, path, priority,))
         task_id = cur.fetchone()

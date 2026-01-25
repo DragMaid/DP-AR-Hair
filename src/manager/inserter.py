@@ -13,7 +13,6 @@ def replace_parent(parent_dir: str, path: str):
     return str(Path(parent_dir, path.split('/')[-1]))
 
 
-# TODO: is there anyway to cache this ?
 def insert_tasks(cache_path: str):
     filename = Path(cache_path)
 
@@ -25,11 +24,11 @@ def insert_tasks(cache_path: str):
         records = f.readlines()
         length = len(records)
 
+        count = 0
         for i in tqdm(range(length)):
             line = records[i]
             drive_front_path, drive_side_path, ref_path = line.strip().split(',')
 
-            # TODO: implement batch insert here
             drive_front_id = insert_image(
                 drive_front_path,
                 ImageCategories.DRIVING,
@@ -57,19 +56,20 @@ def insert_tasks(cache_path: str):
                     priority=1,
                     host="localhost"
                 )
+                count += 1
             except AppError as e:
                 if e.code != "TASK_CREATION_FAILED":
                     raise
+
+        print(f"Process inserted {count} new tasks!")
 
 
 if __name__ == "__main__":
     import argparse
     DEFAULT_CACHE_PATH = Path(Path(__file__).parent, "assets/cache.txt")
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--cache",
-        type=Union[str, Path],
-        default=DEFAULT_CACHE_PATH
-    )
+    parser.add_argument("--cache", type=Union[str, Path],
+                        help="Path to cache file",
+                        default=DEFAULT_CACHE_PATH)
     args = parser.parse_args()
     insert_tasks(cache_path=args.cache)

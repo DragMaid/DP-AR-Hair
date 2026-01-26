@@ -128,7 +128,7 @@ class Worker:
             align=True
         )
 
-        side_aligned = align_face(face_side_obj, predictor=self.predictor)
+        side_aligned = align_face(face_side_obj, predictor=self.predictor)[0]
 
         generated_save_path = Path(SAVE_DIR, "generated.jpg")
         driving_save_path = Path(SAVE_DIR, "driving.jpg")

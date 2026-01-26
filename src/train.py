@@ -82,8 +82,6 @@ def main():
     os.makedirs(args.save_dir, exist_ok=True)
 
     # TODO: check if the input images are actually legit
-    # TODO: check if the input retrieval actually works or not
-    # TODO: check if epochs is saved automatically
     # TODO: check the unbalanced weight impact
     for epoch in range(start_epoch, args.epochs):
         sampler.set_epoch(epoch)

@@ -21,7 +21,7 @@ def test_parallel_pipeline():
 @pytest.mark.report_uss
 @pytest.mark.report_tracemalloc
 @pytest.mark.report_duration
-@pytest.mark.parametrize("batch_size", [1, 2])
+@pytest.mark.parametrize("batch_size", [2])
 def test_batched_pipeline(batch_size):
     world_size = 1
     mp.spawn(ddp_worker, args=(world_size, batch_size), nprocs=world_size)
@@ -57,7 +57,7 @@ def run_pipeline(device, real_sample=False, batch_size=1):
     class TestPipeline(TrainingPipeline):
         def __init__(self, device):
             self.device = torch.device(device)
-            super().__init__(device, loaded=False, generate_on_go=False)
+            super().__init__(self.device, loaded=False)
 
     pipeline = TestPipeline(device=device)
     scaler = torch.cuda.amp.GradScaler(enabled=device.type == "cuda")

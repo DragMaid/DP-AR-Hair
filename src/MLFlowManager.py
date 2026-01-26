@@ -25,7 +25,7 @@ class MLFlowManager:
         
     def start_run(self):
         """Start MLflow and launch UI."""
-        mlflow.start_run()
+        return mlflow.start_run()
     
     def log_metric(self, metric: str, value: float, step: int = None):
         """Log a metric to MLFlow"""
@@ -34,8 +34,4 @@ class MLFlowManager:
     def log_params(self, params: dict):
         """Log parameters to MLFlow."""
         mlflow.log_params(params)
-        
-    def end_run(self):
-        """End current MLFlow."""
-        mlflow.end_run()
         

@@ -97,7 +97,7 @@ class HairShifter:
         frame_size = (pco.inference.frame_size, pco.inference.frame_size)
         out_video = cv2.VideoWriter(
             filename=output_path,
-            fourcc=cv2.VideoWriter_fourcc(*'mp4v'),
+            fourcc=cv2.VideoWriter_fourcc(*'avc1'),
             fps=fps,
             frameSize=frame_size
         )

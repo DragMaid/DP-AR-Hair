@@ -1,6 +1,5 @@
 import requests
 import bz2
-import os
 from pathlib import Path
 
 import PIL
@@ -11,8 +10,6 @@ import scipy.ndimage
 import torch
 from PIL import Image
 from torchvision import transforms as T
-
-from hair_gan.utils.drive import open_url
 
 """
 brief: face alignment with FFHQ method (https://github.com/NVlabs/ffhq-dataset)
@@ -77,7 +74,7 @@ def get_landmark_from_tensors(tensors: list[torch.Tensor | Image.Image | np.ndar
 
 
 def get_landmark_detector():
-    base_dir = Path("pretrained_models/ShapeAdaptor")
+    base_dir = Path("weights")
     base_dir.mkdir(parents=True, exist_ok=True)
 
     predictor_path = base_dir / "shape_predictor_68_face_landmarks.dat"

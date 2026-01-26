@@ -41,6 +41,8 @@ class InferenceConfig(BaseModel):
     output_path: str
     checkpoint_path: str
     batch_size: int
+    frame_size: int
+    fps: int
 
 
 class DatasetConfig(BaseModel):

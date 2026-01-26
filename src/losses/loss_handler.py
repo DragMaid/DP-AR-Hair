@@ -33,7 +33,6 @@ class LossHandler:
         # Loss weights from config
         self.weights = pco.training.loss
 
-    # TODO: change this for non cuda run tests
     def compute_generator_losses(self, I_d, I_p, m_c, m_f, discriminator):
         """
         Compute all generator losses.

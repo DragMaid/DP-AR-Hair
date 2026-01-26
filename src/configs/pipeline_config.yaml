@@ -34,3 +34,5 @@ inference:
   checkpoint_path: './checkpoints/test.pt'
   output_path: './test.mp4'
   batch_size: 2
+  frame_size: 512
+  fps: 30

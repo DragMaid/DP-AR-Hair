@@ -26,11 +26,11 @@ class MLFlowManager:
     def start_run(self):
         """Start MLflow and launch UI."""
         mlflow.start_run()
-        
-    def log_metrics(self, metrics: dict, step: int):
-        """Log metrics to MLFlow."""
-        mlflow.log_metrics(metrics, step=step)
-        
+    
+    def log_metric(self, metric: str, value: float, step: int = None):
+        """Log a metric to MLFlow"""
+        mlflow.log_metric(metric, value, step)
+            
     def log_params(self, params: dict):
         """Log parameters to MLFlow."""
         mlflow.log_params(params)

@@ -261,7 +261,7 @@ class Worker:
         except FrontError as e:
             if e.category == ErrorCategories.UNAUTHORIZED:
                 await self.handle_unauthorized(
-                    callback=lambda _: self.report(
+                    callback=lambda: self.report(
                         path_map, assignment_id, log, status)
                 )
             else:

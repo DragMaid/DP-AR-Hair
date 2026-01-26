@@ -24,7 +24,7 @@ def get_mask_by_idx(
         logits = model(img)[0]      # 1 x C x H x W
         pred = logits.argmax(dim=1)  # 1 x H x W
 
-        mask = (pred == class_idx).to(torch.uint8)  # 1 x H x W
+        mask = (pred == class_idx).float()  # 1 x H x W
         masks.append(mask)
 
     return torch.stack(masks, dim=0)  # B x 1 x H x W

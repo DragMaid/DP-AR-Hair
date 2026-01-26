@@ -6,6 +6,7 @@ import importlib
 
 from configs.model_config import model_config
 
+# TODO: make it so this syncronize with config
 ROOT_DIR = Path(__file__).resolve().parents[2]
 WEIGHT_ROOT = ROOT_DIR / "weights"
 

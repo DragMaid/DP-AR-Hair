@@ -35,6 +35,14 @@ class TrainingConfig(BaseModel):
     steps_till_save: int
 
 
+class InferenceConfig(BaseModel):
+    video_path: str
+    reference_path: str
+    output_path: str
+    checkpoint_path: str
+    batch_size: int
+
+
 class DatasetConfig(BaseModel):
     dataset_dir: str
     num_workers: int
@@ -52,6 +60,7 @@ class PipelineConfig(BaseModel):
     training: TrainingConfig
     dataset: DatasetConfig
     generation: GenerationConfig
+    inference: InferenceConfig
 
 
 def load_config(path: str | Path) -> PipelineConfig:

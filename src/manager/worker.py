@@ -9,9 +9,7 @@ from typing import Optional
 
 import torch
 import torchvision.transforms.functional as TF
-
-from loaders.downloader import download_weights
-from loaders.loader import load_models, ModelRegistry
+from loaders.loader import load_hfg_generator
 
 from httpx import AsyncClient
 from manager.client.core.session import session
@@ -25,6 +23,8 @@ from manager.client.api.image import upload
 from manager.client.api.assignment import report_assignment
 from manager.client.core.errors import FrontError, ErrorCategories
 from manager.typings.backend import ClaimTaskResponse
+
+from hair_gan.utils.shape_predictor import get_landmark_detector, align_face
 
 SAVE_DIR = "./assets/results/"
 TMP_DIR = "./assets/tmp/"
@@ -58,19 +58,10 @@ class Worker:
         self._min_claim_interval = 3
 
     def init_generator(self):
-        """Initialize the weights and return the generator instance."""
-
-        name = "IIHT1"
-        record = ModelRegistry.get_registry(name)
-        w_options = record["weight"]["options"]
-        dest = w_options["local_dir"] / \
-            w_options["allow_patterns"][0].split("/")[0]
-
-        if not dest.exists():
-            download_weights(record["weight"]["type"], w_options)
-
-        # The model load weights by itself so pretrained is False
-        self.model = load_models(name, pretrained=False)
+        """Load the hair fast gan generator and make it available."""
+        self.model = load_hfg_generator()
+        # The predictor is provided by HFG so please do only use it after init
+        self.predictor = get_landmark_detector()
 
     def convert_input(self, file_path: str):
         """Load local image from INPUT_DIR. Cache images."""
@@ -114,21 +105,30 @@ class Worker:
         face_side_path: str
     ):
         converted_inputs = list(
-            map(self.convert_input, (face_path, shape_path, color_path, face_side_path)))
+            map(self.convert_input, (
+                face_path,
+                shape_path,
+                color_path,
+                face_side_path
+            ))
+        )
 
         if not all(converted_inputs):
             print("[ERROR] Failed to load input images.", file=sys.stderr)
             raise
 
         face_obj, shape_obj, color_obj, face_side_obj = converted_inputs
+
         # Always perform alignment
         result = self.model(
             face_img=face_obj,
             shape_img=shape_obj,
             color_img=color_obj,
-            side_face_img=face_side_obj,
+            predictor=self.predictor,
             align=True
         )
+
+        side_aligned = align_face(face_side_obj, predictor=self.predictor)
 
         generated_save_path = Path(SAVE_DIR, "generated.jpg")
         driving_save_path = Path(SAVE_DIR, "driving.jpg")
@@ -136,7 +136,7 @@ class Worker:
 
         self.save_output(result["final_image"], generated_save_path)
         self.save_output(result["aligned_face"], driving_save_path)
-        self.save_output(result["aligned_face_side"], reference_save_path)
+        self.save_output(side_aligned, reference_save_path)
 
         return {
             "generated_path": generated_save_path,
@@ -144,7 +144,6 @@ class Worker:
             "reference_path": reference_save_path
         }
 
-    # TODO: this is just absurd
     def get_driving_side_path(self, drive_path):
         drive_name = drive_path.split('/')[-1]
         drive_dir = '/'.join(drive_path.split('/')[:-1])
@@ -172,7 +171,7 @@ class Worker:
 
         await self.authorize()
         self._auth_failed_count += 1
-        await self.callback()
+        await callback()
 
     async def _rate_limited_claim(self):
         now = time.time()
@@ -317,7 +316,6 @@ class Worker:
             )
 
     async def run(self):
-        # TODO: implement a authentication persistent flow
         print("[WORKER] Started")
 
         while True:

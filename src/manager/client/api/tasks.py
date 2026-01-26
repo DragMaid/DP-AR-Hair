@@ -63,8 +63,6 @@ async def delete_task(
         require_auth=True
     )
 
-# TODO: add an endpoint to get task left count
-
 
 async def get_progress(fetcher: APIFetcher) -> ProgressResponse:
     return await fetcher.fetch(

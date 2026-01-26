@@ -2,7 +2,6 @@ import torch
 from pathlib import Path
 from loaders.registry import ModelRegistry
 from loaders.downloader import download_weights
-from loaders.utils import model_ram_usage
 
 
 def load_models(name: str, pretrained: bool = False,
@@ -50,7 +49,24 @@ def load_weights(model, name: str, strict: bool = True):
     }
 
 
+def load_hfg_generator():
+    """Initialize the weights and return the generator instance."""
+
+    name = "IIHT1"
+    record = ModelRegistry.get_registry(name)
+    w_options = record["weight"]["options"]
+    dest = w_options["local_dir"] / \
+        w_options["allow_patterns"][0].split("/")[0]
+
+    if not dest.exists():
+        download_weights(record["weight"]["type"], w_options)
+
+    # The model load weights by itself so pretrained is False
+    return load_models(name, pretrained=False)
+
+
 if __name__ == "__main__":
+    from loaders.utils import model_ram_usage
     model_names = ["E_H", "E_M", "W", "G"]
 
     def test_load_models(models):

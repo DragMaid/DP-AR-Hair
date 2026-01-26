@@ -54,6 +54,7 @@ optional = true
 
 [tool.poetry.group.full.dependencies]
 clip = {git = "https://github.com/openai/CLIP.git"}
+sixdrepnet = "^0.1.6"
 face-alignment = "^1.4.1"
 matplotlib = "^3.10.7"
 regex = "2024.4.16"

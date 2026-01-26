@@ -1,8 +1,11 @@
 import random
 import torch
 import cv2
+import dlib
 import numpy as np
+import argparse
 import torch.nn.functional as F
+from tqdm import tqdm
 from PIL import Image
 from pathlib import Path
 from collections import Counter
@@ -12,6 +15,7 @@ from loaders.loader import load_models
 from face_parsing.models.utils import normalize_image
 from data.celebvhq_reference import CelebVHQReferenceDataset
 from configs.pipeline_config import pipeline_config
+from hair_gan.utils.shape_predictor import get_landmark_detector
 
 # 5% will be the threshold for both hat and bald
 UPSCALE_SIZE = 512
@@ -24,38 +28,6 @@ transform = T.Compose([
     T.Resize([UPSCALE_SIZE, UPSCALE_SIZE]),
     T.ToTensor()
 ])
-
-masker = load_models("M_C", pretrained=True, freeze=True)
-
-
-def validate_image(path: str, view=False) -> bool:
-    image_ori = cv2.imread(path)
-    image = transform(image_ori)
-
-    image = normalize_image(image)
-    image = image.unsqueeze(0)
-
-    logits = masker(image)[0]
-    prediction = logits.argmax(dim=1).float()
-
-    prediction = prediction.unsqueeze(0)
-    prediction = F.interpolate(
-        prediction, size=(DOWNSCALE_SIZE, DOWNSCALE_SIZE), mode="nearest")
-
-    prediction = torch.squeeze(prediction)
-    prediction_flat = torch.flatten(prediction).tolist()
-
-    counter = Counter(prediction_flat)
-    if view:
-        show_mask_overlay(image_ori, prediction)
-
-    if (counter[18] / (DOWNSCALE_SIZE ** 2) * 100) > INVALID_THRESHOLD:
-        return False
-
-    if (counter[17] / (DOWNSCALE_SIZE ** 2) * 100) < INVALID_THRESHOLD:
-        return False
-
-    return True
 
 
 def show_mask_overlay(image_ori: Image, prediction: torch.Tensor):
@@ -82,95 +54,160 @@ def show_mask_overlay(image_ori: Image, prediction: torch.Tensor):
     plt.show()
 
 
-def validate_dataset():
-    dataset = CelebVHQReferenceDataset(
-        driving_dir=pipeline_config.generation.driving_dir,
-        reference_dir=pipeline_config.generation.reference_dir,
-        transform=transform
-    )
+class Validator:
+    def __init__(self, cache_path: str, driving_dir: str, reference_dir: str):
+        self.cache_path = cache_path
+        self.driving_dir = driving_dir
+        self.reference_dir = reference_dir
 
-    with open(pipeline_config.generation.cache_path, "a") as f:
-        count = 0
-        total = len(dataset)
+        self.masker = load_models("M_C", pretrained=True, freeze=True)
+        self.landmarker = get_landmark_detector()
+        self.detector = dlib.get_frontal_face_detector()
 
-        reference_paths = list(
-            Path(pipeline_config.generation.reference_dir).glob("*.[jp][pn]g"))
+    def validate_image(self, path: str, view=False, landmark=True) -> bool:
+        image_ori = cv2.imread(path)
+        image = transform(image_ori)
+        gray = cv2.cvtColor(image_ori, cv2.COLOR_BGR2GRAY)
 
-        for combinations in dataset:
-            print(f"Processing {count} / {total} items ...")
-            count += 1
+        image = normalize_image(image)
+        image = image.unsqueeze(0)
 
-            if not validate_image(combinations["front"]["path"]):
-                continue
+        logits = self.masker(image)[0]
+        prediction = logits.argmax(dim=1).float()
 
-            if not validate_image(combinations["side"]["path"]):
-                continue
+        prediction = prediction.unsqueeze(0)
+        prediction = F.interpolate(
+            prediction, size=(DOWNSCALE_SIZE, DOWNSCALE_SIZE), mode="nearest")
 
-            ref_path = random.choice(reference_paths)
+        prediction = torch.squeeze(prediction)
+        prediction_flat = torch.flatten(prediction).tolist()
 
-            while not validate_image(str(ref_path)):
+        counter = Counter(prediction_flat)
+        if view:
+            self.show_mask_overlay(image_ori, prediction)
+
+        if (counter[18] / (DOWNSCALE_SIZE ** 2) * 100) > INVALID_THRESHOLD:
+            return False
+
+        if (counter[17] / (DOWNSCALE_SIZE ** 2) * 100) < INVALID_THRESHOLD:
+            return False
+
+        if landmark:
+            detections = self.detector(gray, 1)
+            if len(detections) == 0:
+                return False
+
+            detections = sorted(detections, key=lambda detections: detections.width()
+                                * detections.height(), reverse=True)
+            try:
+                self.landmarker(gray, detections[0])
+            except RuntimeError as e:
+                print(f"An error occurred: {e}")
+                return False
+
+        return True
+
+    def validate_dataset(self):
+        dataset = CelebVHQReferenceDataset(
+            driving_dir=self.driving_dir,
+            reference_dir=self.reference_dir,
+            transform=transform
+        )
+
+        with open(self.cache_path, "a") as f:
+            total = len(dataset)
+
+            reference_paths = list(
+                Path(self.reference_dir).glob("*.[jp][pn]g"))
+
+            for combinations in tqdm(dataset, total=total):
+
+                if not self.validate_image(combinations["front"]["path"]):
+                    continue
+
+                # Side images do not need landmark check
+                if not self.validate_image(combinations["side"]["path"], landmark=False):
+                    continue
+
                 ref_path = random.choice(reference_paths)
 
-            f.write(
-                f"{combinations['front']['path']},{combinations['side']['path']},{ref_path}\n")
+                while not self.validate_image(str(ref_path)):
+                    ref_path = random.choice(reference_paths)
 
+                f.write(
+                    f"{combinations['front']['path']},{combinations['side']['path']},{ref_path}\n")
 
-def permute_till_goal_reached(goal: int):
-    with open(pipeline_config.generation.cache_path, "r") as f:
-        lines = f.readlines()
-        cache_combs = set()
-        for line in lines:
-            record = line.strip().split(',')
-            cache_combs.add((record[0], record[-1]))
-        original_len = len(lines)
+    def permute_till(self, goal: int, append_patch_mode: bool = False):
+        with open(self.cache_path, "r") as f:
+            lines = f.readlines()
+            cache_combs = set()
+            for line in lines:
+                record = line.strip().split(',')
+                cache_combs.add((record[0], record[-1]))
+            original_len = len(lines)
 
-    with open(pipeline_config.generation.cache_path, "a") as f:
-        added_count = 0
+        with open(self.cache_path, "a") as f:
+            # Patch mode also added for quick db insertion
+            patch = open("patch.txt", "a") if append_patch_mode else None
 
-        reference_paths = list(
-            Path(pipeline_config.generation.reference_dir).glob("*.[jp][pn]g"))
+            added_count = 0
 
-        while original_len + added_count < goal:
-            print(f"Processing {original_len + added_count} / {goal} ...")
-            line = random.choice(lines)
-            drive_front_path, drive_side_path, _ = line.strip().split(',')
+            reference_paths = list(
+                Path(self.reference_dir).glob("*.[jp][pn]g"))
 
-            ref_path = random.choice(reference_paths)
-            current_comb = (drive_front_path, ref_path)
+            with tqdm(total=goal, initial=original_len) as pbar:
+                while original_len + added_count < goal:
+                    line = random.choice(lines)
+                    drive_front_path, drive_side_path, _ = line.strip().split(',')
 
-            while current_comb not in cache_combs and \
-                    not validate_image(str(ref_path)):
-                ref_path = random.choice(reference_paths)
+                    # WARN: This is to omit the src/manager/, hard-coded yes, but good for now
+                    ref_path = random.choice(reference_paths)
+                    root_dir = '/'.join(str(ref_path).split('/')[:2])
+                    ref_path = '/'.join(str(ref_path).split('/')[2:])
+                    current_comb = (drive_front_path, ref_path)
 
-            cache_combs.add(current_comb)
-            f.write(
-                f"{drive_front_path},{drive_side_path},{ref_path}\n")
+                    while current_comb not in cache_combs and \
+                            not self.validate_image(str(Path(root_dir, ref_path))):
+                        ref_path = random.choice(reference_paths)
+                        ref_path = '/'.join(str(ref_path).split('/')[2:])
+                        current_comb = (drive_front_path, ref_path)
 
-            added_count += 1
+                    cache_combs.add(current_comb)
+                    f.write(
+                        f"{drive_front_path},{drive_side_path},{ref_path}\n")
 
+                    if patch:
+                        patch.write(
+                            f"{drive_front_path},{drive_side_path},{ref_path}\n")
 
-def test_dangerous_images():
-    DANGEROUS_IMAGES = [
-        "0bR6pUOhZo4_2_frontal",
-        "-0fMjAGBbuE_17_0_frontal",
-        "-2Xf6uifdt8_19_0_frontal",
-        "-4SwiOfkvuA_0_0_frontal",
-        "-4SwiOfkvuA_0_0_side",
-        "0blgdAE1cbk_2_0_frontal",
-        "0Fxrs1a7fD0_1_1_frontal",
-        "1Acvwko6Wd0_0_frontal",
-        "1XHdPvd9HPo_15_frontal",
-        "3mgh_1-1sTU_72_0_frontal",
-        "6p_LlhzOrBk_7_frontal",
-        "1akcYVlAvjE_10_1_frontal",
-        "1diHvu1Q6Ec_1_frontal",
-        "2kfb-E2OXAk_11_0_side",
-    ]
-    for name in DANGEROUS_IMAGES:
-        validate_image(f"assets/driving_images/{name}.jpg", view=True)
+                    added_count += 1
+                    pbar.update(1)
+
+            if patch:
+                patch.close()
 
 
 if __name__ == "__main__":
-    if not Path(pipeline_config.generation.reference_dir).exists():
-        validate_dataset()
-    permute_till_goal_reached(16000)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--cache", type=str, help="Path to cache file",
+                        default=pipeline_config.generation.cache_path)
+    parser.add_argument("--reference", type=str, help="Path to reference images folder",
+                        default=pipeline_config.generation.reference_dir)
+    parser.add_argument("--driving", type=str, help="Path to driving images folder",
+                        default=pipeline_config.generation.driving_dir)
+    parser.add_argument("--size", type=int, help="Dataset size to generate",
+                        default=20_000)
+    parser.add_argument("--patch", help="Patch mode to output a patch file",
+                        action="store_true")
+
+    args = parser.parse_args()
+    validator = Validator(
+        cache_path=args.cache,
+        reference_dir=args.reference,
+        driving_dir=args.driving
+    )
+
+    # If cache file is not created yet then re-run whole validation
+    if not Path(args.cache).exists():
+        validator.validate_dataset()
+    validator.permute_till(goal=args.size, append_patch_mode=args.patch)

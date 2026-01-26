@@ -1,4 +1,3 @@
-import os
 import torch
 import shutil
 from pathlib import Path

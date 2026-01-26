@@ -2170,7 +2170,7 @@ version = "2.2.2"
 description = "Powerful data structures for data analysis, time series, and statistics"
 optional = false
 python-versions = ">=3.9"
-groups = ["main", "data"]
+groups = ["main", "data", "full"]
 files = [
     {file = "pandas-2.2.2-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:90c6fca2acf139569e74e8781709dccb6fe25940488755716d1d354d6bc58bce"},
     {file = "pandas-2.2.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:c7adfc142dac335d8c1e0dcbd37eb8617eac386596eb9e1a1b77791cf2498238"},
@@ -2883,7 +2883,7 @@ version = "2025.2"
 description = "World timezone definitions, modern and historical"
 optional = false
 python-versions = "*"
-groups = ["main", "data"]
+groups = ["main", "data", "full"]
 files = [
     {file = "pytz-2025.2-py2.py3-none-any.whl", hash = "sha256:5ddf76296dd8c44c26eb8f4b6f35488f3ccbf6fbbd7adee0b7262d43f0ec2f00"},
     {file = "pytz-2025.2.tar.gz", hash = "sha256:360b9e3dbb49a209c21ad61809c7fb453643e048b38924c765813546746e81c3"},
@@ -3377,7 +3377,7 @@ version = "0.1.6"
 description = "Efficient and accurate image-based head pose estimation"
 optional = false
 python-versions = "*"
-groups = ["data"]
+groups = ["data", "full"]
 files = [
     {file = "sixdrepnet-0.1.6-py3-none-any.whl", hash = "sha256:ef496955f3ea8d838646294f817bbfb56911a334d2d9b8d15afada25efa77a48"},
     {file = "sixdrepnet-0.1.6.tar.gz", hash = "sha256:c6e66faead4fa1e7b6c53139ecbead0d13fea958d381dbec185cf24cddab351f"},
@@ -3720,7 +3720,7 @@ version = "2025.2"
 description = "Provider of IANA time zone data"
 optional = false
 python-versions = ">=2"
-groups = ["main", "data"]
+groups = ["main", "data", "full"]
 files = [
     {file = "tzdata-2025.2-py2.py3-none-any.whl", hash = "sha256:1a403fada01ff9221ca8044d701868fa132215d84beb92242d9acd2147f667a8"},
     {file = "tzdata-2025.2.tar.gz", hash = "sha256:b60a638fcc0daffadf82fe0f57e53d06bdec2f36c4df66280ae79bce6bd6f2b9"},
@@ -3941,4 +3941,4 @@ test = ["pytest (>=8.1,<9.0)", "pytest-rerunfailures (>=14.0,<15.0)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10.5,<3.11"
-content-hash = "d2085662b03f3e6599226a6eff8f5f776056f06fed7b372fcdabc3e74d02a04d"
+content-hash = "5fc5447b24f9662ceef7b14a40df359d3f43de571ec6dbd23ed2856c26de8291"

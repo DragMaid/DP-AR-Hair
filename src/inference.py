@@ -82,6 +82,7 @@ class HairShifter:
         video.release()
         return frame
 
+    @staticmethod
     def validate_frame(frame, expected_w, expected_h):
         if frame is None:
             raise ValueError("Frame is None")
@@ -122,7 +123,7 @@ class HairShifter:
         frame_size = (pco.inference.frame_size, pco.inference.frame_size)
         out_video = cv2.VideoWriter(
             filename=output_path,
-            fourcc=cv2.VideoWriter_fourcc(*'avc1'),
+            fourcc=cv2.VideoWriter_fourcc(*'MJPG'),
             fps=fps,
             frameSize=frame_size
 

@@ -3,6 +3,7 @@ import cv2
 import argparse
 import torch
 import math
+import numpy as np
 from pathlib import Path
 from tqdm import tqdm
 from torchvision import transforms as T
@@ -81,6 +82,30 @@ class HairShifter:
         video.release()
         return frame
 
+    def validate_frame(frame, expected_w, expected_h):
+        if frame is None:
+            raise ValueError("Frame is None")
+
+        if not isinstance(frame, np.ndarray):
+            raise TypeError(f"Frame must be numpy array, got {type(frame)}")
+
+        if frame.dtype != np.uint8:
+            raise ValueError(f"Invalid dtype {frame.dtype}, expected uint8")
+
+        if frame.ndim != 3:
+            raise ValueError(f"Invalid ndim {frame.ndim}, expected 3")
+
+        h, w, c = frame.shape
+
+        if c != 3:
+            raise ValueError(f"Invalid channel count {c}, expected 3")
+
+        if (h, w) != (expected_h, expected_w):
+            raise ValueError(
+                f"Frame size mismatch: got {(h, w)}, "
+                f"expected {(expected_h, expected_w)}"
+            )
+
     def transfer(self, video_path, reference_path, output_path,
                  align=False, poor=False):
         if not Path(video_path).exists():
@@ -100,7 +125,15 @@ class HairShifter:
             fourcc=cv2.VideoWriter_fourcc(*'avc1'),
             fps=fps,
             frameSize=frame_size
+
         )
+        if not out_video.isOpened():
+            raise RuntimeError(
+                f"VideoWriter failed to open. "
+                f"Path={output_path}, "
+                f"FPS={fps}, "
+                f"FrameSize={frame_size}"
+            )
 
         anchor_frame = self.select_anchor(video_path, reference_path)
         anchor_frame = cv2_to_pil(anchor_frame)
@@ -173,6 +206,8 @@ class HairShifter:
                     frame = frame.clamp(0, 1)
                     frame = (frame * 255).byte().numpy()
                     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+                    self.validate_frame(frame, frame_size[0], frame_size[1])
                     out_video.write(frame)
 
         out_video.release()

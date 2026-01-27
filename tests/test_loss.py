@@ -40,7 +40,8 @@ def losses():
 @pytest.mark.report_tracemalloc
 @pytest.mark.report_duration
 def test_generator_losses(I_d, I_p, m_c, m_f, discriminator, losses):
-    loss = losses.compute_generator_losses(I_d, I_p, m_c, m_f, discriminator)
+    loss = losses.compute_generator_losses(
+        I_d, I_p, m_c, m_f, discriminator)
     print(loss)
     assert loss is not None
 

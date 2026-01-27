@@ -3,6 +3,7 @@ from torch import nn
 import torch.nn.functional as F
 from models.synthesis_decoder import SynthesisDecoder
 from live_portrait.models.context_decoder import ContextDecoder
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 
 class MSGSpadeDecoder(nn.Module):
@@ -11,7 +12,8 @@ class MSGSpadeDecoder(nn.Module):
                  synthesis_decode: SynthesisDecoder):
         super(MSGSpadeDecoder, self).__init__()
         self.D_C = context_decoder
-        self.D_S = synthesis_decode
+        self.D_S = synthesis_decode.module if isinstance(
+            synthesis_decode, DDP) else synthesis_decode
 
     def forward(self, f_c, f_w, m_c):
         # Resize m_c to be thesame as f_c first Bx2x64x64

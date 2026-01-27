@@ -179,7 +179,10 @@ tui:
 
 
 db-insert:
-	$(INIT_ROOT) $(POETRY_RUN) $(BACKEND_PKG).inserter
+	$(INIT_ROOT) $(POETRY_RUN) $(BACKEND_PKG).utils --action insert
+
+db-cache:
+	$(INIT_ROOT) $(POETRY_RUN) $(BACKEND_PKG).utils --action retrieve --cache auto
 
 
 # =========================
@@ -227,4 +230,4 @@ drive-download:
 	@unrar e "$(ASSET_DIR)/driving_images.rar" "$(ASSET_DIR)/driving_images/"; \
 
 cache-download:
-	gdown --fuzzy https://drive.google.com/file/d/1FOVlTRojbclgf3RjaXraw5fH2C0QIvSb/view -O "$(ASSET_DIR)/"
+	gdown --fuzy https://drive.google.com/file/d/1HGFWArOF6eEQbPydq6b_8RtN0oEadwQ3/view -O "$(ASSET_DIR)/"

@@ -19,12 +19,12 @@ transform = T.Compose([
 masker = load_models("M_C", pretrained=True, freeze=True)
 
 # ---- load & preprocess image (your original flow) ----
-image_bgr = cv2.imread("assets/test_images/cropped_256x256.png")
+image_bgr = cv2.imread("assets/test_images/cropped.png")
 image = transform(image_bgr)
 image = image.unsqueeze(0)  # Add batching to fit util func
 
 # ---- get binary mask ----
-mask = get_mask_by_idx(image, masker, class_idx=18)
+mask = get_mask_by_idx(image, masker, class_idx=17)
 mask = mask.squeeze(0).squeeze(0)      # (256,256), {0,1}
 mask_u8 = (mask * 255).byte()           # uint8 {0,255}
 

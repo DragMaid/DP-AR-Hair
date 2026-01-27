@@ -22,6 +22,7 @@ def download_weights(dtype, options):
 
 def hf_file_download(**options):
     hf_hub_download(**options)
+    # TODO: hanle this better
     move_all_files_to_root(options["local_dir"])
 
 

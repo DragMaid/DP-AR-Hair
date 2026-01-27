@@ -16,7 +16,7 @@ def get_args():
     p = argparse.ArgumentParser()
     p.add_argument("--dataset", type=str,
                    help="Folder to find varied pose faces",
-                   default=pco.dataset.datasetdir)
+                   default=pco.dataset.dataset_dir)
     p.add_argument("--batch_size", type=int,
                    default=pco.training.batch_size)
     p.add_argument("--mini_batch_size", type=int,
@@ -52,7 +52,7 @@ def main():
         backend = "gloo"
 
     dist.init_process_group(backend=backend)
-    
+
     # TODO: Add the proper URL instead of the default localhost:5000 (PostgreSQL)
     mlflow_manager = MLFlowManager(MLFlowConfig())
 
@@ -62,7 +62,7 @@ def main():
         T.ToTensor(),
     ])
 
-    dataset = CelebVHQGeneratedDataset(dataset_dir=args.dataset_dir,
+    dataset = CelebVHQGeneratedDataset(dataset_dir=args.dataset,
                                        transform=transform)
 
     sampler = DistributedSampler(dataset)
@@ -71,11 +71,28 @@ def main():
                             num_workers=args.num_workers,
                             pin_memory=True, drop_last=True, sampler=sampler)
 
-    # TODO: implement generate on go later, for now its too inefficient
-    pipeline = TrainingPipeline(device, local_rank, generate_on_go=False)
+    pipeline = TrainingPipeline(device, local_rank)
+
+    # Refering to entire pipeline beside IIHT
+    generator_optimizer = torch.optim.Adam(
+        pipeline.generator_trainable_params,
+        lr=pco.training.generator.learn_rate,
+        betas=pco.training.generator.betas)
+
+    # Discrimination optmizer
+    disc_optimizer = torch.optim.Adam(
+        pipeline.L_adv.parameters(),
+        lr=pco.training.discriminator.learn_rate,
+        betas=pco.training.discriminator.betas)
 
     scaler = torch.cuda.amp.GradScaler(
         enabled=args.mixed_precision and device.type == "cuda")
+
+    # Set the optimizers to be used in pipeline
+    pipeline.set_optimizers(
+        generator_optimizer=generator_optimizer,
+        disc_optimizer=disc_optimizer
+    )
 
     start_epoch = 0
     if args.resume:
@@ -86,27 +103,36 @@ def main():
 
     os.makedirs(args.save_dir, exist_ok=True)
 
-    # TODO: check if the input retrieval actually works or not
-    # TODO: check if epochs is saved automatically
     # TODO: check the unbalanced weight impact
-    with mlflow_manager.start_run() as run:
+
+    with mlflow_manager.start_run() as _:
         mlflow_manager.log_params()
         for epoch in range(start_epoch, args.epochs):
             sampler.set_epoch(epoch)
             epoch_iterator = tqdm(enumerate(dataloader), total=len(dataloader),
-                                desc=f"Epoch {epoch+1}/{args.epochs}")
+                                  desc=f"Epoch {epoch+1}/{args.epochs}")
             running = {"total_loss": 0.0, "disc_loss": 0.0, "steps": 0}
             for step, batch in epoch_iterator:
                 save_image = (running["steps"]+1) % args.save_image_every == 0
-                I_s = batch["front"]["content"]
-                I_d = batch["side"]["content"]
-                I_r = batch["reference"]["content"]
+
+                # Get the 3 images: original front / side and hair transfered image
+                I_s = batch["reference"]["content"]
+                I_d = batch["driving"]["content"]
+                I_d_dilde = batch["generated"]["content"]
+
                 logs = pipeline.train_step(
-                    I_s, I_d, I_r,
+                    I_s, I_d, I_d_dilde,
                     mini_batch_size=args.mini_batch_size,
                     scaler=scaler,
                     save_debug=save_image,
                     save_path=Path("./assets/debug_images/"))
+
+                # Update the weights and reset optimizer
+                scaler.step(disc_optimizer)
+                scaler.step(generator_optimizer)
+                disc_optimizer.zero_grad(set_to_none=True)
+                generator_optimizer.zero_grad(set_to_none=True)
+                scaler.update()
 
                 if dist.get_rank() != 0:
                     continue
@@ -117,7 +143,7 @@ def main():
 
                 avg_loss = running["total_loss"] / running["steps"]
                 avg_disc = running["disc_loss"] / running["steps"]
-                
+
                 epoch_iterator.set_postfix(
                     {"avg_loss": f"{avg_loss:.4f}", "avg_disc": f"{avg_disc:.4f}"})
 

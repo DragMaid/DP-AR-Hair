@@ -27,3 +27,12 @@ generation:
   driving_dir: './src/manager/assets/driving_images/'
   reference_dir: './src/manager/assets/reference_images/'
   cache_path: './src/manager/assets/cache.txt'
+
+inference:
+  video_path: './assets/test_images/phuc.mp4'
+  reference_path: './assets/test_images/ken.png'
+  checkpoint_path: './checkpoints/test.pt'
+  output_path: './assets/test.avi'
+  batch_size: 2
+  frame_size: 512
+  fps: 30

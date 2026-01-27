@@ -1,4 +1,5 @@
-import os
+import requests
+import bz2
 from pathlib import Path
 
 import PIL
@@ -9,8 +10,6 @@ import scipy.ndimage
 import torch
 from PIL import Image
 from torchvision import transforms as T
-
-from hair_gan.utils.drive import open_url
 
 """
 brief: face alignment with FFHQ method (https://github.com/NVlabs/ffhq-dataset)
@@ -38,10 +37,10 @@ def get_landmark(filepath, predictor):
     img = dlib.load_rgb_image(filepath)
     dets = detector(img, 1)
     filepath = Path(filepath)
-    print(f"{filepath.name}: Number of faces detected: {len(dets)}")
     shapes = [predictor(img, d) for k, d in enumerate(dets)]
 
-    lms = [np.array([[tt.x, tt.y] for tt in shape.parts()]) for shape in shapes]
+    lms = [np.array([[tt.x, tt.y] for tt in shape.parts()])
+           for shape in shapes]
 
     return lms
 
@@ -63,13 +62,10 @@ def get_landmark_from_tensors(tensors: list[torch.Tensor | Image.Image | np.ndar
         dets = detector(img, 1)
         if len(dets) == 0:
             raise ValueError(f"No faces detected in the image {k}.")
-        elif len(dets) == 1:
-            print(f"Number of faces detected: {len(dets)}")
-        else:
-            print(f"Number of faces detected: {len(dets)}, get largest face")
 
         # Find the largest face
-        dets = sorted(dets, key=lambda det: det.width() * det.height(), reverse=True)
+        dets = sorted(dets, key=lambda det: det.width()
+                      * det.height(), reverse=True)
         shape = predictor(img, dets[0])
         lm = np.array([[tt.x, tt.y] for tt in shape.parts()])
         lms.append(lm)
@@ -77,21 +73,61 @@ def get_landmark_from_tensors(tensors: list[torch.Tensor | Image.Image | np.ndar
     return images, lms
 
 
-def align_face(data, predictor=None, is_filepath=False, return_tensors=True):
+def get_landmark_detector():
+    base_dir = Path("weights")
+    base_dir.mkdir(parents=True, exist_ok=True)
+
+    predictor_path = base_dir / "shape_predictor_68_face_landmarks.dat"
+    compressed_path = base_dir / "shape_predictor_68_face_landmarks.dat.bz2"
+
+    url = (
+        "https://raw.githubusercontent.com/"
+        "davisking/dlib-models/master/"
+        "shape_predictor_68_face_landmarks.dat.bz2"
+    )
+
+    # If already extracted, just load
+    if predictor_path.is_file():
+        return dlib.shape_predictor(str(predictor_path))
+
+    print("Downloading shape predictor (.bz2)...")
+
+    with requests.get(url, stream=True, timeout=60) as r:
+        r.raise_for_status()
+        with open(compressed_path, "wb") as f:
+            for chunk in r.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    f.write(chunk)
+
+    print("Extracting shape predictor...")
+
+    # Decompress the bz2 file
+    try:
+        with bz2.open(compressed_path, "rb") as src, open(
+            predictor_path, "wb"
+        ) as dst:
+            for chunk in iter(lambda: src.read(1024 * 1024), b""):
+                dst.write(chunk)
+    finally:
+        if compressed_path.exists():
+            compressed_path.unlink()
+
+    return dlib.shape_predictor(str(predictor_path))
+
+
+def align_face(
+        data,
+        predictor=None,
+        is_filepath=False,
+        return_tensors=True,
+        output_size=1024
+):
     """
     :param data: filepath or list torch Tensors
     :return: list of PIL Images
     """
     if predictor is None:
-        predictor_path = 'pretrained_models/ShapeAdaptor/shape_predictor_68_face_landmarks.dat'
-
-        if not os.path.isfile(predictor_path):
-            print("Downloading Shape Predictor")
-            data_io = open_url("https://drive.google.com/uc?id=1huhv8PYpNNKbGCLOaYUjOgR1pY5pmbJx")
-            with open(predictor_path, 'wb') as f:
-                f.write(data_io.getbuffer())
-
-        predictor = dlib.shape_predictor(predictor_path)
+        predictor = get_landmark_detector()
 
     if is_filepath:
         lms = get_landmark(data, predictor)
@@ -137,15 +173,14 @@ def align_face(data, predictor=None, is_filepath=False, return_tensors=True):
         else:
             img = images[num_img]
 
-        output_size = 1024
-        # output_size = 256
         transform_size = 4096
         enable_padding = True
 
         # Shrink.
         shrink = int(np.floor(qsize / output_size * 0.5))
         if shrink > 1:
-            rsize = (int(np.rint(float(img.size[0]) / shrink)), int(np.rint(float(img.size[1]) / shrink)))
+            rsize = (int(np.rint(
+                float(img.size[0]) / shrink)), int(np.rint(float(img.size[1]) / shrink)))
             img = img.resize(rsize, PIL.Image.ANTIALIAS)
             quad /= shrink
             qsize /= shrink
@@ -167,15 +202,19 @@ def align_face(data, predictor=None, is_filepath=False, return_tensors=True):
                max(pad[3] - img.size[1] + border, 0))
         if enable_padding and max(pad) > border - 4:
             pad = np.maximum(pad, int(np.rint(qsize * 0.3)))
-            img = np.pad(np.float32(img), ((pad[1], pad[3]), (pad[0], pad[2]), (0, 0)), 'reflect')
+            img = np.pad(np.float32(
+                img), ((pad[1], pad[3]), (pad[0], pad[2]), (0, 0)), 'reflect')
             h, w, _ = img.shape
             y, x, _ = np.ogrid[:h, :w, :1]
             mask = np.maximum(1.0 - np.minimum(np.float32(x) / pad[0], np.float32(w - 1 - x) / pad[2]),
                               1.0 - np.minimum(np.float32(y) / pad[1], np.float32(h - 1 - y) / pad[3]))
             blur = qsize * 0.02
-            img += (scipy.ndimage.gaussian_filter(img, [blur, blur, 0]) - img) * np.clip(mask * 3.0 + 1.0, 0.0, 1.0)
-            img += (np.median(img, axis=(0, 1)) - img) * np.clip(mask, 0.0, 1.0)
-            img = PIL.Image.fromarray(np.uint8(np.clip(np.rint(img), 0, 255)), 'RGB')
+            img += (scipy.ndimage.gaussian_filter(img,
+                    [blur, blur, 0]) - img) * np.clip(mask * 3.0 + 1.0, 0.0, 1.0)
+            img += (np.median(img, axis=(0, 1)) - img) * \
+                np.clip(mask, 0.0, 1.0)
+            img = PIL.Image.fromarray(
+                np.uint8(np.clip(np.rint(img), 0, 255)), 'RGB')
             quad += pad[:2]
 
         # Transform.

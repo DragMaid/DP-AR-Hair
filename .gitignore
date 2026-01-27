@@ -222,6 +222,8 @@ generated_images/
 debug_images/
 *.rar
 *.pt
+**/node_modules/
 
 **/cache.txt.*
 **/assets/*
+**/patch.txt

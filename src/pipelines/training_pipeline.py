@@ -7,7 +7,6 @@ from collections import defaultdict
 from torchvision.utils import save_image
 from losses.adversarial_loss import PatchGANDiscriminator, weights_init
 from face_parsing.models.utils import get_mask_by_idx
-from configs.pipeline_config import pipeline_config as pco
 from loaders.loader import load_models
 from models.msg_spade_decoder import MSGSpadeDecoder
 from losses.loss_handler import LossHandler
@@ -41,13 +40,14 @@ class TrainingPipeline:
                                strict=False, freeze=True).to(self.device)
         self.D_C = load_models("D_C", pretrained=loaded,
                                freeze=True).to(self.device)
-        self.D = MSGSpadeDecoder(self.D_C, self.D_S)
 
         # Wrapped in DDP for distributed parallel training
         self.E_C = DDP(self.E_C, device_ids=[local_rank], output_device=local_rank) if (
             device.type == "cuda") else DDP(self.E_C)
-        self.D = DDP(self.D, device_ids=[local_rank], output_device=local_rank) if (
-            device.type == "cuda") else DDP(self.D)
+        self.D_S = DDP(self.D_S, device_ids=[local_rank], output_device=local_rank) if (
+            device.type == "cuda") else DDP(self.D_S)
+
+        self.D = MSGSpadeDecoder(self.D_C, self.D_S)
 
         self.generator_trainable_params = []
         # include any parameters that require grad from D_S and E_C
@@ -56,23 +56,11 @@ class TrainingPipeline:
         self.generator_trainable_params += [
             p for p in self.E_C.parameters() if p.requires_grad]
 
-        # Refering to entire pipeline beside IIHT
-        self.generator_optimizer = torch.optim.Adam(
-            self.generator_trainable_params,
-            lr=pco.training.generator.learn_rate,
-            betas=pco.training.generator.betas)
-
         # --- Adversarial discriminator ---
         self.L_adv = PatchGANDiscriminator(n_in_channels=3).to(self.device)
         self.L_adv.apply(weights_init)
         self.L_adv = DDP(self.L_adv, device_ids=[local_rank], output_device=local_rank) if (
             device.type == "cuda") else DDP(self.L_adv)
-
-        # Discrimination optmizer
-        self.disc_optimizer = torch.optim.Adam(
-            self.L_adv.parameters(),
-            lr=pco.training.discriminator.learn_rate,
-            betas=pco.training.discriminator.betas)
 
         # --- Adversarial discriminator ---
         self.losses = LossHandler(self.device)
@@ -84,7 +72,13 @@ class TrainingPipeline:
             "L_adv": self.L_adv
         }
 
-    def train_step(self, I_s, I_d, I_d_dilde, scaler,
+    def set_optimizers(self, generator_optimizer, disc_optimizer):
+        self.generator_optimizer = generator_optimizer
+        self.disc_optimizer = disc_optimizer
+
+    def train_step(self,
+                   I_s, I_d, I_d_dilde,
+                   scaler,
                    mini_batch_size,
                    save_debug=False,
                    save_path=Path(".")):
@@ -115,46 +109,51 @@ class TrainingPipeline:
 
             # Get mask for hair segment
             with torch.no_grad():
+                # class_idx = 17 is used to get hair mask
                 m_c = get_mask_by_idx(I_d_dilde, self.M_C,
                                       device=self.device, class_idx=17)
                 m_f = 1 - m_c  # Inverted m_c or non-hair binary mask
 
-            with torch.no_grad():
-                f_c = self.E_C(I_d_dilde)
+            with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):
                 f_h = self.E_H(I_s)
                 f_m = self.E_M(I_s)["kp"].view(I_s.size(0), -1, 3)
                 f_m_d = self.E_M(I_d)["kp"].view(I_s.size(0), -1, 3)
                 f_w = self.W(feature_3d=f_h, kp_source=f_m,
                              kp_driving=f_m_d)['out']
+                f_c = self.E_C(I_d_dilde)
                 # Final predicted image tensor
                 I_p = self.D(f_c, f_w, m_c)
 
+            # WARN: wouldn't this decrease the accuracy
+            I_p_detached = I_p.detach().float()
+            del I_p, f_c
+
             # --- Discriminator update ---
             disc_loss = self.losses.compute_discriminator_loss(
-                I_d, I_p, self.L_adv)
+                I_d, I_p_detached, self.L_adv)
 
             # backprop discriminator
             disc_loss = disc_loss / steps
-            disc_loss.backward()
+            scaler.scale(disc_loss).backward()
 
             with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):
                 f_c = self.E_C(I_d_dilde)
                 del I_d_dilde
-                f_h = self.E_H(I_s)
-                f_m = self.E_M(I_s)["kp"].view(I_s.size(0), -1, 3)
-                f_m_d = self.E_M(I_d)["kp"].view(I_s.size(0), -1, 3)
-                f_w = self.W(feature_3d=f_h, kp_source=f_m,
-                             kp_driving=f_m_d)['out']
                 # Final predicted image tensor
                 I_p = self.D(f_c, f_w, m_c)
 
-            I_p_detached = I_p.detach().float()
             del f_c, f_h, f_m, f_m_d, f_w
 
             # --- Generator update ---
+            for p in self.L_adv.parameters():
+                p.requires_grad = False
+
             losses = self.losses.compute_generator_losses(
-                I_d, I_p, I_p_detached, m_c, m_f, self.L_adv)
+                I_d, I_p, m_c, m_f, self.L_adv)
             gen_loss = losses["total_loss"]
+
+            for p in self.L_adv.parameters():
+                p.requires_grad = True
 
             gen_loss = gen_loss / steps
 
@@ -167,15 +166,6 @@ class TrainingPipeline:
 
             logs["disc_loss"] += float(disc_loss.detach().cpu())
             del losses, disc_loss
-
-        # Update the weights and reset optimizer
-        self.disc_optimizer.step()
-        self.disc_optimizer.zero_grad(set_to_none=True)
-
-        # Update the weights and reset optimizer
-        scaler.step(self.generator_optimizer)
-        self.generator_optimizer.zero_grad(set_to_none=True)
-        scaler.update()
 
         # Save image for debug purposes
         if save_debug:

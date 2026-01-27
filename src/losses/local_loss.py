@@ -7,7 +7,8 @@ class HairLoss(nn.Module):
         super(HairLoss, self).__init__()
 
     def forward(self, m_h, I_p, I_d):
-        return torch.norm((m_h * (I_d - I_p)), p=1)
+        # Normalize by number of hair pixels
+        return torch.sum(torch.abs(m_h * (I_d - I_p))) / (m_h.sum() + 1e-6)
 
 
 class FaceLoss(nn.Module):
@@ -15,4 +16,5 @@ class FaceLoss(nn.Module):
         super(FaceLoss, self).__init__()
 
     def forward(self, m_f, I_p, I_d):
-        return torch.norm((m_f * (I_d - I_p)), p=1)
+        # Normalize by number of face pixels
+        return torch.sum(torch.abs(m_f * (I_d - I_p))) / (m_f.sum() + 1e-6)

@@ -3,6 +3,7 @@ import cv2
 import argparse
 import torch
 import math
+import numpy as np
 from pathlib import Path
 from tqdm import tqdm
 from torchvision import transforms as T
@@ -43,9 +44,11 @@ class HairShifter:
         self.predictor = get_landmark_detector()
         self.pose_estimator = SixDRepNet(self.device)
 
-        self.transform = T.Compose([
+        # Input size is always 256x256
+        self.in_size = 256
+        self.input_transform = T.Compose([
             T.ToPILImage(),
-            T.Resize((256, 256)),
+            T.Resize((self.in_size, self.in_size)),
             T.ToTensor(),
         ])
 
@@ -79,7 +82,33 @@ class HairShifter:
         video.release()
         return frame
 
-    def transfer(self, video_path, reference_path, output_path):
+    @staticmethod
+    def validate_frame(frame, expected_w, expected_h):
+        if frame is None:
+            raise ValueError("Frame is None")
+
+        if not isinstance(frame, np.ndarray):
+            raise TypeError(f"Frame must be numpy array, got {type(frame)}")
+
+        if frame.dtype != np.uint8:
+            raise ValueError(f"Invalid dtype {frame.dtype}, expected uint8")
+
+        if frame.ndim != 3:
+            raise ValueError(f"Invalid ndim {frame.ndim}, expected 3")
+
+        h, w, c = frame.shape
+
+        if c != 3:
+            raise ValueError(f"Invalid channel count {c}, expected 3")
+
+        if (h, w) != (expected_h, expected_w):
+            raise ValueError(
+                f"Frame size mismatch: got {(h, w)}, "
+                f"expected {(expected_h, expected_w)}"
+            )
+
+    def transfer(self, video_path, reference_path, output_path,
+                 align=False, poor=False):
         if not Path(video_path).exists():
             raise FileNotFoundError(f"Video path {video_path} not found")
 
@@ -90,16 +119,22 @@ class HairShifter:
         video = cv2.VideoCapture(video_path)
         length = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
 
-        # TODO: check for size consistency
-        # TODO: move this to a config file
-        fps = 30
-        frame_size = (256, 256)
+        fps = pco.inference.fps
+        frame_size = (pco.inference.frame_size, pco.inference.frame_size)
         out_video = cv2.VideoWriter(
             filename=output_path,
-            fourcc=cv2.VideoWriter_fourcc(*'mp4v'),
+            fourcc=cv2.VideoWriter_fourcc(*'MJPG'),
             fps=fps,
             frameSize=frame_size
+
         )
+        if not out_video.isOpened():
+            raise RuntimeError(
+                f"VideoWriter failed to open. "
+                f"Path={output_path}, "
+                f"FPS={fps}, "
+                f"FrameSize={frame_size}"
+            )
 
         anchor_frame = self.select_anchor(video_path, reference_path)
         anchor_frame = cv2_to_pil(anchor_frame)
@@ -117,16 +152,17 @@ class HairShifter:
             align=False  # All aligned already
         )
 
-        # TODO: add poor mode
-        del self.generator, self.pose_estimator
+        # Immediately free space if specified
+        if poor:
+            del self.generator, self.pose_estimator
 
         driving_frames = []
 
-        source_tensor = self.transform(source_frame).to(self.device)
+        source_tensor = self.input_transform(source_frame).to(self.device)
         source_tensor = source_tensor.unsqueeze(0)  # [1, C, H, W]
 
         batch_buffer = torch.empty(
-            (self.batch_size, 3, 256, 256),
+            (self.batch_size, 3, self.in_size, self.in_size),
             device=self.device
         )
 
@@ -136,11 +172,14 @@ class HairShifter:
                 break
 
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            # TODO: try removing the align face to see if it converged
-            # TODO: if using align face then please do resize to (1024, 1024) also
-            # TODO: see if there's any way to reduce the amount of transformation
-            # TODO: see what is setting the output size
-            batch_buffer[len(driving_frames)] = self.transform(frame)
+
+            if align:
+                frame = align_face(cv2_to_pil(frame))[0]
+                batch_buffer[len(driving_frames)] = T.Resize(
+                    (self.in_size, self.in_size))(frame)
+            else:
+                batch_buffer[len(driving_frames)] = self.input_transform(frame)
+
             driving_frames.append(1)  # Just to count
 
             is_full_batch = len(driving_frames) == self.batch_size
@@ -168,6 +207,8 @@ class HairShifter:
                     frame = frame.clamp(0, 1)
                     frame = (frame * 255).byte().numpy()
                     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+                    self.validate_frame(frame, frame_size[0], frame_size[1])
                     out_video.write(frame)
 
         out_video.release()
@@ -186,6 +227,11 @@ def get_args():
                    default=pco.inference.output_path)
     p.add_argument("--batch_size", type=int, help="Batch size to pass into model",
                    default=pco.inference.batch_size)
+    p.add_argument("--align", help="Option to set image align before",
+                   action="store_true")
+    p.add_argument("--poor", help="Option to set poor mode and clear for one time inference",
+                   action="store_true")
+
     return p.parse_args()
 
 
@@ -204,6 +250,8 @@ def main():
         video_path=args.video,
         reference_path=args.reference,
         output_path=args.output,
+        align=args.align,
+        poor=args.poor
     )
 
     print("Inference complete.")

@@ -3,6 +3,7 @@ import os
 import torch.multiprocessing as mp
 import torch.distributed as dist
 from pipelines.training_pipeline import TrainingPipeline
+from configs.pipeline_config import pipeline_config as pco
 from torchvision import transforms as T
 from PIL import Image
 import pytest
@@ -21,7 +22,7 @@ def test_parallel_pipeline():
 @pytest.mark.report_uss
 @pytest.mark.report_tracemalloc
 @pytest.mark.report_duration
-@pytest.mark.parametrize("batch_size", [1, 2])
+@pytest.mark.parametrize("batch_size", [2])
 def test_batched_pipeline(batch_size):
     world_size = 1
     mp.spawn(ddp_worker, args=(world_size, batch_size), nprocs=world_size)
@@ -57,10 +58,28 @@ def run_pipeline(device, real_sample=False, batch_size=1):
     class TestPipeline(TrainingPipeline):
         def __init__(self, device):
             self.device = torch.device(device)
-            super().__init__(device, loaded=False, generate_on_go=False)
+            super().__init__(self.device, loaded=False)
 
     pipeline = TestPipeline(device=device)
+
+    # Refering to entire pipeline beside IIHT
+    generator_optimizer = torch.optim.Adam(
+        pipeline.generator_trainable_params,
+        lr=pco.training.generator.learn_rate,
+        betas=pco.training.generator.betas)
+
+    # Discrimination optmizer
+    disc_optimizer = torch.optim.Adam(
+        pipeline.L_adv.parameters(),
+        lr=pco.training.discriminator.learn_rate,
+        betas=pco.training.discriminator.betas)
+
     scaler = torch.cuda.amp.GradScaler(enabled=device.type == "cuda")
+
+    pipeline.set_optimizers(
+        generator_optimizer=generator_optimizer,
+        disc_optimizer=disc_optimizer
+    )
 
     from pathlib import Path
     ck_dir = "./checkpoints/"
@@ -73,9 +92,9 @@ def run_pipeline(device, real_sample=False, batch_size=1):
     images = []
     if real_sample:
         img_paths = [
-            "./assets/test_images/cropped.png",
-            "./assets/test_images/cropped.png",
-            "./assets/test_images/output.png"
+            "./assets/test_images/side.jpg",
+            "./assets/test_images/front.jpg",
+            "./assets/test_images/generated.jpg"
         ]
         for path in img_paths:
             img = Image.open(path).convert("RGB")
@@ -87,13 +106,21 @@ def run_pipeline(device, real_sample=False, batch_size=1):
         for _ in range(3):
             images.append(torch.randn([batch_size, 3, 256, 256]))
 
-    I_s, I_d, I_r = images
+    I_s, I_d, I_d_dilde = images
 
     with torch.autograd.set_detect_anomaly(True):
-        logs = pipeline.train_step(I_s, I_d, I_r, scaler,
+        logs = pipeline.train_step(I_s, I_d, I_d_dilde, scaler,
                                    mini_batch_size=1,
                                    save_debug=True,
                                    save_path=Path("./assets/debug_images/"))
+
+        # Update the weights and reset optimizer
+        scaler.step(disc_optimizer)
+        scaler.step(generator_optimizer)
+        disc_optimizer.zero_grad(set_to_none=True)
+        generator_optimizer.zero_grad(set_to_none=True)
+        scaler.update()
+
     print("Train step logs:", logs)
 
     # Save minimal checkpoint

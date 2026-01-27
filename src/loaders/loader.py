@@ -5,14 +5,16 @@ from loaders.downloader import download_weights
 
 
 def load_models(name: str, pretrained: bool = False,
-                strict: bool = True, freeze: bool = False):
+                strict: bool = True, freeze: bool = False,
+                params: dict = None):
     """
     Load models from registry and allow convenient load pretrained.
     """
     registry = ModelRegistry.get_registry(name)
     if not registry:
         raise ValueError(f"No model found for name {name}")
-    model = registry["model_builder"](**registry["params"].model_dump())
+    params = registry["params"].model_dump() if not params else params
+    model = registry["model_builder"](**params)
 
     if pretrained:
         results = load_weights(model, name, strict=strict)

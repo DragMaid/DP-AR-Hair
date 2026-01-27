@@ -24,7 +24,7 @@ class LossHandler:
         self.L_p = PerceptualLoss().to(device)
         self.L_hair = HairLoss().to(device)
         self.L_face = FaceLoss().to(device)
-        self.L_global = nn.L1Loss().to(device)
+        self.L_global = nn.L1Loss(reduction='mean').to(device)
 
         # Discriminator criterion
         # Use BCEWithLogitsLoss (wrapper) for stability
@@ -33,15 +33,13 @@ class LossHandler:
         # Loss weights from config
         self.weights = pco.training.loss
 
-    # TODO: change this for non cuda run tests
-    def compute_generator_losses(self, I_d, I_p, I_p_detached, m_c, m_f, discriminator):
+    def compute_generator_losses(self, I_d, I_p, m_c, m_f, discriminator):
         """
         Compute all generator losses.
 
         Args:
             I_d: destination image (B, C, H, W)
             I_p: prediction (B, C, H, W)
-            I_p_detached: prediction detached (B, C, H, W)
             m_c: Hair mask (B, 1, H, W)
             m_f: Non hair mask (B, 1, H, W)
             discriminator: discriminator network (for adversarial loss)
@@ -67,12 +65,12 @@ class LossHandler:
             # Global reconstruction
             g_loss = self.L_global(I_d, I_p)
 
-        with torch.no_grad():
-            # Adversarial loss (generator tries to fool discriminator)
-            # Make sure its in FP32
-            pred_fake = discriminator(I_p_detached)
-            target_real = torch.ones_like(pred_fake)
-            a_gen_loss = self.disc_criterion(pred_fake, target_real)
+        # Generator just wants to fool the discriminator so no real_loss
+        # Adversarial loss (generator tries to fool discriminator)
+        # Make sure its in FP32
+        pred_fake = discriminator(I_p)
+        target_real = torch.ones_like(pred_fake)
+        a_gen_loss = self.disc_criterion(pred_fake, target_real)
 
         # Weighted sum
         total_loss = (
@@ -104,15 +102,15 @@ class LossHandler:
         Returns:
             disc_loss: scalar tensor
         """
-        # Real images should be classified as 1
+        # Real images should be classified as 0.9 (label smoothing)
         pred_real = discriminator(I_d)
-        target_real = torch.ones_like(pred_real)
+        target_real = torch.ones_like(pred_real) * 0.9
         loss_real = self.disc_criterion(pred_real, target_real)
 
         # Make sure that I_p is detached first
-        # Fake images should be classified as 0
+        # Fake images should be classified as 0.1 (label smoothing)
         pred_fake = discriminator(I_p)
-        target_fake = torch.zeros_like(pred_fake)
+        target_fake = torch.zeros_like(pred_fake) + 0.1
         loss_fake = self.disc_criterion(pred_fake, target_fake)
 
         disc_loss = (loss_real + loss_fake) / 2

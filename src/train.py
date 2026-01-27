@@ -69,8 +69,26 @@ def main():
 
     pipeline = TrainingPipeline(device, local_rank)
 
+    # Refering to entire pipeline beside IIHT
+    generator_optimizer = torch.optim.Adam(
+        pipeline.generator_trainable_params,
+        lr=pco.training.generator.learn_rate,
+        betas=pco.training.generator.betas)
+
+    # Discrimination optmizer
+    disc_optimizer = torch.optim.Adam(
+        pipeline.L_adv.parameters(),
+        lr=pco.training.discriminator.learn_rate,
+        betas=pco.training.discriminator.betas)
+
     scaler = torch.cuda.amp.GradScaler(
         enabled=args.mixed_precision and device.type == "cuda")
+
+    # Set the optimizers to be used in pipeline
+    pipeline.set_optimizers(
+        generator_optimizer=generator_optimizer,
+        disc_optimizer=disc_optimizer
+    )
 
     start_epoch = 0
     if args.resume:
@@ -81,9 +99,6 @@ def main():
 
     os.makedirs(args.save_dir, exist_ok=True)
 
-    # TODO: check if the input images are actually legit
-    # TODO: check if the input retrieval actually works or not
-    # TODO: check if epochs is saved automatically
     # TODO: check the unbalanced weight impact
     for epoch in range(start_epoch, args.epochs):
         sampler.set_epoch(epoch)
@@ -104,6 +119,13 @@ def main():
                 scaler=scaler,
                 save_debug=save_image,
                 save_path=Path("./assets/debug_images/"))
+
+            # Update the weights and reset optimizer
+            scaler.step(disc_optimizer)
+            scaler.step(generator_optimizer)
+            disc_optimizer.zero_grad(set_to_none=True)
+            generator_optimizer.zero_grad(set_to_none=True)
+            scaler.update()
 
             if dist.get_rank() != 0:
                 continue

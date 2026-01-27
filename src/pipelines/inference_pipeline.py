@@ -1,6 +1,7 @@
 import torch
 from loaders.loader import load_models
 from models.msg_spade_decoder import MSGSpadeDecoder
+from configs.model_config import model_config
 
 
 class InferencePipeline:
@@ -24,9 +25,16 @@ class InferencePipeline:
                              freeze=True).to(self.device)
         self.M_C = load_models("M_C", pretrained=True,
                                freeze=True).to(self.device)
+
+        # WARN: This is not very configurable
+        # Setting the upscale to 2 so output is 512x512
+        D_S_config = model_config.synthesis_decoder_params.model_dump()
+        D_S_config["upscale"] = 2
+
         # D_S will load and freeze all params except for GF_SPADEs
         self.D_S = load_models("D_S", pretrained=loaded,
-                               strict=False, freeze=True).to(self.device)
+                               strict=False, freeze=True,
+                               params=D_S_config).to(self.device)
         self.D_C = load_models("D_C", pretrained=loaded,
                                freeze=True).to(self.device)
         self.D = MSGSpadeDecoder(self.D_C, self.D_S)

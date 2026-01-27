@@ -115,7 +115,13 @@ def get_landmark_detector():
     return dlib.shape_predictor(str(predictor_path))
 
 
-def align_face(data, predictor=None, is_filepath=False, return_tensors=True):
+def align_face(
+        data,
+        predictor=None,
+        is_filepath=False,
+        return_tensors=True,
+        output_size=1024
+):
     """
     :param data: filepath or list torch Tensors
     :return: list of PIL Images
@@ -167,8 +173,6 @@ def align_face(data, predictor=None, is_filepath=False, return_tensors=True):
         else:
             img = images[num_img]
 
-        output_size = 1024
-        # output_size = 256
         transform_size = 4096
         enable_padding = True
 

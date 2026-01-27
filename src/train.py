@@ -9,7 +9,7 @@ from data.celebvhq_generated import CelebVHQGeneratedDataset
 from pipelines.training_pipeline import TrainingPipeline
 import torch.distributed as dist
 from configs.pipeline_config import pipeline_config as pco
-from MLFlowManager import MLFlowManager, MLFlowConfig
+from MLFlowManager import MLFlowManager
 
 
 def get_args():
@@ -54,7 +54,7 @@ def main():
     dist.init_process_group(backend=backend)
 
     # TODO: Add the proper URL instead of the default localhost:5000 (PostgreSQL)
-    mlflow_manager = MLFlowManager(MLFlowConfig())
+    mlflow_manager = MLFlowManager()
 
     transform = T.Compose([
         T.ToPILImage(),
@@ -103,10 +103,10 @@ def main():
 
     os.makedirs(args.save_dir, exist_ok=True)
 
-    # TODO: check the unbalanced weight impact
+    # Start mflow
+    mlflow_manager.start_run()
 
-    with mlflow_manager.start_run() as _:
-        mlflow_manager.log_params()
+    with mlflow_manager:
         for epoch in range(start_epoch, args.epochs):
             sampler.set_epoch(epoch)
             epoch_iterator = tqdm(enumerate(dataloader), total=len(dataloader),
@@ -147,7 +147,7 @@ def main():
                 epoch_iterator.set_postfix(
                     {"avg_loss": f"{avg_loss:.4f}", "avg_disc": f"{avg_disc:.4f}"})
 
-                # TODO: add mlfow logging here
+                # TODO: add more precise logging here
                 # Log the total objective loss function and its sub loss functions
                 for metric, value in logs.items():
                     mlflow_manager.log_metric(metric, value, step)

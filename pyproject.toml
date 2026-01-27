@@ -68,6 +68,7 @@ requests = "2.31.0"
 jinja2 = "^3.1.6"
 scipy = "1.13.0"
 dlib = "^20.0.0"
+mlflow = "^3.8.1"
 
 [tool.poetry.group.data]
 optional = true

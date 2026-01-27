@@ -7,7 +7,6 @@ from collections import defaultdict
 from torchvision.utils import save_image
 from losses.adversarial_loss import PatchGANDiscriminator, weights_init
 from face_parsing.models.utils import get_mask_by_idx
-from configs.pipeline_config import pipeline_config as pco
 from loaders.loader import load_models
 from models.msg_spade_decoder import MSGSpadeDecoder
 from losses.loss_handler import LossHandler
@@ -57,23 +56,11 @@ class TrainingPipeline:
         self.generator_trainable_params += [
             p for p in self.E_C.parameters() if p.requires_grad]
 
-        # Refering to entire pipeline beside IIHT
-        self.generator_optimizer = torch.optim.Adam(
-            self.generator_trainable_params,
-            lr=pco.training.generator.learn_rate,
-            betas=pco.training.generator.betas)
-
         # --- Adversarial discriminator ---
         self.L_adv = PatchGANDiscriminator(n_in_channels=3).to(self.device)
         self.L_adv.apply(weights_init)
         self.L_adv = DDP(self.L_adv, device_ids=[local_rank], output_device=local_rank) if (
             device.type == "cuda") else DDP(self.L_adv)
-
-        # Discrimination optmizer
-        self.disc_optimizer = torch.optim.Adam(
-            self.L_adv.parameters(),
-            lr=pco.training.discriminator.learn_rate,
-            betas=pco.training.discriminator.betas)
 
         # --- Adversarial discriminator ---
         self.losses = LossHandler(self.device)
@@ -85,7 +72,13 @@ class TrainingPipeline:
             "L_adv": self.L_adv
         }
 
-    def train_step(self, I_s, I_d, I_d_dilde, scaler,
+    def set_optimizers(self, generator_optimizer, disc_optimizer):
+        self.generator_optimizer = generator_optimizer
+        self.disc_optimizer = disc_optimizer
+
+    def train_step(self,
+                   I_s, I_d, I_d_dilde,
+                   scaler,
                    mini_batch_size,
                    save_debug=False,
                    save_path=Path(".")):
@@ -173,13 +166,6 @@ class TrainingPipeline:
 
             logs["disc_loss"] += float(disc_loss.detach().cpu())
             del losses, disc_loss
-
-        # Update the weights and reset optimizer
-        scaler.step(self.disc_optimizer)
-        scaler.step(self.generator_optimizer)
-        self.disc_optimizer.zero_grad(set_to_none=True)
-        self.generator_optimizer.zero_grad(set_to_none=True)
-        scaler.update()
 
         # Save image for debug purposes
         if save_debug:

@@ -3,6 +3,7 @@ import os
 import torch.multiprocessing as mp
 import torch.distributed as dist
 from pipelines.training_pipeline import TrainingPipeline
+from configs.pipeline_config import pipeline_config as pco
 from torchvision import transforms as T
 from PIL import Image
 import pytest
@@ -60,7 +61,25 @@ def run_pipeline(device, real_sample=False, batch_size=1):
             super().__init__(self.device, loaded=False)
 
     pipeline = TestPipeline(device=device)
+
+    # Refering to entire pipeline beside IIHT
+    generator_optimizer = torch.optim.Adam(
+        pipeline.generator_trainable_params,
+        lr=pco.training.generator.learn_rate,
+        betas=pco.training.generator.betas)
+
+    # Discrimination optmizer
+    disc_optimizer = torch.optim.Adam(
+        pipeline.L_adv.parameters(),
+        lr=pco.training.discriminator.learn_rate,
+        betas=pco.training.discriminator.betas)
+
     scaler = torch.cuda.amp.GradScaler(enabled=device.type == "cuda")
+
+    pipeline.set_optimizers(
+        generator_optimizer=generator_optimizer,
+        disc_optimizer=disc_optimizer
+    )
 
     from pathlib import Path
     ck_dir = "./checkpoints/"
@@ -94,6 +113,14 @@ def run_pipeline(device, real_sample=False, batch_size=1):
                                    mini_batch_size=1,
                                    save_debug=True,
                                    save_path=Path("./assets/debug_images/"))
+
+        # Update the weights and reset optimizer
+        scaler.step(disc_optimizer)
+        scaler.step(generator_optimizer)
+        disc_optimizer.zero_grad(set_to_none=True)
+        generator_optimizer.zero_grad(set_to_none=True)
+        scaler.update()
+
     print("Train step logs:", logs)
 
     # Save minimal checkpoint

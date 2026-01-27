@@ -39,10 +39,6 @@ def get_args():
 
 
 def main():
-    # TODO: Add the proper URL instead of the default localhost:5000
-    mlflow_config = MLFlowConfig()
-    
-    mlflow_mananger = MLFlowManager(mlflow_config)
     args = get_args()
 
     # TODO: allow user to select a specific device
@@ -56,6 +52,9 @@ def main():
         backend = "gloo"
 
     dist.init_process_group(backend=backend)
+    
+    # TODO: Add the proper URL instead of the default localhost:5000 (PostgreSQL)
+    mlflow_manager = MLFlowManager(MLFlowConfig())
 
     transform = T.Compose([
         T.ToPILImage(),
@@ -90,49 +89,53 @@ def main():
     # TODO: check if the input retrieval actually works or not
     # TODO: check if epochs is saved automatically
     # TODO: check the unbalanced weight impact
-    for epoch in range(start_epoch, args.epochs):
-        sampler.set_epoch(epoch)
-        epoch_iterator = tqdm(enumerate(dataloader), total=len(dataloader),
-                              desc=f"Epoch {epoch+1}/{args.epochs}")
-        running = {"total_loss": 0.0, "disc_loss": 0.0, "steps": 0}
-        for step, batch in epoch_iterator:
-            save_image = (running["steps"]+1) % args.save_image_every == 0
-            I_s = batch["front"]["content"]
-            I_d = batch["side"]["content"]
-            I_r = batch["reference"]["content"]
-            logs = pipeline.train_step(
-                I_s, I_d, I_r,
-                mini_batch_size=args.mini_batch_size,
-                scaler=scaler,
-                save_debug=save_image,
-                save_path=Path("./assets/debug_images/"))
+    with mlflow_manager.start_run() as run:
+        mlflow_manager.log_params()
+        for epoch in range(start_epoch, args.epochs):
+            sampler.set_epoch(epoch)
+            epoch_iterator = tqdm(enumerate(dataloader), total=len(dataloader),
+                                desc=f"Epoch {epoch+1}/{args.epochs}")
+            running = {"total_loss": 0.0, "disc_loss": 0.0, "steps": 0}
+            for step, batch in epoch_iterator:
+                save_image = (running["steps"]+1) % args.save_image_every == 0
+                I_s = batch["front"]["content"]
+                I_d = batch["side"]["content"]
+                I_r = batch["reference"]["content"]
+                logs = pipeline.train_step(
+                    I_s, I_d, I_r,
+                    mini_batch_size=args.mini_batch_size,
+                    scaler=scaler,
+                    save_debug=save_image,
+                    save_path=Path("./assets/debug_images/"))
 
-            if dist.get_rank() != 0:
-                continue
+                if dist.get_rank() != 0:
+                    continue
 
-            running["total_loss"] += logs.get("total_loss", 0.0)
-            running["disc_loss"] += logs.get("disc_loss", 0.0)
-            running["steps"] += 1
+                running["total_loss"] += logs.get("total_loss", 0.0)
+                running["disc_loss"] += logs.get("disc_loss", 0.0)
+                running["steps"] += 1
 
-            avg_loss = running["total_loss"] / running["steps"]
-            avg_disc = running["disc_loss"] / running["steps"]
-            epoch_iterator.set_postfix(
-                {"avg_loss": f"{avg_loss:.4f}", "avg_disc": f"{avg_disc:.4f}"})
+                avg_loss = running["total_loss"] / running["steps"]
+                avg_disc = running["disc_loss"] / running["steps"]
+                
+                epoch_iterator.set_postfix(
+                    {"avg_loss": f"{avg_loss:.4f}", "avg_disc": f"{avg_disc:.4f}"})
 
-            # TODO: add mlfow logging here
-            mlflow_mananger.log_metrics({
-                **logs,
-                "avg_loss": avg_loss,
-                "avg_disc": avg_disc
-            })
+                # TODO: add mlfow logging here
+                # Log the total objective loss function and its sub loss functions
+                for metric, value in logs.items():
+                    mlflow_manager.log_metric(metric, value, step)
+                # Log the average loss and discriminator loss
+                mlflow_manager.log_metric("avg_loss", avg_loss, step)
+                mlflow_manager.log_metric("avg_disc_loss", avg_disc, step)
 
-        # epoch end — checkpoint
-        if ((epoch + 1) % args.save_weight_every) == 0:
-            if dist.get_rank() == 0:
-                ck_path = os.path.join(
-                    args.save_dir, f"epoch_{epoch+1:04d}.pt")
-                pipeline.save_checkpoint(ck_path, epoch=epoch)
-                print(f"Saved checkpoint: {ck_path}")
+            # epoch end — checkpoint
+            if ((epoch + 1) % args.save_weight_every) == 0:
+                if dist.get_rank() == 0:
+                    ck_path = os.path.join(
+                        args.save_dir, f"epoch_{epoch+1:04d}.pt")
+                    pipeline.save_checkpoint(ck_path, epoch=epoch)
+                    print(f"Saved checkpoint: {ck_path}")
 
     dist.destroy_process_group()
     print("Training complete.")

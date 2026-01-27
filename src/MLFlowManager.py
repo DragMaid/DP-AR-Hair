@@ -21,7 +21,7 @@ class MLFlowManager:
         uri = self.config.tracking_uri
         mlflow.set_tracking_uri(uri)
         mlflow.set_experiment(self.experiment_name)
-        logging.info(f"Server is running at {uri}")
+        logging.info(f"MLflow Tracking Server is running at {uri}")
         
     def start_run(self):
         """Start MLflow and launch UI."""

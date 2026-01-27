@@ -24,7 +24,7 @@ class LossHandler:
         self.L_p = PerceptualLoss().to(device)
         self.L_hair = HairLoss().to(device)
         self.L_face = FaceLoss().to(device)
-        self.L_global = nn.L1Loss().to(device)
+        self.L_global = nn.L1Loss(reduction='mean').to(device)
 
         # Discriminator criterion
         # Use BCEWithLogitsLoss (wrapper) for stability
@@ -102,15 +102,15 @@ class LossHandler:
         Returns:
             disc_loss: scalar tensor
         """
-        # Real images should be classified as 1
+        # Real images should be classified as 0.9 (label smoothing)
         pred_real = discriminator(I_d)
-        target_real = torch.ones_like(pred_real)
+        target_real = torch.ones_like(pred_real) * 0.9
         loss_real = self.disc_criterion(pred_real, target_real)
 
         # Make sure that I_p is detached first
-        # Fake images should be classified as 0
+        # Fake images should be classified as 0.1 (label smoothing)
         pred_fake = discriminator(I_p)
-        target_fake = torch.zeros_like(pred_fake)
+        target_fake = torch.zeros_like(pred_fake) + 0.1
         loss_fake = self.disc_criterion(pred_fake, target_fake)
 
         disc_loss = (loss_real + loss_fake) / 2

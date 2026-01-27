@@ -19,7 +19,7 @@ transform = T.Compose([
 masker = load_models("M_C", pretrained=True, freeze=True)
 
 # ---- load & preprocess image (your original flow) ----
-image_bgr = cv2.imread("assets/test_images/cropped_256x256.png")
+image_bgr = cv2.imread("assets/test_images/cropped.png")
 image = transform(image_bgr)
 image = image.unsqueeze(0)  # Add batching to fit util func
 

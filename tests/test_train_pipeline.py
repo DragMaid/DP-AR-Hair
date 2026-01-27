@@ -73,9 +73,9 @@ def run_pipeline(device, real_sample=False, batch_size=1):
     images = []
     if real_sample:
         img_paths = [
-            "./assets/test_images/cropped.png",
-            "./assets/test_images/cropped.png",
-            "./assets/test_images/output.png"
+            "./assets/test_images/side.jpg",
+            "./assets/test_images/front.jpg",
+            "./assets/test_images/generated.jpg"
         ]
         for path in img_paths:
             img = Image.open(path).convert("RGB")
@@ -87,10 +87,10 @@ def run_pipeline(device, real_sample=False, batch_size=1):
         for _ in range(3):
             images.append(torch.randn([batch_size, 3, 256, 256]))
 
-    I_s, I_d, I_r = images
+    I_s, I_d, I_d_dilde = images
 
     with torch.autograd.set_detect_anomaly(True):
-        logs = pipeline.train_step(I_s, I_d, I_r, scaler,
+        logs = pipeline.train_step(I_s, I_d, I_d_dilde, scaler,
                                    mini_batch_size=1,
                                    save_debug=True,
                                    save_path=Path("./assets/debug_images/"))

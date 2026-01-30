@@ -1,10 +1,6 @@
 import os
 import torch
-import datetime
-from pathlib import Path
 from math import ceil
-from collections import defaultdict
-from torchvision.utils import save_image
 from losses.adversarial_loss import PatchGANDiscriminator, weights_init
 from face_parsing.models.utils import get_mask_by_idx
 from loaders.loader import load_models
@@ -21,8 +17,9 @@ class TrainingPipeline:
     - collects a minimal set of modules to save
     """
 
-    def __init__(self, device, local_rank=None, loaded=True):
+    def __init__(self, device, logger, local_rank=None, loaded=True):
         self.device = device
+        self.logger = logger
 
         # --- Generator (G) ---
         self.E_H = load_models("E_H", pretrained=loaded,
@@ -49,18 +46,21 @@ class TrainingPipeline:
 
         self.D = MSGSpadeDecoder(self.D_C, self.D_S)
 
-        self.generator_trainable_params = []
         # include any parameters that require grad from D_S and E_C
-        self.generator_trainable_params += [
+        self.synthesizer_decoder_trainable_params = [
             p for p in self.D_S.parameters() if p.requires_grad]
-        self.generator_trainable_params += [
+        self.context_encoder_trainable_params = [
             p for p in self.E_C.parameters() if p.requires_grad]
+        self.generator_trainable_params = self.synthesizer_decoder_trainable_params + \
+            self.context_encoder_trainable_params
 
         # --- Adversarial discriminator ---
         self.L_adv = PatchGANDiscriminator(n_in_channels=3).to(self.device)
         self.L_adv.apply(weights_init)
         self.L_adv = DDP(self.L_adv, device_ids=[local_rank], output_device=local_rank) if (
             device.type == "cuda") else DDP(self.L_adv)
+        self.disc_trainable_params = [
+            p for p in self.L_adv.parameters() if p.requires_grad]
 
         # --- Adversarial discriminator ---
         self.losses = LossHandler(self.device)
@@ -72,16 +72,26 @@ class TrainingPipeline:
             "L_adv": self.L_adv
         }
 
+        # --- Modules to log ---
+        self.modules_to_log = {
+            "generator": self.generator_trainable_params,
+            "discriminator": self.disc_trainable_params,
+            "context_encoder": self.context_encoder_trainable_params,
+            "synthesize_decoder": self.synthesizer_decoder_trainable_params,
+        }
+
     def set_optimizers(self, generator_optimizer, disc_optimizer):
         self.generator_optimizer = generator_optimizer
         self.disc_optimizer = disc_optimizer
 
-    def train_step(self,
-                   I_s, I_d, I_d_dilde,
-                   scaler,
-                   mini_batch_size,
-                   save_debug=False,
-                   save_path=Path(".")):
+    def train_step(
+        self,
+        I_s, I_d, I_d_dilde,
+        scaler,
+        mini_batch_size,
+        accumulate_grad_contrib=False,
+        store_outputs=False,
+    ):
         """
         Perform a single training step (one batch) with gradient accumulation.
         - I_s, I_d, I_d_dilde: tensors (BCHW) on CPU or device
@@ -93,10 +103,11 @@ class TrainingPipeline:
         I_d_o = I_d.to(self.device)
         I_d_dilde_o = I_d_dilde.to(self.device)
 
+        self.logger.reset()
+
         batch_size = I_s.shape[0]
         assert mini_batch_size <= batch_size
 
-        logs = defaultdict(float)
         steps = ceil(batch_size / mini_batch_size)
         for i in range(steps):
             # This is for gradient accumulation
@@ -121,10 +132,8 @@ class TrainingPipeline:
                 f_w = self.W(feature_3d=f_h, kp_source=f_m,
                              kp_driving=f_m_d)['out']
                 f_c = self.E_C(I_d_dilde)
-                # Final predicted image tensor
                 I_p = self.D(f_c, f_w, m_c)
 
-            # WARN: wouldn't this decrease the accuracy
             I_p_detached = I_p.detach().float()
             del I_p, f_c
 
@@ -133,51 +142,51 @@ class TrainingPipeline:
                 I_d, I_p_detached, self.L_adv)
 
             # backprop discriminator
-            disc_loss = disc_loss / steps
-            scaler.scale(disc_loss).backward()
+            scaler.scale(disc_loss / steps).backward()
+            self.logger.accumulate_loss(
+                name="discriminator_loss", value=disc_loss)
+
+            del disc_loss
 
             with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):
                 f_c = self.E_C(I_d_dilde)
-                del I_d_dilde
-                # Final predicted image tensor
                 I_p = self.D(f_c, f_w, m_c)
 
-            del f_c, f_h, f_m, f_m_d, f_w
+            del I_d_dilde, f_c, f_h, f_m, f_m_d, f_w
 
             # --- Generator update ---
             for p in self.L_adv.parameters():
                 p.requires_grad = False
 
-            losses = self.losses.compute_generator_losses(
+            gen_losses = self.losses.compute_generator_losses(
                 I_d, I_p, m_c, m_f, self.L_adv)
-            gen_loss = losses["total_loss"]
+
+            gen_loss = gen_losses["generator_loss"]
+            gen_loss = gen_loss / steps
+            for k, v in gen_losses.items():
+                self.logger.accumulate_loss(name=k, value=v)
+
+            # accumulate the grad contribution
+            if accumulate_grad_contrib:
+                for k, v in gen_losses.items():
+                    grads = torch.autograd.grad(
+                        v,
+                        self.generator_trainable_params,
+                        retain_graph=True,
+                        allow_unused=True
+                    )
+                    self.logger.accumulate_grad_contribution(name=k, grads=grads)
+
+            scaler.scale(gen_loss).backward()
+            del I_d, I_p, gen_losses
 
             for p in self.L_adv.parameters():
                 p.requires_grad = True
 
-            gen_loss = gen_loss / steps
+            if store_outputs:
+                self.logger.log_images(I_p_detached)
 
-            for k, v in losses.items():
-                logs[k] += float(v.detach().cpu()) / steps
-            del I_d, I_p
-
-            # Backward the generator
-            scaler.scale(gen_loss).backward()
-
-            logs["disc_loss"] += float(disc_loss.detach().cpu())
-            del losses, disc_loss
-
-        # Save image for debug purposes
-        if save_debug:
-            img = I_p_detached[0]
-            img = (img + 1) / 2
-            os.makedirs(save_path, exist_ok=True)
-            path = Path.joinpath(
-                save_path, f"{datetime.datetime.now()}.png")
-            save_image(img, path)
-            print(f"Debug image saved to {path}")
-
-        return logs
+            self.logger.step_done()
 
     def save_checkpoint(self, path: str, epoch: int, extra: dict = None):
         """

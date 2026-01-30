@@ -9,7 +9,11 @@ from data.celebvhq_generated import CelebVHQGeneratedDataset
 from pipelines.training_pipeline import TrainingPipeline
 import torch.distributed as dist
 from configs.pipeline_config import pipeline_config as pco
-from MLFlowManager import MLFlowManager
+from utils import MLFlowManager
+from losses.utils import StepLogger
+from torchvision.utils import make_grid, save_image
+from matplotlib import pyplot as plt
+from datetime import datetime
 
 
 def get_args():
@@ -29,8 +33,6 @@ def get_args():
                    default=pco.training.save_dir)
     p.add_argument("--save_weight_every", type=int, help="save weight every N epochs",
                    default=pco.training.epochs_till_save)
-    p.add_argument("--save_image_every", type=int, help="save debug image every N steps",
-                   default=pco.training.steps_till_save)
     p.add_argument("--resume", type=str, default=None,
                    help="path to checkpoint to resume")
     # p.add_argument("--device", type=str, default=None)
@@ -71,7 +73,8 @@ def main():
                             num_workers=args.num_workers,
                             pin_memory=True, drop_last=True, sampler=sampler)
 
-    pipeline = TrainingPipeline(device, local_rank)
+    logger = StepLogger()
+    pipeline = TrainingPipeline(device, logger, local_rank)
 
     # Refering to entire pipeline beside IIHT
     generator_optimizer = torch.optim.Adam(
@@ -103,29 +106,47 @@ def main():
 
     os.makedirs(args.save_dir, exist_ok=True)
 
-    # Start mflow
-    mlflow_manager.start_run()
-
-    with mlflow_manager:
+    with mlflow_manager.start_run():
         for epoch in range(start_epoch, args.epochs):
             sampler.set_epoch(epoch)
             epoch_iterator = tqdm(enumerate(dataloader), total=len(dataloader),
                                   desc=f"Epoch {epoch+1}/{args.epochs}")
-            running = {"total_loss": 0.0, "disc_loss": 0.0, "steps": 0}
+
+            global_step = 0
             for step, batch in epoch_iterator:
-                save_image = (running["steps"]+1) % args.save_image_every == 0
+                grad_contrib = (
+                    global_step+1) % pco.training.log_config.grad_contrib_interval == 0 \
+                    and dist.get_rank() == 0
+                param_norm = (
+                    global_step+1) % pco.training.log_config.param_norm_interval == 0 \
+                    and dist.get_rank() == 0
+                param_dist = (
+                    global_step+1) % pco.training.log_config.param_dist_interval == 0 \
+                    and dist.get_rank() == 0
+                save_debug = (
+                    global_step+1) % pco.training.log_config.output_save_interval == 0 \
+                    and dist.get_rank() == 0
 
                 # Get the 3 images: original front / side and hair transfered image
                 I_s = batch["reference"]["content"]
                 I_d = batch["driving"]["content"]
                 I_d_dilde = batch["generated"]["content"]
 
-                logs = pipeline.train_step(
+                if param_dist:
+                    logger.snapshot_params(
+                        "generator", pipeline.generator_trainable_params)
+                    logger.snapshot_params(
+                        "discriminator", pipeline.disc_trainable_params)
+
+                pipeline.train_step(
                     I_s, I_d, I_d_dilde,
                     mini_batch_size=args.mini_batch_size,
                     scaler=scaler,
-                    save_debug=save_image,
-                    save_path=Path("./assets/debug_images/"))
+                    accumulate_grad_contrib=grad_contrib)
+
+                # Log gradient norms every step
+                if dist.get_rank() == 0:
+                    logger.calculate_grad_norms(pipeline.modules_to_log)
 
                 # Update the weights and reset optimizer
                 scaler.step(disc_optimizer)
@@ -134,26 +155,44 @@ def main():
                 generator_optimizer.zero_grad(set_to_none=True)
                 scaler.update()
 
-                if dist.get_rank() != 0:
-                    continue
+                if param_norm:
+                    logger.calculate_param_norms(pipeline.modules_to_log)
 
-                running["total_loss"] += logs.get("total_loss", 0.0)
-                running["disc_loss"] += logs.get("disc_loss", 0.0)
-                running["steps"] += 1
+                if param_dist:
+                    logger.log_param_distribution(
+                        "generator", pipeline.generator_trainable_params)
+                    logger.log_param_distribution(
+                        "discriminator", pipeline.disc_trainable_params)
 
-                avg_loss = running["total_loss"] / running["steps"]
-                avg_disc = running["disc_loss"] / running["steps"]
+                if dist.get_rank() == 0:
+                    logs = logger.finalize()
+                    for scalar_log in ["losses", "gradient_norms", "param_norms"]:
+                        for k, v in logs[scalar_log].items():
+                            mlflow_manager.log_metric(f"{scalar_log}/{k}", v)
 
-                epoch_iterator.set_postfix(
-                    {"avg_loss": f"{avg_loss:.4f}", "avg_disc": f"{avg_disc:.4f}"})
+                    grad_contrib_ratios = logs["gradient_contribs"]
+                    if grad_contrib and grad_contrib_ratios:
+                        # Save the gradient contribution bar plot
+                        plt.figure()
+                        plt.title("Loss gradient contribution")
+                        headers = [k.split('/')[-1][:4]
+                                   for k in grad_contrib_ratios.keys()]
+                        plt.bar(headers, grad_contrib_ratios.values())
+                        file_path = Path("assets/artifacts/contribs/",
+                                         f"{datetime.now()}.jpg")
+                        file_path.parent.mkdir(parents=True, exist_ok=True)
+                        plt.savefig(file_path)
+                        mlflow_manager.log_artifact(file_path)
 
-                # TODO: add more precise logging here
-                # Log the total objective loss function and its sub loss functions
-                for metric, value in logs.items():
-                    mlflow_manager.log_metric(metric, value, step)
-                # Log the average loss and discriminator loss
-                mlflow_manager.log_metric("avg_loss", avg_loss, step)
-                mlflow_manager.log_metric("avg_disc_loss", avg_disc, step)
+                    output_images = logs["output_images"]
+                    if save_debug and output_images:
+                        grid = make_grid(output_images, nrow=8, normalize=True)
+                        file_path = f"assets/artifacts/outputs/step_{global_step}.png"
+                        file_path.parent.mkdir(parents=True, exist_ok=True)
+                        save_image(grid, file_path)
+                        mlflow_manager.log_artifact(file_path)
+
+                global_step += 1
 
             # epoch end — checkpoint
             if ((epoch + 1) % args.save_weight_every) == 0:

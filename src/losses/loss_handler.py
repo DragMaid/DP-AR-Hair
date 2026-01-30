@@ -55,39 +55,37 @@ class LossHandler:
         """
         with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):
             # Perceptual loss
-            p_loss = self.L_p(self.normalize(
+            perceptual_loss = self.weights.p_rate * self.L_p(self.normalize(
                 I_p), self.normalize(I_d))
 
             # Local losses
-            h_loss = self.L_hair(m_c, I_d, I_p)
-            f_loss = self.L_face(m_f, I_d, I_p)
+            hair_loss = self.weights.h_rate * self.L_hair(m_c, I_d, I_p)
+            face_loss = self.weights.f_rate * self.L_face(m_f, I_d, I_p)
 
             # Global reconstruction
-            g_loss = self.L_global(I_d, I_p)
+            global_loss = self.weights.rec_rate * self.L_global(I_d, I_p)
 
         # Generator just wants to fool the discriminator so no real_loss
         # Adversarial loss (generator tries to fool discriminator)
         # Make sure its in FP32
         pred_fake = discriminator(I_p)
         target_real = torch.ones_like(pred_fake)
-        a_gen_loss = self.disc_criterion(pred_fake, target_real)
+        a_gen_loss = self.weights.adv_rate * \
+            self.disc_criterion(pred_fake, target_real)
+
+        # Calculate the gradient contribution of each loss
 
         # Weighted sum
-        total_loss = (
-            self.weights.p_rate * p_loss +
-            self.weights.adv_rate * a_gen_loss +
-            self.weights.h_rate * h_loss +
-            self.weights.f_rate * f_loss +
-            self.weights.rec_rate * g_loss
-        )
+        generator_loss = perceptual_loss + a_gen_loss + \
+            hair_loss + face_loss + global_loss
 
         return {
-            "total_loss": total_loss,
-            "p_loss": p_loss,
-            "h_loss": h_loss,
-            "f_loss": f_loss,
-            "g_loss": g_loss,
-            "a_gen_loss": a_gen_loss,
+            "generator_loss": generator_loss,
+            "perceptual_loss": perceptual_loss,
+            "hair_loss": hair_loss,
+            "face_loss": face_loss,
+            "global_loss": global_loss,
+            "adversarial_gen_loss": a_gen_loss,
         }
 
     def compute_discriminator_loss(self, I_d, I_p, discriminator):

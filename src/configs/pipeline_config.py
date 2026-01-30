@@ -23,6 +23,13 @@ class DiscriminatorConfig(BaseModel):
     betas: Tuple[float, float]
 
 
+class LoggingConfig(BaseModel):
+    grad_contrib_interval: int
+    param_norm_interval: int
+    param_dist_interval: int
+    output_save_interval: int
+
+
 class TrainingConfig(BaseModel):
     epoch_num: int
     batch_size: int
@@ -31,8 +38,10 @@ class TrainingConfig(BaseModel):
     discriminator: DiscriminatorConfig
     generator: GeneratorConfig
     save_dir: str
+    artifact_dir: str
     epochs_till_save: int
     steps_till_save: int
+    log_config: LoggingConfig
 
 
 class InferenceConfig(BaseModel):

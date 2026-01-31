@@ -227,3 +227,4 @@ debug_images/
 **/cache.txt.*
 **/assets/*
 **/patch.txt
+**/mlartifacts/*

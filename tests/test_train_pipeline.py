@@ -4,6 +4,7 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 from pipelines.training_pipeline import TrainingPipeline
 from configs.pipeline_config import pipeline_config as pco
+from utils import MLFlowManager
 from losses.utils import StepLogger
 from torchvision.utils import make_grid, save_image
 from torchvision import transforms as T
@@ -64,6 +65,7 @@ def run_pipeline(device, real_sample=False, batch_size=1):
 
     logger = StepLogger()
     pipeline = TestPipeline(device=device, logger=logger)
+    first_processor = dist.get_rank() == 0
 
     # Refering to entire pipeline beside IIHT
     generator_optimizer = torch.optim.Adam(
@@ -113,60 +115,72 @@ def run_pipeline(device, real_sample=False, batch_size=1):
 
     logger.reset()
 
-    logger.snapshot_params(
-        "generator", pipeline.generator_trainable_params)
-    logger.snapshot_params(
-        "discriminator", pipeline.disc_trainable_params)
+    mlflow_manager = MLFlowManager()
 
-    with torch.autograd.set_detect_anomaly(True):
-        pipeline.train_step(
-            I_s, I_d, I_d_dilde,
-            scaler,
-            mini_batch_size=1,
-            accumulate_grad_contrib=True,
-            store_outputs=True)
+    with mlflow_manager.start_run():
+        with torch.autograd.set_detect_anomaly(True):
+            pipeline.train_step(
+                I_s, I_d, I_d_dilde,
+                scaler,
+                mini_batch_size=1,
+                accumulate_grad_contrib=True,
+                store_outputs=True)
 
-    logger.calculate_grad_norms(pipeline.modules_to_log)
+        if first_processor:
+            logger.calculate_grad_norms(pipeline.modules_to_log)
 
-    # Update the weights and reset optimizer
-    scaler.step(disc_optimizer)
-    scaler.step(generator_optimizer)
-    disc_optimizer.zero_grad(set_to_none=True)
-    generator_optimizer.zero_grad(set_to_none=True)
-    scaler.update()
+            logger.snapshot_params(
+                "generator", pipeline.generator_trainable_params)
+            logger.snapshot_params(
+                "discriminator", pipeline.disc_trainable_params)
 
-    # Calculate param norms
-    logger.calculate_param_norms(pipeline.modules_to_log)
+        # Update the weights and reset optimizer
+        scaler.step(disc_optimizer)
+        scaler.step(generator_optimizer)
+        disc_optimizer.zero_grad(set_to_none=True)
+        generator_optimizer.zero_grad(set_to_none=True)
+        scaler.update()
 
-    # Calculate parameters distribution
-    logger.log_param_distribution(
-        "generator", pipeline.generator_trainable_params)
-    logger.log_param_distribution(
-        "discriminator", pipeline.disc_trainable_params)
+        if not first_processor:
+            return
 
-    logs = logger.finalize()
-    output_images = logs.pop("output_images")
+        logger.log_param_update(
+            "generator", pipeline.generator_trainable_params)
+        logger.log_param_update(
+            "discriminator", pipeline.disc_trainable_params)
 
-    # Plot the contribution bar plot
-    grad_contrib_ratios = logs["gradient_contribs"]
-    plt.figure()
-    plt.title("Loss gradient contribution")
-    headers = [k.split('/')[-1][:4]
-               for k in grad_contrib_ratios.keys()]
-    plt.bar(headers, grad_contrib_ratios.values())
-    file_path = Path("assets/artifacts/contribs/test.jpg")
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-    plt.savefig(file_path)
+        # Calculate param norms
+        logger.calculate_param_norms(pipeline.modules_to_log)
 
-    # Plot the batch output images
-    grid = make_grid(output_images, nrow=8, normalize=True)
-    file_path = Path("assets/artifacts/outputs/step_test.png")
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-    save_image(grid, file_path)
+        # Calculate parameters distribution
+        logger.log_param_distribution(
+            "generator", pipeline.generator_trainable_params)
+        logger.log_param_distribution(
+            "discriminator", pipeline.disc_trainable_params)
 
-    print(logs)
+        logs = logger.finalize()
+        output_images = logs.pop("output_images")
 
-    # Save minimal checkpoint
-    os.makedirs(ck_dir, exist_ok=True)
-    pipeline.save_checkpoint(ck_path, epoch=1)
-    print(f"Checkpoint saved to {ck_path}")
+        # Plot the contribution bar plot
+        grad_contrib_ratios = logs["gradient_contribs"]
+        plt.figure()
+        plt.title("Loss gradient contribution")
+        headers = [k.split('/')[-1][:4]
+                   for k in grad_contrib_ratios.keys()]
+        plt.bar(headers, grad_contrib_ratios.values())
+        file_path = Path("assets/artifacts/contribs/test.jpg")
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(file_path)
+
+        # Plot the batch output images
+        grid = make_grid(output_images, nrow=8, normalize=True)
+        file_path = Path("assets/artifacts/outputs/step_test.png")
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        save_image(grid, file_path)
+
+        print(logs)
+
+        # Save minimal checkpoint
+        os.makedirs(ck_dir, exist_ok=True)
+        pipeline.save_checkpoint(ck_path, epoch=1)
+        print(f"Checkpoint saved to {ck_path}")

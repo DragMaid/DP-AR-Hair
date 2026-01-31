@@ -13,7 +13,6 @@ from utils import MLFlowManager
 from losses.utils import StepLogger
 from torchvision.utils import make_grid, save_image
 from matplotlib import pyplot as plt
-from datetime import datetime
 
 
 def get_args():
@@ -40,171 +39,218 @@ def get_args():
     return p.parse_args()
 
 
-def main():
-    args = get_args()
+class Trainer:
+    def __init__(self, args):
+        self.args = args
 
-    # TODO: allow user to select a specific device
-    local_rank = int(os.environ["LOCAL_RANK"])
-    if torch.cuda.is_available():
-        torch.cuda.set_device(local_rank)
-        device = torch.device(f"cuda:{local_rank}")
-        backend = "nccl"
-    else:
-        device = torch.device("cpu")
-        backend = "gloo"
+        self.init_ddp()
+        self.init_pipeline()
 
-    dist.init_process_group(backend=backend)
+    def init_ddp(self):
+        # TODO: allow user to select a specific device
+        local_rank = int(os.environ["LOCAL_RANK"])
+        if torch.cuda.is_available():
+            torch.cuda.set_device(local_rank)
+            self.device = torch.device(f"cuda:{local_rank}")
+            self.backend = "nccl"
+        else:
+            self.device = torch.device("cpu")
+            self.backend = "gloo"
 
-    # TODO: Add the proper URL instead of the default localhost:5000 (PostgreSQL)
-    mlflow_manager = MLFlowManager()
+        dist.init_process_group(backend=self.backend)
 
-    transform = T.Compose([
-        T.ToPILImage(),
-        T.Resize((256, 256)),
-        T.ToTensor(),
-    ])
+    def init_pipeline(self):
+        # TODO: Add the proper URL instead of the default localhost:5000 (PostgreSQL)
+        self.mlflow_manager = MLFlowManager()
 
-    dataset = CelebVHQGeneratedDataset(dataset_dir=args.dataset,
-                                       transform=transform)
+        transform = T.Compose([
+            T.ToPILImage(),
+            T.Resize((256, 256)),
+            T.ToTensor(),
+        ])
 
-    sampler = DistributedSampler(dataset)
+        self.dataset = CelebVHQGeneratedDataset(
+            dataset_dir=self.args.dataset,
+            transform=transform
+        )
 
-    dataloader = DataLoader(dataset, batch_size=args.batch_size,
-                            num_workers=args.num_workers,
-                            pin_memory=True, drop_last=True, sampler=sampler)
+        self.sampler = DistributedSampler(self.dataset)
 
-    logger = StepLogger()
-    pipeline = TrainingPipeline(device, logger, local_rank)
+        self.dataloader = DataLoader(
+            self.dataset,
+            batch_size=self.args.batch_size,
+            num_workers=self.args.num_workers,
+            pin_memory=True, drop_last=True,
+            sampler=self.sampler
+        )
 
-    # Refering to entire pipeline beside IIHT
-    generator_optimizer = torch.optim.Adam(
-        pipeline.generator_trainable_params,
-        lr=pco.training.generator.learn_rate,
-        betas=pco.training.generator.betas)
+        self.logger = StepLogger()
+        self.pipeline = TrainingPipeline(
+            self.device, self.logger, self.local_rank)
 
-    # Discrimination optmizer
-    disc_optimizer = torch.optim.Adam(
-        pipeline.L_adv.parameters(),
-        lr=pco.training.discriminator.learn_rate,
-        betas=pco.training.discriminator.betas)
+        # Refering to entire pipeline beside IIHT
+        self.generator_optimizer = torch.optim.Adam(
+            self.pipeline.generator_trainable_params,
+            lr=pco.training.generator.learn_rate,
+            betas=pco.training.generator.betas)
 
-    scaler = torch.cuda.amp.GradScaler(
-        enabled=args.mixed_precision and device.type == "cuda")
+        # Discrimination optmizer
+        self.disc_optimizer = torch.optim.Adam(
+            self.pipeline.L_adv.parameters(),
+            lr=pco.training.discriminator.learn_rate,
+            betas=pco.training.discriminator.betas)
 
-    # Set the optimizers to be used in pipeline
-    pipeline.set_optimizers(
-        generator_optimizer=generator_optimizer,
-        disc_optimizer=disc_optimizer
-    )
+        self.scaler = torch.cuda.amp.GradScaler(
+            enabled=self.args.mixed_precision and self.device.type == "cuda")
 
-    start_epoch = 0
-    if args.resume:
-        ck = pipeline.load_checkpoint(args.resume, load_optimizers=True)
-        if "epoch" in ck:
-            start_epoch = ck["epoch"] + 1
-        print(f"Resumed from {args.resume}, start_epoch={start_epoch}")
+        # Set the optimizers to be used in pipeline
+        self.pipeline.set_optimizers(
+            generator_optimizer=self.generator_optimizer,
+            disc_optimizer=self.disc_optimizer
+        )
 
-    os.makedirs(args.save_dir, exist_ok=True)
+        self.start_epoch = 0
+        if self.args.resume:
+            ck = self.pipeline.load_checkpoint(
+                self.args.resume, load_optimizers=True)
+            if "epoch" in ck:
+                self.start_epoch = ck["epoch"] + 1
+            print(
+                f"Resumed from {self.args.resume}, start_epoch={self.start_epoch}")
 
-    with mlflow_manager.start_run():
-        for epoch in range(start_epoch, args.epochs):
-            sampler.set_epoch(epoch)
-            epoch_iterator = tqdm(enumerate(dataloader), total=len(dataloader),
-                                  desc=f"Epoch {epoch+1}/{args.epochs}")
+        os.makedirs(self.args.save_dir, exist_ok=True)
 
+    def save_contrib_plot(self, grad_contrib_ratios, global_step):
+        # Save the gradient contribution bar plot
+        plt.figure()
+        plt.title("Loss gradient contribution")
+        headers = [k.split('/')[-1][:4]
+                   for k in grad_contrib_ratios.keys()]
+        plt.bar(headers, grad_contrib_ratios.values())
+        file_path = Path("assets/artifacts/contribs/",
+                         f"step_{global_step}.jpg")
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(file_path)
+        self.mlflow_manager.log_artifact(file_path, artifact_path="contribs")
+
+    def save_debug_image(self, output_images, global_step):
+        grid = make_grid(
+            output_images, nrow=8, normalize=True)
+        file_path = f"assets/artifacts/outputs/step_{global_step}.png"
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        save_image(grid, file_path)
+        self.mlflow_manager.log_artifact(file_path, artifact_path="outputs")
+
+    def train(self):
+        first_processor = dist.get_rank() == 0
+        with self.mlflow_manager.start_run():
             global_step = 0
-            for step, batch in epoch_iterator:
-                grad_contrib = (
-                    global_step+1) % pco.training.log_config.grad_contrib_interval == 0 \
-                    and dist.get_rank() == 0
-                param_norm = (
-                    global_step+1) % pco.training.log_config.param_norm_interval == 0 \
-                    and dist.get_rank() == 0
-                param_dist = (
-                    global_step+1) % pco.training.log_config.param_dist_interval == 0 \
-                    and dist.get_rank() == 0
-                save_debug = (
-                    global_step+1) % pco.training.log_config.output_save_interval == 0 \
-                    and dist.get_rank() == 0
+            for epoch in range(self.start_epoch, self.args.epochs):
+                self.sampler.set_epoch(epoch)
+                epoch_iterator = tqdm(enumerate(self.dataloader), total=len(self.dataloader),
+                                      desc=f"Epoch {epoch+1}/{self.args.epochs}")
 
-                # Get the 3 images: original front / side and hair transfered image
-                I_s = batch["reference"]["content"]
-                I_d = batch["driving"]["content"]
-                I_d_dilde = batch["generated"]["content"]
+                for step, batch in epoch_iterator:
+                    grad_contrib = (
+                        global_step+1) % pco.training.log_config.grad_contrib_interval == 0
+                    param_norm = (
+                        global_step+1) % pco.training.log_config.param_norm_interval == 0
+                    param_dist = (
+                        global_step+1) % pco.training.log_config.param_dist_interval == 0
+                    save_debug = (
+                        global_step+1) % pco.training.log_config.output_save_interval == 0
 
-                if param_dist:
-                    logger.snapshot_params(
-                        "generator", pipeline.generator_trainable_params)
-                    logger.snapshot_params(
-                        "discriminator", pipeline.disc_trainable_params)
+                    self.step(
+                        batch=batch,
+                        global_step=global_step,
+                        first_processor=first_processor,
+                        grad_contrib=grad_contrib,
+                        param_dist=param_dist,
+                        param_norm=param_norm,
+                        save_debug=save_debug,
+                    )
 
-                pipeline.train_step(
-                    I_s, I_d, I_d_dilde,
-                    mini_batch_size=args.mini_batch_size,
-                    scaler=scaler,
-                    accumulate_grad_contrib=grad_contrib)
+                    global_step += 1
 
-                # Log gradient norms every step
-                if dist.get_rank() == 0:
-                    logger.calculate_grad_norms(pipeline.modules_to_log)
+        # epoch end — checkpoint
+        if first_processor and ((epoch + 1) % self.args.save_weight_every) == 0:
+            ck_path = os.path.join(
+                self.args.save_dir, f"epoch_{epoch+1:04d}.pt")
+            self.pipeline.save_checkpoint(ck_path, epoch=epoch)
+            print(f"Saved checkpoint: {ck_path}")
 
-                # Update the weights and reset optimizer
-                scaler.step(disc_optimizer)
-                scaler.step(generator_optimizer)
-                disc_optimizer.zero_grad(set_to_none=True)
-                generator_optimizer.zero_grad(set_to_none=True)
-                scaler.update()
+        dist.destroy_process_group()
+        print("Training complete.")
 
-                if param_norm:
-                    logger.calculate_param_norms(pipeline.modules_to_log)
+    def step(
+        self,
+        batch: dict,
+        global_step: int,
+        first_processor: bool,
+        grad_contrib: bool,
+        param_dist: bool,
+        param_norm: bool,
+        save_debug: bool
+    ):
+        # Get the 3 images: original front / side and hair transfered image
+        I_s = batch["reference"]["content"]
+        I_d = batch["driving"]["content"]
+        I_d_dilde = batch["generated"]["content"]
 
-                if param_dist:
-                    logger.log_param_distribution(
-                        "generator", pipeline.generator_trainable_params)
-                    logger.log_param_distribution(
-                        "discriminator", pipeline.disc_trainable_params)
+        # TODO: check all of this shit
+        self.pipeline.train_step(
+            I_s, I_d, I_d_dilde,
+            mini_batch_size=self.args.mini_batch_size,
+            scaler=self.scaler,
+            accumulate_grad_contrib=grad_contrib,
+            store_outputs=True)
 
-                if dist.get_rank() == 0:
-                    logs = logger.finalize()
-                    for scalar_log in ["losses", "gradient_norms", "param_norms"]:
-                        for k, v in logs[scalar_log].items():
-                            mlflow_manager.log_metric(f"{scalar_log}/{k}", v)
+        # Log gradient norms every step
+        if first_processor:
+            self.logger.calculate_grad_norms(
+                self.pipeline.modules_to_log)
 
-                    grad_contrib_ratios = logs["gradient_contribs"]
-                    if grad_contrib and grad_contrib_ratios:
-                        # Save the gradient contribution bar plot
-                        plt.figure()
-                        plt.title("Loss gradient contribution")
-                        headers = [k.split('/')[-1][:4]
-                                   for k in grad_contrib_ratios.keys()]
-                        plt.bar(headers, grad_contrib_ratios.values())
-                        file_path = Path("assets/artifacts/contribs/",
-                                         f"{datetime.now()}.jpg")
-                        file_path.parent.mkdir(parents=True, exist_ok=True)
-                        plt.savefig(file_path)
-                        mlflow_manager.log_artifact(file_path)
+        if first_processor and param_dist:
+            self.logger.snapshot_params(
+                "generator", self.pipeline.generator_trainable_params)
+            self.logger.snapshot_params(
+                "discriminator", self.pipeline.disc_trainable_params)
 
-                    output_images = logs["output_images"]
-                    if save_debug and output_images:
-                        grid = make_grid(output_images, nrow=8, normalize=True)
-                        file_path = f"assets/artifacts/outputs/step_{global_step}.png"
-                        file_path.parent.mkdir(parents=True, exist_ok=True)
-                        save_image(grid, file_path)
-                        mlflow_manager.log_artifact(file_path)
+        # Update the weights and reset optimizer
+        self.scaler.step(self.disc_optimizer)
+        self.scaler.step(self.generator_optimizer)
+        self.disc_optimizer.zero_grad(set_to_none=True)
+        self.generator_optimizer.zero_grad(set_to_none=True)
+        self.scaler.update()
 
-                global_step += 1
+        if first_processor:
+            if param_norm:
+                self.logger.calculate_param_norms(
+                    self.pipeline.modules_to_log)
 
-            # epoch end — checkpoint
-            if ((epoch + 1) % args.save_weight_every) == 0:
-                if dist.get_rank() == 0:
-                    ck_path = os.path.join(
-                        args.save_dir, f"epoch_{epoch+1:04d}.pt")
-                    pipeline.save_checkpoint(ck_path, epoch=epoch)
-                    print(f"Saved checkpoint: {ck_path}")
+            if param_dist:
+                self.logger.log_param_distribution(
+                    "generator", self.pipeline.generator_trainable_params)
+                self.logger.log_param_distribution(
+                    "discriminator", self.pipeline.disc_trainable_params)
 
-    dist.destroy_process_group()
-    print("Training complete.")
+        # All the final logging to management server
+        if first_processor:
+            logs = self.logger.finalize()
+
+            grad_contrib_ratios = logs.pop("gradient_contribs")
+            if grad_contrib and grad_contrib_ratios:
+                self.save_contrib_plot(grad_contrib_ratios, global_step)
+
+            output_images = logs.pop("output_images")
+            if save_debug and output_images:
+                self.save_debug_image(output_images, global_step)
+
+            self.mlflow_manager.log_recusrive_scalar(
+                log=logs, name="", step=global_step)
 
 
 if __name__ == "__main__":
-    main()
+    args = get_args()
+    trainer = Trainer(args=args)
+    trainer.train()

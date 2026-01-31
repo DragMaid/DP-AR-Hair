@@ -2,17 +2,19 @@ import os
 import argparse
 import torch
 from tqdm import tqdm
-from pathlib import Path
 from torch.utils.data import DataLoader, DistributedSampler
 from torchvision import transforms as T
 from data.celebvhq_generated import CelebVHQGeneratedDataset
 from pipelines.training_pipeline import TrainingPipeline
 import torch.distributed as dist
 from configs.pipeline_config import pipeline_config as pco
-from utils import MLFlowManager
+from utils import (
+    MLFlowManager,
+    save_contrib_plot,
+    save_debug_image,
+    save_param_histogram
+)
 from losses.utils import StepLogger
-from torchvision.utils import make_grid, save_image
-from matplotlib import pyplot as plt
 
 
 def get_args():
@@ -48,10 +50,12 @@ class Trainer:
 
     def init_ddp(self):
         # TODO: allow user to select a specific device
-        local_rank = int(os.environ["LOCAL_RANK"])
+        self.local_rank = int(os.environ["LOCAL_RANK"])
+        self.first_processor = self.local_rank == 0
+
         if torch.cuda.is_available():
-            torch.cuda.set_device(local_rank)
-            self.device = torch.device(f"cuda:{local_rank}")
+            torch.cuda.set_device(self.local_rank)
+            self.device = torch.device(f"cuda:{self.local_rank}")
             self.backend = "nccl"
         else:
             self.device = torch.device("cpu")
@@ -61,7 +65,7 @@ class Trainer:
 
     def init_pipeline(self):
         # TODO: Add the proper URL instead of the default localhost:5000 (PostgreSQL)
-        self.mlflow_manager = MLFlowManager()
+        self.mlflow_manager = MLFlowManager(enabled=self.first_processor)
 
         transform = T.Compose([
             T.ToPILImage(),
@@ -84,7 +88,7 @@ class Trainer:
             sampler=self.sampler
         )
 
-        self.logger = StepLogger()
+        self.logger = StepLogger(enabled=self.first_processor)
         self.pipeline = TrainingPipeline(
             self.device, self.logger, self.local_rank)
 
@@ -120,35 +124,16 @@ class Trainer:
 
         os.makedirs(self.args.save_dir, exist_ok=True)
 
-    def save_contrib_plot(self, grad_contrib_ratios, global_step):
-        # Save the gradient contribution bar plot
-        plt.figure()
-        plt.title("Loss gradient contribution")
-        headers = [k.split('/')[-1][:4]
-                   for k in grad_contrib_ratios.keys()]
-        plt.bar(headers, grad_contrib_ratios.values())
-        file_path = Path("assets/artifacts/contribs/",
-                         f"step_{global_step}.jpg")
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        plt.savefig(file_path)
-        self.mlflow_manager.log_artifact(file_path, artifact_path="contribs")
-
-    def save_debug_image(self, output_images, global_step):
-        grid = make_grid(
-            output_images, nrow=8, normalize=True)
-        file_path = f"assets/artifacts/outputs/step_{global_step}.png"
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        save_image(grid, file_path)
-        self.mlflow_manager.log_artifact(file_path, artifact_path="outputs")
-
     def train(self):
-        first_processor = dist.get_rank() == 0
         with self.mlflow_manager.start_run():
             global_step = 0
             for epoch in range(self.start_epoch, self.args.epochs):
                 self.sampler.set_epoch(epoch)
-                epoch_iterator = tqdm(enumerate(self.dataloader), total=len(self.dataloader),
-                                      desc=f"Epoch {epoch+1}/{self.args.epochs}")
+                epoch_iterator = tqdm(
+                    enumerate(self.dataloader),
+                    total=len(self.dataloader),
+                    desc=f"Epoch {epoch+1}/{self.args.epochs}"
+                )
 
                 for step, batch in epoch_iterator:
                     grad_contrib = (
@@ -157,15 +142,21 @@ class Trainer:
                         global_step+1) % pco.training.log_config.param_norm_interval == 0
                     param_dist = (
                         global_step+1) % pco.training.log_config.param_dist_interval == 0
+                    param_ratio = (
+                        global_step+1) % pco.training.log_config.param_ratio_interval == 0
+                    param_hist = (
+                        global_step+1) % pco.training.log_config.param_hist_interval == 0
                     save_debug = (
                         global_step+1) % pco.training.log_config.output_save_interval == 0
 
                     self.step(
                         batch=batch,
                         global_step=global_step,
-                        first_processor=first_processor,
+                        first_processor=self.first_processor,
                         grad_contrib=grad_contrib,
                         param_dist=param_dist,
+                        param_ratio=param_ratio,
+                        param_hist=param_hist,
                         param_norm=param_norm,
                         save_debug=save_debug,
                     )
@@ -173,7 +164,8 @@ class Trainer:
                     global_step += 1
 
         # epoch end — checkpoint
-        if first_processor and ((epoch + 1) % self.args.save_weight_every) == 0:
+        if self.first_processor \
+                and ((epoch + 1) % self.args.save_weight_every) == 0:
             ck_path = os.path.join(
                 self.args.save_dir, f"epoch_{epoch+1:04d}.pt")
             self.pipeline.save_checkpoint(ck_path, epoch=epoch)
@@ -189,6 +181,8 @@ class Trainer:
         first_processor: bool,
         grad_contrib: bool,
         param_dist: bool,
+        param_ratio: bool,
+        param_hist: bool,
         param_norm: bool,
         save_debug: bool
     ):
@@ -210,7 +204,8 @@ class Trainer:
             self.logger.calculate_grad_norms(
                 self.pipeline.modules_to_log)
 
-        if first_processor and param_dist:
+        # Creating first snapshot to calculate update ratio
+        if first_processor and param_ratio:
             self.logger.snapshot_params(
                 "generator", self.pipeline.generator_trainable_params)
             self.logger.snapshot_params(
@@ -229,10 +224,28 @@ class Trainer:
                     self.pipeline.modules_to_log)
 
             if param_dist:
+                # Log parameter distribution
                 self.logger.log_param_distribution(
                     "generator", self.pipeline.generator_trainable_params)
                 self.logger.log_param_distribution(
                     "discriminator", self.pipeline.disc_trainable_params)
+
+            if param_ratio:
+                # Log parameter update rate
+                self.logger.log_param_update(
+                    "generator", self.pipeline.generator_trainable_params)
+                self.logger.log_param_update(
+                    "discriminator", self.pipeline.disc_trainable_params)
+
+            # TODO: implement parameter histogram
+            if param_hist:
+                self.mlflow_manager.log_artifact(
+                    save_param_histogram(
+                        model=self.pipeline.generator_trainable_params,
+                        global_step=global_step
+                    ),
+                    artifact_path="hist"
+                )
 
         # All the final logging to management server
         if first_processor:
@@ -240,11 +253,17 @@ class Trainer:
 
             grad_contrib_ratios = logs.pop("gradient_contribs")
             if grad_contrib and grad_contrib_ratios:
-                self.save_contrib_plot(grad_contrib_ratios, global_step)
+                self.mlflow_manager.log_artifact(
+                    save_contrib_plot(grad_contrib_ratios, global_step),
+                    artifact_path="contribs"
+                )
 
             output_images = logs.pop("output_images")
             if save_debug and output_images:
-                self.save_debug_image(output_images, global_step)
+                self.mlflow_manager.log_artifact(
+                    save_debug_image(output_images, global_step),
+                    artifact_path="outputs"
+                )
 
             self.mlflow_manager.log_recusrive_scalar(
                 log=logs, name="", step=global_step)

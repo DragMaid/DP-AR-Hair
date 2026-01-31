@@ -228,3 +228,4 @@ debug_images/
 **/assets/*
 **/patch.txt
 **/mlartifacts/*
+**/*.zip

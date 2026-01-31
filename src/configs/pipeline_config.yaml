@@ -21,7 +21,9 @@ training:
   log_config:
     grad_contrib_interval: 50 # Maybe 200
     param_norm_interval: 10
-    param_dist_interval: 20
+    param_ratio_interval: 20
+    param_dist_interval: 50
+    param_hist_interval: 500
     output_save_interval: 50 # Maybe 200
 
 dataset:

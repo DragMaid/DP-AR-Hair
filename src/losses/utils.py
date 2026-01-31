@@ -2,9 +2,9 @@ import torch
 from collections import defaultdict
 
 
-def disabled_rely(func):
+def enabled_rely(func):
     def wrapper(self, *args, **kwargs):
-        if not self.disabled:
+        if self.enabled:
             res = func(self, *args, **kwargs)
             return res
     return wrapper
@@ -101,8 +101,8 @@ def param_update_ratio(params, prev_params, eps=1e-8):
 
 
 class StepLogger:
-    def __init__(self, disabled=False):
-        self.disabled = disabled
+    def __init__(self, enabled=True):
+        self.enabled = enabled
         self.reset()
 
     def reset(self):
@@ -119,36 +119,36 @@ class StepLogger:
         self.param_dist = {}
         self._image_buffer = []
 
-    @disabled_rely
+    @enabled_rely
     def accumulate_loss(self, name, value):
         self.loss_sums[name] += float(value.detach())
 
-    @disabled_rely
+    @enabled_rely
     def accumulate_grad_contribution(self, name, grads):
         self.grad_contrib[name] += get_grad_norm_tensor(grads)
 
-    @disabled_rely
+    @enabled_rely
     def calculate_grad_norms(self, key_to_params):
         for key, params in key_to_params.items():
             self.grad_norms[key] = get_grad_norm_params(params)
 
-    @disabled_rely
+    @enabled_rely
     def calculate_param_norms(self, key_to_params):
         for key, params in key_to_params.items():
             self.param_norms[key] = get_param_norm(params)
 
-    @disabled_rely
+    @enabled_rely
     def snapshot_params(self, name, params):
         self.prev_params[name] = snapshot_params(params)
 
-    @disabled_rely
+    @enabled_rely
     def log_param_update(self, name, params):
         prev = self.prev_params.get(name)
         if prev is None:
             return
         self.param_update[name] = param_update_ratio(params, prev)
 
-    @disabled_rely
+    @enabled_rely
     def log_param_distribution(self, name, params):
         stats = param_distribution_stats(params)
         self.param_dist[name] = {
@@ -156,7 +156,7 @@ class StepLogger:
             for k, v in stats.items()
         }
 
-    @disabled_rely
+    @enabled_rely
     def log_images(self, images: torch.Tensor):
         """
         Store images during gradient accumulation.
@@ -165,12 +165,12 @@ class StepLogger:
         # detach and move to CPU to save GPU memory
         self._image_buffer.append(images.detach().cpu())
 
-    @disabled_rely
+    @enabled_rely
     def step_done(self):
         self.micro_steps += 1
 
     def finalize(self):
-        if self.disabled or self.micro_steps == 0:
+        if self.enabled or self.micro_steps == 0:
             return {}
 
         losses = {k: v / self.micro_steps for k, v in self.loss_sums.items()}

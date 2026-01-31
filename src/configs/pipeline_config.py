@@ -26,7 +26,9 @@ class DiscriminatorConfig(BaseModel):
 class LoggingConfig(BaseModel):
     grad_contrib_interval: int
     param_norm_interval: int
+    param_ratio_interval: int
     param_dist_interval: int
+    param_hist_interval: int
     output_save_interval: int
 
 

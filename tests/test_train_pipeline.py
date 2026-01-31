@@ -4,11 +4,14 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 from pipelines.training_pipeline import TrainingPipeline
 from configs.pipeline_config import pipeline_config as pco
-from utils import MLFlowManager
+from utils import (
+    MLFlowManager,
+    save_contrib_plot,
+    save_debug_image,
+    save_param_histogram
+)
 from losses.utils import StepLogger
-from torchvision.utils import make_grid, save_image
 from torchvision import transforms as T
-from matplotlib import pyplot as plt
 from PIL import Image
 import pytest
 
@@ -63,9 +66,10 @@ def run_pipeline(device, real_sample=False, batch_size=1):
         def __init__(self, device, logger):
             super().__init__(device, logger, loaded=False)
 
-    logger = StepLogger()
-    pipeline = TestPipeline(device=device, logger=logger)
     first_processor = dist.get_rank() == 0
+
+    logger = StepLogger(enabled=first_processor)
+    pipeline = TestPipeline(device=device, logger=logger)
 
     # Refering to entire pipeline beside IIHT
     generator_optimizer = torch.optim.Adam(
@@ -115,7 +119,7 @@ def run_pipeline(device, real_sample=False, batch_size=1):
 
     logger.reset()
 
-    mlflow_manager = MLFlowManager()
+    mlflow_manager = MLFlowManager(enabled=False)
 
     with mlflow_manager.start_run():
         with torch.autograd.set_detect_anomaly(True):
@@ -144,6 +148,9 @@ def run_pipeline(device, real_sample=False, batch_size=1):
         if not first_processor:
             return
 
+        # Log generator distribution param (largest tensor)
+        save_param_histogram(pipeline.generator_trainable_params, 1)
+
         logger.log_param_update(
             "generator", pipeline.generator_trainable_params)
         logger.log_param_update(
@@ -159,24 +166,14 @@ def run_pipeline(device, real_sample=False, batch_size=1):
             "discriminator", pipeline.disc_trainable_params)
 
         logs = logger.finalize()
+
+        # Plot the batch output images
         output_images = logs.pop("output_images")
+        save_debug_image(output_images, 1)
 
         # Plot the contribution bar plot
         grad_contrib_ratios = logs["gradient_contribs"]
-        plt.figure()
-        plt.title("Loss gradient contribution")
-        headers = [k.split('/')[-1][:4]
-                   for k in grad_contrib_ratios.keys()]
-        plt.bar(headers, grad_contrib_ratios.values())
-        file_path = Path("assets/artifacts/contribs/test.jpg")
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        plt.savefig(file_path)
-
-        # Plot the batch output images
-        grid = make_grid(output_images, nrow=8, normalize=True)
-        file_path = Path("assets/artifacts/outputs/step_test.png")
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        save_image(grid, file_path)
+        save_contrib_plot(grad_contrib_ratios, 1)
 
         print(logs)
 

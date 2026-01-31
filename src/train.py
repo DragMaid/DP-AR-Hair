@@ -36,6 +36,8 @@ def get_args():
                    default=pco.training.epochs_till_save)
     p.add_argument("--resume", type=str, default=None,
                    help="path to checkpoint to resume")
+    p.add_argument("--mlflow", action="store_true",
+                   help="Specify whether to log to mlflow server")
     # p.add_argument("--device", type=str, default=None)
     p.add_argument("--mixed_precision", action="store_true")
     return p.parse_args()
@@ -65,7 +67,8 @@ class Trainer:
 
     def init_pipeline(self):
         # TODO: Add the proper URL instead of the default localhost:5000 (PostgreSQL)
-        self.mlflow_manager = MLFlowManager(enabled=self.first_processor)
+        self.mlflow_manager = MLFlowManager(
+            enabled=self.first_processor and self.args.mlflow)
 
         transform = T.Compose([
             T.ToPILImage(),
@@ -191,7 +194,6 @@ class Trainer:
         I_d = batch["driving"]["content"]
         I_d_dilde = batch["generated"]["content"]
 
-        # TODO: check all of this shit
         self.pipeline.train_step(
             I_s, I_d, I_d_dilde,
             mini_batch_size=self.args.mini_batch_size,
@@ -237,11 +239,10 @@ class Trainer:
                 self.logger.log_param_update(
                     "discriminator", self.pipeline.disc_trainable_params)
 
-            # TODO: implement parameter histogram
             if param_hist:
                 self.mlflow_manager.log_artifact(
                     save_param_histogram(
-                        model=self.pipeline.generator_trainable_params,
+                        params=self.pipeline.generator_trainable_params,
                         global_step=global_step
                     ),
                     artifact_path="hist"
@@ -259,7 +260,7 @@ class Trainer:
                 )
 
             output_images = logs.pop("output_images")
-            if save_debug and output_images:
+            if save_debug and output_images is not None:
                 self.mlflow_manager.log_artifact(
                     save_debug_image(output_images, global_step),
                     artifact_path="outputs"

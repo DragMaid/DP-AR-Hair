@@ -170,7 +170,7 @@ class StepLogger:
         self.micro_steps += 1
 
     def finalize(self):
-        if self.enabled or self.micro_steps == 0:
+        if not self.enabled or self.micro_steps == 0:
             return {}
 
         losses = {k: v / self.micro_steps for k, v in self.loss_sums.items()}

@@ -23,7 +23,7 @@ def save_contrib_plot(grad_contrib_ratios, global_step):
 def save_debug_image(output_images, global_step):
     grid = make_grid(
         output_images, nrow=8, normalize=True)
-    file_path = f"assets/artifacts/outputs/step_{global_step}.png"
+    file_path = Path(f"assets/artifacts/outputs/step_{global_step}.png")
     file_path.parent.mkdir(parents=True, exist_ok=True)
     save_image(grid, file_path)
     return file_path
@@ -109,8 +109,7 @@ class MLFlowManager:
             if isinstance(v, dict):
                 self.log_recusrive_scalar(log=v, name=appended_name, step=step)
             else:
-                print(appended_name, v)
-                mlflow_manager.log_metric(
+                self.log_metric(
                     key=appended_name, value=v, step=step)
 
 

@@ -172,7 +172,7 @@ def run_pipeline(device, real_sample=False, batch_size=1):
         save_debug_image(output_images, 1)
 
         # Plot the contribution bar plot
-        grad_contrib_ratios = logs["gradient_contribs"]
+        grad_contrib_ratios = logs.pop("gradient_contribs")
         save_contrib_plot(grad_contrib_ratios, 1)
 
         print(logs)

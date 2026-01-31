@@ -68,7 +68,7 @@ class LossHandler:
         # Generator just wants to fool the discriminator so no real_loss
         # Adversarial loss (generator tries to fool discriminator)
         # Make sure its in FP32
-        pred_fake = discriminator(I_p)
+        pred_fake = discriminator(I_p.float())
         target_real = torch.ones_like(pred_fake)
         a_gen_loss = self.weights.adv_rate * \
             self.disc_criterion(pred_fake, target_real)

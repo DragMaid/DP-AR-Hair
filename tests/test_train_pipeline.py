@@ -4,12 +4,12 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 from pipelines.training_pipeline import TrainingPipeline
 from configs.pipeline_config import pipeline_config as pco
-from utils import (
-    MLFlowManager,
+from hairshifter.mlflow_manager import MLFlowManager
+from hairshifter.ema import EMA
+from hairshifter.utils import (
     save_contrib_plot,
     save_debug_image,
-    save_param_histogram,
-    EMA
+    save_param_histogram
 )
 from losses.utils import StepLogger
 from torchvision import transforms as T

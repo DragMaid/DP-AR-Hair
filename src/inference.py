@@ -12,7 +12,7 @@ from configs.pipeline_config import pipeline_config as pco
 from sixdrepnet import SixDRepNet
 from loaders.loader import load_hfg_generator
 from hair_gan.utils.shape_predictor import align_face, get_landmark_detector
-from utils import EMA
+from hairshifter.ema import EMA
 
 
 def cv2_to_pil(cv2_image):

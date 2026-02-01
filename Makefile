@@ -189,6 +189,8 @@ db-cache:
 # Dataset for hosting
 # =========================
 
+GENERATED_DIR := ./assets/dataset
+GENERATED_ZIP := ./assets/generated.zip
 ASSET_DIR := ./src/manager/assets
 REF_ZIP := $(ASSET_DIR)/celebahq-resized-256x256.zip
 REF_TMP := $(ASSET_DIR)/reference_images_tmp
@@ -230,4 +232,14 @@ drive-download:
 	@unrar e "$(ASSET_DIR)/driving_images.rar" "$(ASSET_DIR)/driving_images/"; \
 
 cache-download:
-	gdown --fuzy https://drive.google.com/file/d/1HGFWArOF6eEQbPydq6b_8RtN0oEadwQ3/view -O "$(ASSET_DIR)/"
+	gdown --fuzzy https://drive.google.com/file/d/1HGFWArOF6eEQbPydq6b_8RtN0oEadwQ3/view -O "$(ASSET_DIR)/"
+
+generated-download:
+	@if [ ! -f "$(GENERATED_ZIP)" ]; then \
+		echo "[INFO] Downloading generated images zip..."; \
+		gdown --fuzzy https://drive.google.com/file/d/1tQnwuHrq__lXiW4QAQV1W5SJ3UIBkNPZ/view -O "$(GENERATED_ZIP)"; \
+	else \
+		echo "[INFO] Generated images zip already exist, skipping"; \
+	fi
+	@mkdir -p "$(GENERATED_DIR)"; \
+	unzip -o -j "$(GENERATED_ZIP)" -d "$(GENERATED_DIR)"; \

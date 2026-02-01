@@ -10,6 +10,47 @@ def enabled_rely(func):
     return wrapper
 
 
+def calculate_grad_contrib(gen_losses, params, scaler, gen_optimizer):
+    real_grads = [
+        p.grad.detach().clone() if p.grad is not None else None
+        for p in params
+    ]
+
+    # Build TOTAL gradient vector (reference direction)
+    g_total = torch.cat([
+        g.flatten() for g in real_grads if g is not None
+    ])
+    total_norm_sq = torch.dot(g_total, g_total) + 1e-12
+
+    contrib = {}
+
+    for name, loss in gen_losses.items():
+        if name == "generator_loss":
+            continue
+
+        # zero grads before temp backward
+        for p in params:
+            p.grad = None
+
+        scaler.scale(loss).backward(retain_graph=True)
+        scaler.unscale_(gen_optimizer)
+
+        g_i = torch.cat([
+            p.grad.detach().flatten()
+            for p in params if p.grad is not None
+        ])
+
+        contrib[name] = (
+            torch.dot(g_i, g_total) / total_norm_sq
+        ).item()
+
+    # Restore grad afterwards
+    for p, g in zip(params, real_grads):
+        p.grad = g
+
+    return contrib
+
+
 def get_grad_norm_tensor(grads: torch.tensor):
     grads = [g for g in grads if g is not None]
 
@@ -105,10 +146,13 @@ class StepLogger:
         self.enabled = enabled
         self.reset()
 
+    def set_optimizer(self, gen_optimizer):
+        self.gen_optimizer = gen_optimizer
+
     def reset(self):
         self.micro_steps = 0
         self.loss_sums = defaultdict(float)
-        self.grad_contrib = defaultdict(float)
+        self.loss_contrib = {}
 
         self.grad_norms = {}
         self.param_norms = {}
@@ -124,8 +168,13 @@ class StepLogger:
         self.loss_sums[name] += float(value.detach())
 
     @enabled_rely
-    def accumulate_grad_contribution(self, name, grads):
-        self.grad_contrib[name] += get_grad_norm_tensor(grads)
+    def calculate_loss_contribution(self, gen_losses, params, scaler):
+        self.loss_contrib = calculate_grad_contrib(
+            gen_losses=gen_losses,
+            params=params,
+            scaler=scaler,
+            gen_optimizer=self.gen_optimizer
+        )
 
     @enabled_rely
     def calculate_grad_norms(self, key_to_params):
@@ -175,18 +224,12 @@ class StepLogger:
 
         losses = {k: v / self.micro_steps for k, v in self.loss_sums.items()}
 
-        grad_contributions = {}
-        for k, v in self.grad_contrib.items():
-            if k != "generator_loss":
-                grad_contributions[k] = v / \
-                    (self.grad_contrib["generator_loss"] + 1e-8)
-
         all_images = torch.cat(
             self._image_buffer, dim=0) if self._image_buffer else None
 
         return {
             "losses": losses,
-            "gradient_contribs": grad_contributions,
+            "gradient_contribs": self.loss_contrib,
             "gradient_norms": self.grad_norms,
             "param_norms": self.param_norms,
             "param_update_ratios": self.param_update,

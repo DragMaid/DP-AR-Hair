@@ -8,7 +8,8 @@ from utils import (
     MLFlowManager,
     save_contrib_plot,
     save_debug_image,
-    save_param_histogram
+    save_param_histogram,
+    EMA
 )
 from losses.utils import StepLogger
 from torchvision import transforms as T
@@ -70,6 +71,7 @@ def run_pipeline(device, real_sample=False, batch_size=1):
 
     logger = StepLogger(enabled=first_processor)
     pipeline = TestPipeline(device=device, logger=logger)
+    ema = EMA(pipeline.generator_trainable_dict, 0.99)
 
     # Refering to entire pipeline beside IIHT
     generator_optimizer = torch.optim.Adam(
@@ -87,7 +89,8 @@ def run_pipeline(device, real_sample=False, batch_size=1):
 
     pipeline.set_optimizers(
         generator_optimizer=generator_optimizer,
-        disc_optimizer=disc_optimizer
+        disc_optimizer=disc_optimizer,
+        ema=ema
     )
 
     from pathlib import Path
@@ -147,6 +150,8 @@ def run_pipeline(device, real_sample=False, batch_size=1):
 
         if not first_processor:
             return
+
+        ema.update()
 
         # Log generator distribution param (largest tensor)
         save_param_histogram(pipeline.generator_trainable_params, 1)

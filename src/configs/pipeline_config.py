@@ -29,6 +29,7 @@ class LoggingConfig(BaseModel):
     param_ratio_interval: int
     param_dist_interval: int
     param_hist_interval: int
+    ema_update_interval: int
     output_save_interval: int
 
 

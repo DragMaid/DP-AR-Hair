@@ -47,10 +47,17 @@ class TrainingPipeline:
         self.D = MSGSpadeDecoder(self.D_C, self.D_S)
 
         # include any parameters that require grad from D_S and E_C
-        self.synthesizer_decoder_trainable_params = [
-            p for p in self.D_S.parameters() if p.requires_grad]
-        self.context_encoder_trainable_params = [
-            p for p in self.E_C.parameters() if p.requires_grad]
+        self.synthesizer_decoder_trainable_dict = {
+            k: p for k, p in self.D_S.named_parameters() if p.requires_grad}
+        self.context_encoder_trainable_dict = {
+            k: p for k, p in self.E_C.named_parameters() if p.requires_grad}
+        self.generator_trainable_dict = self.synthesizer_decoder_trainable_dict | \
+            self.context_encoder_trainable_dict
+
+        self.synthesizer_decoder_trainable_params = list(
+            self.synthesizer_decoder_trainable_dict.values())
+        self.context_encoder_trainable_params = list(
+            self.context_encoder_trainable_dict.values())
         self.generator_trainable_params = self.synthesizer_decoder_trainable_params + \
             self.context_encoder_trainable_params
 
@@ -80,9 +87,11 @@ class TrainingPipeline:
             "synthesize_decoder": self.synthesizer_decoder_trainable_params,
         }
 
-    def set_optimizers(self, generator_optimizer, disc_optimizer):
+    def set_optimizers(self, generator_optimizer, disc_optimizer, ema):
         self.generator_optimizer = generator_optimizer
         self.disc_optimizer = disc_optimizer
+        self.logger.set_optimizer(gen_optimizer=generator_optimizer)
+        self.ema = ema
 
     def train_step(
         self,
@@ -113,6 +122,7 @@ class TrainingPipeline:
             # This is for gradient accumulation
             start = mini_batch_size * i
             end = min(start + mini_batch_size, batch_size)
+            last_mini = i == steps - 1
 
             I_s = I_s_o[start:end]
             I_d = I_d_o[start:end]
@@ -162,22 +172,19 @@ class TrainingPipeline:
                 I_d, I_p, m_c, m_f, self.L_adv)
 
             gen_loss = gen_losses["generator_loss"]
-            gen_loss = gen_loss / steps
             for k, v in gen_losses.items():
                 self.logger.accumulate_loss(name=k, value=v)
 
-            # accumulate the grad contribution
-            if accumulate_grad_contrib:
-                for k, v in gen_losses.items():
-                    grads = torch.autograd.grad(
-                        v,
-                        self.generator_trainable_params,
-                        retain_graph=True,
-                        allow_unused=True
-                    )
-                    self.logger.accumulate_grad_contribution(name=k, grads=grads)
+            scaler.scale(
+                gen_loss / steps).backward(retain_graph=accumulate_grad_contrib)
 
-            scaler.scale(gen_loss).backward()
+            if accumulate_grad_contrib and last_mini:
+                self.logger.calculate_loss_contribution(
+                    gen_losses=gen_losses,
+                    params=self.generator_trainable_params,
+                    scaler=scaler,
+                )
+
             del I_d, I_p, gen_losses
 
             for p in self.L_adv.parameters():
@@ -205,6 +212,8 @@ class TrainingPipeline:
         # optimizers
         payload["generator_optimizer"] = self.generator_optimizer.state_dict()
         payload["disc_optimizer"] = self.disc_optimizer.state_dict()
+        payload["ema"] = self.ema.shadow
+
         if extra:
             payload["extra"] = extra
 
@@ -222,10 +231,18 @@ class TrainingPipeline:
                     module.load_state_dict(ck[name], strict=False)
                 except Exception:
                     module.load_state_dict(ck[name])
+
         if load_optimizers:
             if "generator_optimizer" in ck:
                 self.generator_optimizer.load_state_dict(
                     ck["generator_optimizer"])
+
             if "disc_optimizer" in ck:
                 self.disc_optimizer.load_state_dict(ck["disc_optimizer"])
+
+            if "ema" in ck:
+                for name, param in self.generator_trainable_dict.items():
+                    if param.requires_grad and name in ck['ema']:
+                        self.ema.shadow[name] = ck['ema'][name].clone()
+
         return ck

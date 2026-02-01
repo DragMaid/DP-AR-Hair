@@ -79,6 +79,8 @@ class LossHandler:
         generator_loss = perceptual_loss + a_gen_loss + \
             hair_loss + face_loss + global_loss
 
+        # TODO: fix perceptual loss is dominating the losses
+
         return {
             "generator_loss": generator_loss,
             "perceptual_loss": perceptual_loss,

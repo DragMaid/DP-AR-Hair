@@ -12,6 +12,7 @@ from configs.pipeline_config import pipeline_config as pco
 from sixdrepnet import SixDRepNet
 from loaders.loader import load_hfg_generator
 from hair_gan.utils.shape_predictor import align_face, get_landmark_detector
+from utils import EMA
 
 
 def cv2_to_pil(cv2_image):
@@ -38,6 +39,8 @@ class HairShifter:
             raise FileNotFoundError(f"Checkpoint file {checkpoint} not found")
 
         self.pipeline = InferencePipeline(device)
+        self.ema = EMA(self.pipeline.generator_trainable_dict, 0.999)
+        self.pipeline.set_ema(self.ema)
         self.pipeline.load_checkpoint(checkpoint)
 
         self.generator = load_hfg_generator()
@@ -108,7 +111,7 @@ class HairShifter:
             )
 
     def transfer(self, video_path, reference_path, output_path,
-                 align=False, poor=False):
+                 align=False, poor=False, ema=True):
         if not Path(video_path).exists():
             raise FileNotFoundError(f"Video path {video_path} not found")
 
@@ -193,11 +196,18 @@ class HairShifter:
 
                 driving_frames.clear()
 
+                if ema:
+                    self.ema.apply_shadow()
+
                 with torch.inference_mode():
                     output_batch = self.pipeline.inference(
                         I_s=source_batch,
                         I_d_t=driving_batch
                     )
+
+                # WARN: If no longer used then maybe just discard this
+                if ema:
+                    self.ema.restore()
 
                 del driving_batch, source_batch
 
@@ -231,6 +241,8 @@ def get_args():
                    action="store_true")
     p.add_argument("--poor", help="Option to set poor mode and clear for one time inference",
                    action="store_true")
+    p.add_argument("--ema", help="Option to use exponential moving average for inference",
+                   action="store_true")
 
     return p.parse_args()
 
@@ -251,7 +263,8 @@ def main():
         reference_path=args.reference,
         output_path=args.output,
         align=args.align,
-        poor=args.poor
+        poor=args.poor,
+        ema=args.ema
     )
 
     print("Inference complete.")

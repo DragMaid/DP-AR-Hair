@@ -24,6 +24,7 @@ training:
     param_ratio_interval: 20
     param_dist_interval: 50
     param_hist_interval: 500
+    ema_update_interval: 10
     output_save_interval: 50 # Maybe 200
 
 dataset:

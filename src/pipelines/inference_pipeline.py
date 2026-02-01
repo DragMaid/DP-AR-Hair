@@ -44,6 +44,17 @@ class InferencePipeline:
             "D_S": self.D_S,
         }
 
+        # Not frozen yet but will be used in inference mode
+        self.synthesizer_decoder_trainable_dict = {
+            k: p for k, p in self.D_S.named_parameters() if p.requires_grad}
+        self.context_encoder_trainable_dict = {
+            k: p for k, p in self.E_C.named_parameters() if p.requires_grad}
+        self.generator_trainable_dict = self.synthesizer_decoder_trainable_dict | \
+            self.context_encoder_trainable_dict
+
+    def set_ema(self, ema):
+        self.ema = ema
+
     @torch.no_grad()
     def inference(self, I_s, I_d_t):
         # TODO: should I send the image right back or should I make it into an entire video ?
@@ -79,4 +90,10 @@ class InferencePipeline:
                     module.load_state_dict(ck[name], strict=False)
                 except Exception:
                     module.load_state_dict(ck[name])
+
+        if "ema" in ck:
+            for name, param in self.generator_trainable_dict.items():
+                if param.requires_grad and name in ck['ema']:
+                    self.ema.shadow[name] = ck['ema'][name].clone()
+
         return ck

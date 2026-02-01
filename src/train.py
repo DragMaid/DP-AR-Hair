@@ -12,7 +12,8 @@ from utils import (
     MLFlowManager,
     save_contrib_plot,
     save_debug_image,
-    save_param_histogram
+    save_param_histogram,
+    EMA
 )
 from losses.utils import StepLogger
 
@@ -95,6 +96,14 @@ class Trainer:
         self.pipeline = TrainingPipeline(
             self.device, self.logger, self.local_rank)
 
+        # TODO: change this to config decay rate
+        self.initial_decay = 0.99
+        self.final_decay = 0.999
+        self.decay_increase_rate = abs(
+            self.final_decay - self.initial_decay) / self.args.epochs
+        self.ema = EMA(self.pipeline.generator_trainable_dict,
+                       self.initial_decay, enabled=self.first_processor)
+
         # Refering to entire pipeline beside IIHT
         self.generator_optimizer = torch.optim.Adam(
             self.pipeline.generator_trainable_params,
@@ -113,7 +122,8 @@ class Trainer:
         # Set the optimizers to be used in pipeline
         self.pipeline.set_optimizers(
             generator_optimizer=self.generator_optimizer,
-            disc_optimizer=self.disc_optimizer
+            disc_optimizer=self.disc_optimizer,
+            ema=self.ema
         )
 
         self.start_epoch = 0
@@ -132,6 +142,7 @@ class Trainer:
             global_step = 0
             for epoch in range(self.start_epoch, self.args.epochs):
                 self.sampler.set_epoch(epoch)
+                self.ema.decay = self.initial_decay + epoch * self.decay_increase_rate
                 epoch_iterator = tqdm(
                     enumerate(self.dataloader),
                     total=len(self.dataloader),
@@ -151,6 +162,8 @@ class Trainer:
                         global_step+1) % pco.training.log_config.param_hist_interval == 0
                     save_debug = (
                         global_step+1) % pco.training.log_config.output_save_interval == 0
+                    ema_update = (
+                        global_step+1) % pco.training.log_config.ema_update_interval == 0
 
                     self.step(
                         batch=batch,
@@ -161,6 +174,7 @@ class Trainer:
                         param_ratio=param_ratio,
                         param_hist=param_hist,
                         param_norm=param_norm,
+                        ema_update=ema_update,
                         save_debug=save_debug,
                     )
 
@@ -187,6 +201,7 @@ class Trainer:
         param_ratio: bool,
         param_hist: bool,
         param_norm: bool,
+        ema_update: bool,
         save_debug: bool
     ):
         # Get the 3 images: original front / side and hair transfered image
@@ -199,7 +214,7 @@ class Trainer:
             mini_batch_size=self.args.mini_batch_size,
             scaler=self.scaler,
             accumulate_grad_contrib=grad_contrib,
-            store_outputs=True)
+            store_outputs=save_debug)
 
         # Log gradient norms every step
         if first_processor:
@@ -221,6 +236,10 @@ class Trainer:
         self.scaler.update()
 
         if first_processor:
+            # Call exponential moving average update
+            if ema_update:
+                self.ema.update()
+
             if param_norm:
                 self.logger.calculate_param_norms(
                     self.pipeline.modules_to_log)

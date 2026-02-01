@@ -14,9 +14,21 @@ training:
     p_rate: 1
     h_rate: 1
     f_rate: 1
+  stablizers:
+    mask_jitter_prob: 0.5
+    image_aug_prob: 0.5
   save_dir: './checkpoints/'
+  artifact_dir: './assets/artifacts/'
   epochs_till_save: 10
   steps_till_save: 1000
+  log_config:
+    grad_contrib_interval: 50 # Maybe 200
+    param_norm_interval: 10
+    param_ratio_interval: 20
+    param_dist_interval: 50
+    param_hist_interval: 500
+    ema_update_interval: 10
+    output_save_interval: 50 # Maybe 200
 
 dataset:
   dataset_dir: './assets/dataset'

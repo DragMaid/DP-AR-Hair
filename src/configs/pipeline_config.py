@@ -5,6 +5,11 @@ from pydantic import BaseModel
 from typing import Tuple
 
 
+class StablizersConfig(BaseModel):
+    mask_jitter_prob: float
+    image_aug_prob: float
+
+
 class LossConfig(BaseModel):
     adv_rate: float
     rec_rate: float
@@ -23,6 +28,16 @@ class DiscriminatorConfig(BaseModel):
     betas: Tuple[float, float]
 
 
+class LoggingConfig(BaseModel):
+    grad_contrib_interval: int
+    param_norm_interval: int
+    param_ratio_interval: int
+    param_dist_interval: int
+    param_hist_interval: int
+    ema_update_interval: int
+    output_save_interval: int
+
+
 class TrainingConfig(BaseModel):
     epoch_num: int
     batch_size: int
@@ -31,8 +46,10 @@ class TrainingConfig(BaseModel):
     discriminator: DiscriminatorConfig
     generator: GeneratorConfig
     save_dir: str
+    artifact_dir: str
     epochs_till_save: int
     steps_till_save: int
+    log_config: LoggingConfig
 
 
 class InferenceConfig(BaseModel):

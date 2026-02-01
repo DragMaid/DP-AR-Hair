@@ -210,6 +210,11 @@ tests/__snapshots__/
 **/weights/
 **/pretrained_weights/
 **/pretrained_models/
+
+
+# Application
+smart-style-salon-app/backend/node_modules
+smart-style-salon-app/frontend/node_modules
 downloaded_celebvhq/
 driving_images/
 reference_images/
@@ -222,3 +227,5 @@ debug_images/
 **/cache.txt.*
 **/assets/*
 **/patch.txt
+**/mlartifacts/*
+**/*.zip

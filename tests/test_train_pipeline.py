@@ -4,6 +4,14 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 from pipelines.training_pipeline import TrainingPipeline
 from configs.pipeline_config import pipeline_config as pco
+from hairshifter.mlflow_manager import MLFlowManager
+from hairshifter.ema import EMA
+from hairshifter.utils import (
+    save_contrib_plot,
+    save_debug_image,
+    save_param_histogram
+)
+from losses.utils import StepLogger
 from torchvision import transforms as T
 from PIL import Image
 import pytest
@@ -22,7 +30,7 @@ def test_parallel_pipeline():
 @pytest.mark.report_uss
 @pytest.mark.report_tracemalloc
 @pytest.mark.report_duration
-@pytest.mark.parametrize("batch_size", [2])
+@pytest.mark.parametrize("batch_size", [1])
 def test_batched_pipeline(batch_size):
     world_size = 1
     mp.spawn(ddp_worker, args=(world_size, batch_size), nprocs=world_size)
@@ -56,11 +64,14 @@ def run_pipeline(device, real_sample=False, batch_size=1):
 
     # Initialize pipeline (bypass local_rank / DDP for test)
     class TestPipeline(TrainingPipeline):
-        def __init__(self, device):
-            self.device = torch.device(device)
-            super().__init__(self.device, loaded=False)
+        def __init__(self, device, logger):
+            super().__init__(device, logger, loaded=False)
 
-    pipeline = TestPipeline(device=device)
+    first_processor = dist.get_rank() == 0
+
+    logger = StepLogger(enabled=first_processor)
+    pipeline = TestPipeline(device=device, logger=logger)
+    ema = EMA(pipeline.generator_trainable_dict, 0.99)
 
     # Refering to entire pipeline beside IIHT
     generator_optimizer = torch.optim.Adam(
@@ -78,7 +89,8 @@ def run_pipeline(device, real_sample=False, batch_size=1):
 
     pipeline.set_optimizers(
         generator_optimizer=generator_optimizer,
-        disc_optimizer=disc_optimizer
+        disc_optimizer=disc_optimizer,
+        ema=ema
     )
 
     from pathlib import Path
@@ -108,11 +120,26 @@ def run_pipeline(device, real_sample=False, batch_size=1):
 
     I_s, I_d, I_d_dilde = images
 
-    with torch.autograd.set_detect_anomaly(True):
-        logs = pipeline.train_step(I_s, I_d, I_d_dilde, scaler,
-                                   mini_batch_size=1,
-                                   save_debug=True,
-                                   save_path=Path("./assets/debug_images/"))
+    logger.reset()
+
+    mlflow_manager = MLFlowManager(enabled=False)
+
+    with mlflow_manager.start_run():
+        with torch.autograd.set_detect_anomaly(True):
+            pipeline.train_step(
+                I_s, I_d, I_d_dilde,
+                scaler,
+                mini_batch_size=1,
+                accumulate_grad_contrib=True,
+                store_outputs=True)
+
+        if first_processor:
+            logger.calculate_grad_norms(pipeline.modules_to_log)
+
+            logger.snapshot_params(
+                "generator", pipeline.generator_trainable_params)
+            logger.snapshot_params(
+                "discriminator", pipeline.disc_trainable_params)
 
         # Update the weights and reset optimizer
         scaler.step(disc_optimizer)
@@ -121,9 +148,41 @@ def run_pipeline(device, real_sample=False, batch_size=1):
         generator_optimizer.zero_grad(set_to_none=True)
         scaler.update()
 
-    print("Train step logs:", logs)
+        if not first_processor:
+            return
 
-    # Save minimal checkpoint
-    os.makedirs(ck_dir, exist_ok=True)
-    pipeline.save_checkpoint(ck_path, epoch=1)
-    print(f"Checkpoint saved to {ck_path}")
+        ema.update()
+
+        # Log generator distribution param (largest tensor)
+        save_param_histogram(pipeline.generator_trainable_params, 1)
+
+        logger.log_param_update(
+            "generator", pipeline.generator_trainable_params)
+        logger.log_param_update(
+            "discriminator", pipeline.disc_trainable_params)
+
+        # Calculate param norms
+        logger.calculate_param_norms(pipeline.modules_to_log)
+
+        # Calculate parameters distribution
+        logger.log_param_distribution(
+            "generator", pipeline.generator_trainable_params)
+        logger.log_param_distribution(
+            "discriminator", pipeline.disc_trainable_params)
+
+        logs = logger.finalize()
+
+        # Plot the batch output images
+        output_images = logs.pop("output_images")
+        save_debug_image(output_images, 1)
+
+        # Plot the contribution bar plot
+        grad_contrib_ratios = logs.pop("gradient_contribs")
+        save_contrib_plot(grad_contrib_ratios, 1)
+
+        print(logs)
+
+        # Save minimal checkpoint
+        os.makedirs(ck_dir, exist_ok=True)
+        pipeline.save_checkpoint(ck_path, epoch=1)
+        print(f"Checkpoint saved to {ck_path}")

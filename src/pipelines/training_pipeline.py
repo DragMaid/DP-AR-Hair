@@ -7,6 +7,8 @@ from loaders.loader import load_models
 from models.msg_spade_decoder import MSGSpadeDecoder
 from losses.loss_handler import LossHandler
 from torch.nn.parallel import DistributedDataParallel as DDP
+from hairshifter.utils import discriminator_augment_pair, jitter_binary_mask
+from configs.pipeline_config import pipeline_config as pco
 
 
 class TrainingPipeline:
@@ -133,6 +135,10 @@ class TrainingPipeline:
                 # class_idx = 17 is used to get hair mask
                 m_c = get_mask_by_idx(I_d_dilde, self.M_C,
                                       device=self.device, class_idx=17)
+
+                # Jitter the mask so disc don't get sensitive with sharp edges
+                m_c = jitter_binary_mask(
+                    m_c, p=pco.training.stablizers.mask_jitter_prob)
                 m_f = 1 - m_c  # Inverted m_c or non-hair binary mask
 
             with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):
@@ -144,12 +150,19 @@ class TrainingPipeline:
                 f_c = self.E_C(I_d_dilde)
                 I_p = self.D(f_c, f_w, m_c)
 
+                # TODO: Implement data augmentation
+
             I_p_detached = I_p.detach().float()
             del I_p, f_c
 
+            I_d_aug, I_p_aug = discriminator_augment_pair(
+                I_d, I_p_detached, p=pco.training.stablizers.image_aug_prob
+            )
+
             # --- Discriminator update ---
             disc_loss = self.losses.compute_discriminator_loss(
-                I_d, I_p_detached, self.L_adv)
+                I_d_aug, I_p_aug, self.L_adv)
+            del I_d_aug, I_p_aug
 
             # backprop discriminator
             scaler.scale(disc_loss / steps).backward()

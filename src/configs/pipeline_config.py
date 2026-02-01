@@ -5,6 +5,11 @@ from pydantic import BaseModel
 from typing import Tuple
 
 
+class StablizersConfig(BaseModel):
+    mask_jitter_prob: float
+    image_aug_prob: float
+
+
 class LossConfig(BaseModel):
     adv_rate: float
     rec_rate: float

@@ -1,3 +1,4 @@
+import torch.nn.functional as F
 import torch
 from pathlib import Path
 from torchvision.utils import make_grid, save_image
@@ -64,9 +65,46 @@ def save_param_histogram(params, global_step, bins=100):
     return filename
 
 
-def enabled_rely(func):
-    def wrapper(self, *args, **kwargs):
-        if self.enabled:
-            res = func(self, *args, **kwargs)
-            return res
-    return wrapper
+def jitter_binary_mask(mask, p=0.5):
+    """
+    mask: (B, 1, H, W), values {0,1}
+    p: probability to apply jitter
+    """
+    if torch.rand(1).item() > p:
+        return mask
+
+    # randomly choose dilation or erosion
+    if torch.rand(1).item() < 0.5:
+        # dilation
+        return F.max_pool2d(mask, kernel_size=3, stride=1, padding=1)
+    else:
+        # erosion
+        return -F.max_pool2d(-mask, kernel_size=3, stride=1, padding=1)
+
+
+def discriminator_augment_pair(I_d, I_p, p=0.5):
+    """
+    Apply augmentation to both real (I_d) and fake (I_p) in a consistent way.
+    Each sample in batch is augmented or not together.
+    """
+    B = I_d.size(0)
+    I_d_aug, I_p_aug = I_d.clone(), I_p.clone()
+
+    for i in range(B):
+        if torch.rand(1).item() < p:
+            # horizontal flip
+            if torch.rand(1).item() < 0.5:
+                I_d_aug[i] = torch.flip(I_d_aug[i], dims=[2])
+                I_p_aug[i] = torch.flip(I_p_aug[i], dims=[2])
+            # mild brightness jitter
+            if torch.rand(1).item() < 0.5:
+                factor = 1.0 + (torch.rand(1).item() - 0.5) * 0.1
+                I_d_aug[i] = I_d_aug[i] * factor
+                I_p_aug[i] = I_p_aug[i] * factor
+            # very light Gaussian noise
+            if torch.rand(1).item() < 0.3:
+                noise = torch.randn_like(I_d_aug[i]) * 0.01
+                I_d_aug[i] = I_d_aug[i] + noise
+                I_p_aug[i] = I_p_aug[i] + noise
+
+    return I_d_aug, I_p_aug

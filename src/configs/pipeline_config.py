@@ -45,6 +45,7 @@ class TrainingConfig(BaseModel):
     loss: LossConfig
     discriminator: DiscriminatorConfig
     generator: GeneratorConfig
+    stablizers: StablizersConfig
     save_dir: str
     artifact_dir: str
     epochs_till_save: int

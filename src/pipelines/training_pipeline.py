@@ -150,8 +150,6 @@ class TrainingPipeline:
                 f_c = self.E_C(I_d_dilde)
                 I_p = self.D(f_c, f_w, m_c)
 
-                # TODO: Implement data augmentation
-
             I_p_detached = I_p.detach().float()
             del I_p, f_c
 

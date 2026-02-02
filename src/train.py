@@ -37,8 +37,8 @@ def get_args():
                    default=pco.training.epochs_till_save)
     p.add_argument("--resume", type=str, default=None,
                    help="path to checkpoint to resume")
-    p.add_argument("--mlflow", action="store_true",
-                   help="Specify whether to log to mlflow server")
+    p.add_argument("--mlflow_uri", type=str, default=None,
+                   help="Specify the mlflow server to log to")
     # p.add_argument("--device", type=str, default=None)
     p.add_argument("--mixed_precision", action="store_true")
     return p.parse_args()
@@ -67,9 +67,9 @@ class Trainer:
         dist.init_process_group(backend=self.backend)
 
     def init_pipeline(self):
-        # TODO: Add the proper URL instead of the default localhost:5000 (PostgreSQL)
         self.mlflow_manager = MLFlowManager(
-            enabled=self.first_processor and self.args.mlflow)
+            uri=self.args.mlflow_uri if self.args.mlflow_uri else "http://localhost:5000",
+            enabled=self.first_processor and self.args.mlflow_uri)
 
         transform = T.Compose([
             T.ToPILImage(),

@@ -229,3 +229,4 @@ debug_images/
 **/patch.txt
 **/mlartifacts/*
 **/*.zip
+**/*.db

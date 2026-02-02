@@ -33,7 +33,7 @@ pyyaml = "6.0.1"
 httpx = "0.28.1"
 setuptools = "^80.9.0"
 matplotlib = "^3.10.8"
-mlflow = "^3.8.1"
+mlflow = {extras = ["auth"], version = "^3.9.0"}
 
 [tool.poetry.group.vision]
 optional = true

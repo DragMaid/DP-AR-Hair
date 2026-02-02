@@ -243,3 +243,11 @@ generated-download:
 	fi
 	@mkdir -p "$(GENERATED_DIR)"; \
 	unzip -o -j "$(GENERATED_ZIP)" -d "$(GENERATED_DIR)"; \
+
+mlflow:
+	@if command -v poetry >/dev/null 2>&1; then \
+		poetry run mlflow server --host 0.0.0.0 --port 5000; \
+	else \
+		mlflow server --host 0.0.0.0 --port 5000; \
+	fi
+

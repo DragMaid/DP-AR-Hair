@@ -39,6 +39,8 @@ def get_args():
                    help="path to checkpoint to resume")
     p.add_argument("--mlflow_uri", type=str, default=None,
                    help="Specify the mlflow server to log to")
+    p.add_argument("--warmup", type=int, default=0,
+                   help="Specify warmup steps to perform")
     # p.add_argument("--device", type=str, default=None)
     p.add_argument("--mixed_precision", action="store_true")
     return p.parse_args()
@@ -91,6 +93,7 @@ class Trainer:
             pin_memory=True, drop_last=True,
             sampler=self.sampler
         )
+        self.steps_count = len(self.dataloader)
 
         self.logger = StepLogger(enabled=self.first_processor)
         self.pipeline = TrainingPipeline(
@@ -109,12 +112,16 @@ class Trainer:
             self.pipeline.generator_trainable_params,
             lr=pco.training.generator.learn_rate,
             betas=pco.training.generator.betas)
+        self.generator_scheduler = torch.optim.lr_scheduler.LambdaLR(
+            self.generator_optimizer, lr_lambda=self.warmup)
 
         # Discrimination optmizer
         self.disc_optimizer = torch.optim.Adam(
             self.pipeline.L_adv.parameters(),
             lr=pco.training.discriminator.learn_rate,
             betas=pco.training.discriminator.betas)
+        self.disc_scheduler = torch.optim.lr_scheduler.LambdaLR(
+            self.disc_optimizer, lr_lambda=self.warmup)
 
         self.scaler = torch.cuda.amp.GradScaler(
             enabled=self.args.mixed_precision and self.device.type == "cuda")
@@ -137,6 +144,12 @@ class Trainer:
 
         os.makedirs(self.args.save_dir, exist_ok=True)
 
+    def warmup(self, current_step):
+        if current_step < self.args.warmup:
+            return float(current_step) / float(max(1, self.args.warmup))
+        else:
+            return 1.0
+
     def train(self):
         with self.mlflow_manager.start_run():
             global_step = 0
@@ -145,7 +158,7 @@ class Trainer:
                 self.ema.decay = self.initial_decay + epoch * self.decay_increase_rate
                 epoch_iterator = tqdm(
                     enumerate(self.dataloader),
-                    total=len(self.dataloader),
+                    total=self.steps_count,
                     desc=f"Epoch {epoch+1}/{self.args.epochs}"
                 )
 
@@ -230,7 +243,9 @@ class Trainer:
 
         # Update the weights and reset optimizer
         self.scaler.step(self.disc_optimizer)
+        self.disc_scheduler.step()
         self.scaler.step(self.generator_optimizer)
+        self.generator_scheduler.step()
         self.disc_optimizer.zero_grad(set_to_none=True)
         self.generator_optimizer.zero_grad(set_to_none=True)
         self.scaler.update()
@@ -281,7 +296,11 @@ class Trainer:
             output_images = logs.pop("output_images")
             if save_debug and output_images is not None:
                 self.mlflow_manager.log_artifact(
-                    save_debug_image(output_images, global_step),
+                    save_debug_image(
+                        source=I_s,
+                        driving=I_d_dilde,
+                        output=output_images,
+                        global_step=global_step),
                     artifact_path="outputs"
                 )
 

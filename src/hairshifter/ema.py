@@ -1,3 +1,4 @@
+import torch
 from hairshifter.utils import enabled_rely
 
 
@@ -12,46 +13,64 @@ class EMA:
         """
         self.enabled = enabled
 
-        if enabled:
-            self.param_dict = param_dict
-            self.decay = decay
-            self.shadow = {}
-            self.backup = {}
-
-            # Store initial parameters
-            for name, param in self.param_dict.items():
-                if param.requires_grad:
-                    self.shadow[name] = param.data.clone()
-
-    @enabled_rely
-    def update(self):
-        """
-        Update shadow parameters with exponential decay.
-        """
-        for name, param in self.param_dict.items():
-            if param.requires_grad:
-                new_average = (1.0 - self.decay) * param.data + \
-                    self.decay * self.shadow[name]
-                self.shadow[name] = new_average.clone()
-
-    @enabled_rely
-    def apply_shadow(self):
-        """
-        Apply shadow (EMA) parameters to model.
-        """
-        if not self.enabled:
+        if not enabled:
             return
 
-        for name, param in self.param_dict.items():
-            if param.requires_grad:
-                self.backup[name] = param.data.clone()
-                param.data = self.shadow[name]
+        self.param_dict = param_dict
+        self.decay = decay
+        self.shadow = {}
+        self.backup = {}
+
+        # Store initial parameters
+        with torch.no_grad():
+            for name, param in self.param_dict.items():
+                if param.requires_grad:
+                    self.shadow[name] = param.detach().cpu().clone()
 
     @enabled_rely
-    def restore(self):
+    @torch.no_grad()
+    def update(self):
         """
-        Restore original model parameters from backup.
+        Update EMA weights on CPU.
         """
         for name, param in self.param_dict.items():
-            if param.requires_grad:
-                param.data = self.backup[name]
+            if not param.requires_grad:
+                continue
+
+            # Move current param to CPU temporarily
+            param_cpu = param.detach().cpu()
+
+            self.shadow[name].mul_(self.decay)
+            self.shadow[name].add_(param_cpu, alpha=1.0 - self.decay)
+
+    @enabled_rely
+    @torch.no_grad()
+    def apply_shadow(self):
+        """
+        Replace model params with EMA weights.
+        """
+        self.backup.clear()
+
+        for name, param in self.param_dict.items():
+            if not param.requires_grad:
+                continue
+
+            # Backup original param to CPU
+            self.backup[name] = param.detach().cpu().clone()
+
+            # Copy EMA weight to GPU param
+            param.data.copy_(self.shadow[name].to(param.device))
+
+    @enabled_rely
+    @torch.no_grad()
+    def restore(self):
+        """
+        Restore original model parameters from CPU backup.
+        """
+        for name, param in self.param_dict.items():
+            if not param.requires_grad:
+                continue
+
+            param.data.copy_(self.backup[name].to(param.device))
+
+        self.backup.clear()

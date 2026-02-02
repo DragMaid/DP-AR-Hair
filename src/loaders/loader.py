@@ -2,6 +2,11 @@ import torch
 from pathlib import Path
 from loaders.registry import ModelRegistry
 from loaders.downloader import download_weights
+import torch.distributed as dist
+
+
+def is_main_process():
+    return not dist.is_available() or not dist.is_initialized() or dist.get_rank() == 0
 
 
 def load_models(name: str, pretrained: bool = False,
@@ -34,9 +39,18 @@ def load_weights(model, name: str, strict: bool = True):
     weight_path: Path = root_path / \
         registry["weight"]["options"]["filename"].split("/")[-1]
 
+    if is_main_process():
+        if not weight_path.exists():
+            download_weights(registry["weight"]["type"],
+                             registry["weight"]["options"])
+
+    if dist.is_available() and dist.is_initialized():
+        dist.barrier()
+
     if not weight_path.exists():
-        download_weights(registry["weight"]["type"],
-                         registry["weight"]["options"])
+        raise RuntimeError(
+            f"Weights not found after DDP barrier: {weight_path}"
+        )
 
     state = torch.load(
         str(weight_path), map_location="cuda" if torch.cuda.is_available() else "cpu")
@@ -60,6 +74,7 @@ def load_hfg_generator():
     dest = w_options["local_dir"] / \
         w_options["allow_patterns"][0].split("/")[0]
 
+    # WARN: no idea why you would wanna use this with DDP but ok
     if not dest.exists():
         download_weights(record["weight"]["type"], w_options)
 

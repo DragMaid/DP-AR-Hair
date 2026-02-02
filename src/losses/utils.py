@@ -10,47 +10,73 @@ def enabled_rely(func):
     return wrapper
 
 
-def calculate_grad_contrib(gen_losses, params, scaler, gen_optimizer):
-    real_grads = [
-        p.grad.detach().clone() if p.grad is not None else None
-        for p in params
-    ]
+def calculate_grad_contrib(
+    gen_losses: dict,
+    params,
+    scaler,
+):
+    """
+    Computes gradient contribution of each auxiliary loss relative
+    to the total generator gradient direction using autograd.grad.
 
-    # Build TOTAL gradient vector (reference direction)
+    Safe:
+    - no .backward()
+    - no retain_graph
+    - no .grad mutation
+    """
+
+    # Filter trainable params once
+    params = [p for p in params if p.requires_grad]
+
+    if not params:
+        return {}
+
+    # 1️⃣ Compute TOTAL gradient (reference direction)
+    total_loss = gen_losses["generator_loss"]
+
+    total_grads = torch.autograd.grad(
+        scaler.scale(total_loss),
+        params,
+        retain_graph=True,
+        create_graph=False,
+        allow_unused=True,
+    )
+
     g_total = torch.cat([
-        g.flatten() for g in real_grads if g is not None
+        g.detach().flatten()
+        for g in total_grads if g is not None
     ])
+
     total_norm_sq = torch.dot(g_total, g_total) + 1e-12
 
     contrib = {}
 
+    # 2️⃣ Compute per-loss gradient projection
     for name, loss in gen_losses.items():
         if name == "generator_loss":
             continue
 
-        # zero grads before temp backward
-        for p in params:
-            p.grad = None
-
-        scaler.scale(loss).backward(retain_graph=True)
-        scaler.unscale_(gen_optimizer)
+        grads_i = torch.autograd.grad(
+            scaler.scale(loss),
+            params,
+            retain_graph=True,
+            create_graph=False,
+            allow_unused=True,
+        )
 
         g_i = torch.cat([
-            p.grad.detach().flatten()
-            for p in params if p.grad is not None
+            g.detach().flatten()
+            for g in grads_i if g is not None
         ])
 
         contrib[name] = (
             torch.dot(g_i, g_total) / total_norm_sq
         ).item()
 
-    # Restore grad afterwards
-    for p, g in zip(params, real_grads):
-        p.grad = g
-
     return contrib
 
 
+@torch.no_grad()
 def get_grad_norm_tensor(grads: torch.tensor):
     grads = [g for g in grads if g is not None]
 
@@ -63,6 +89,7 @@ def get_grad_norm_tensor(grads: torch.tensor):
     return float(total_norm)
 
 
+@torch.no_grad()
 def get_grad_norm_params(params):
     params = [p for p in params if p.grad is not None]
 
@@ -75,6 +102,7 @@ def get_grad_norm_params(params):
     return float(total_norm)
 
 
+@torch.no_grad()
 def get_param_norm(params):
     params = [p for p in params if p is not None]
 
@@ -88,29 +116,60 @@ def get_param_norm(params):
     return float(total_norm)
 
 
+@torch.no_grad()
 def param_distribution_stats(params):
-    params = [p.detach().view(-1) for p in params if p.requires_grad]
-    if not params:
+    count = 0
+    mean = 0.0
+    m2 = 0.0
+    abs_sum = 0.0
+    max_abs = 0.0
+
+    for p in params:
+        if not p.requires_grad:
+            continue
+
+        x = p.detach().cpu().view(-1)
+        if x.numel() == 0:
+            continue
+
+        count += x.numel()
+        mean += x.sum().item()
+        abs_sum += x.abs().sum().item()
+        max_abs = max(max_abs, x.abs().max().item())
+
+    if count == 0:
         return {}
 
-    flat = torch.cat(params)
+    mean /= count
+
+    # second pass for std (cheap on CPU)
+    for p in params:
+        if not p.requires_grad:
+            continue
+        x = p.detach().cpu().view(-1)
+        if x.numel() > 0:
+            m2 += ((x - mean) ** 2).sum().item()
+
+    std = (m2 / count) ** 0.5
 
     return {
-        "mean": flat.mean(),
-        "std": flat.std(),
-        "abs_mean": flat.abs().mean(),
-        "max_abs": flat.abs().max(),
+        "mean": mean,
+        "std": std,
+        "abs_mean": abs_sum / count,
+        "max_abs": max_abs,
     }
 
 
+@torch.no_grad()
 def snapshot_params(params):
     """
     Create a detached snapshot of parameters for later comparison.
     MUST be called before optimizer.step().
     """
-    return [p.detach().clone() for p in params if p.requires_grad]
+    return [p.detach().cpu().clone() for p in params if p.requires_grad]
 
 
+@torch.no_grad()
 def param_update_ratio(params, prev_params, eps=1e-8):
     """
     Computes ||Δθ|| / ||θ|| for a parameter group.
@@ -123,7 +182,7 @@ def param_update_ratio(params, prev_params, eps=1e-8):
         if not p.requires_grad:
             continue
 
-        delta = (p.detach() - p_prev).norm(2)
+        delta = (p.detach().cpu() - p_prev).norm(2)
         norm = p_prev.norm(2)
 
         deltas.append(delta)
@@ -173,7 +232,6 @@ class StepLogger:
             gen_losses=gen_losses,
             params=params,
             scaler=scaler,
-            gen_optimizer=self.gen_optimizer
         )
 
     @enabled_rely
@@ -200,10 +258,7 @@ class StepLogger:
     @enabled_rely
     def log_param_distribution(self, name, params):
         stats = param_distribution_stats(params)
-        self.param_dist[name] = {
-            k: float(v.cpu())
-            for k, v in stats.items()
-        }
+        self.param_dist = stats
 
     @enabled_rely
     def log_images(self, images: torch.Tensor):
@@ -212,6 +267,8 @@ class StepLogger:
         images: [B, C, H, W] torch tensor (in 0-1 range or raw float)
         """
         # detach and move to CPU to save GPU memory
+        max_image_cnt = 10
+        self._image_buffer = self._image_buffer[:max_image_cnt]
         self._image_buffer.append(images.detach().cpu())
 
     @enabled_rely

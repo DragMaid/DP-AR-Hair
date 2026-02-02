@@ -26,9 +26,10 @@ def save_contrib_plot(grad_contrib_ratios, global_step):
     return file_path
 
 
-def save_debug_image(output_images, global_step):
+def save_debug_image(source, driving, output, global_step):
+    result = torch.cat((source, driving, output), 0)
     grid = make_grid(
-        output_images, nrow=8, normalize=True)
+        result, nrow=source.shape[0], normalize=True)
     file_path = Path(f"assets/artifacts/outputs/step_{global_step}.png")
     file_path.parent.mkdir(parents=True, exist_ok=True)
     save_image(grid, file_path)

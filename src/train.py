@@ -1,5 +1,7 @@
 import os
 import argparse
+import random
+import numpy as np
 import torch
 from tqdm import tqdm
 from torch.utils.data import DataLoader, DistributedSampler
@@ -16,6 +18,37 @@ from hairshifter.utils import (
     save_param_histogram
 )
 from losses.utils import StepLogger
+
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+
+def seed_everything(seed: int = 42):
+    # Python
+    random.seed(seed)
+
+    # Environment
+    os.environ["PYTHONHASHSEED"] = str(seed)
+
+    # NumPy
+    np.random.seed(seed)
+
+    # PyTorch CPU
+    torch.manual_seed(seed)
+
+    # PyTorch GPU
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)  # if using multi-GPU
+
+    # Ensure deterministic behavior
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    print(f"[Seed] Everything seeded with seed={seed}")
 
 
 def get_args():
@@ -91,7 +124,8 @@ class Trainer:
             batch_size=self.args.batch_size,
             num_workers=self.args.num_workers,
             pin_memory=True, drop_last=True,
-            sampler=self.sampler
+            sampler=self.sampler,
+            worker_init_fn=seed_worker
         )
         self.steps_count = len(self.dataloader)
 
@@ -309,6 +343,7 @@ class Trainer:
 
 
 if __name__ == "__main__":
+    seed_everything()
     args = get_args()
     trainer = Trainer(args=args)
     trainer.train()

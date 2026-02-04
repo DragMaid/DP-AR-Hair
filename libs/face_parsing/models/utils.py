@@ -1,7 +1,10 @@
 import torch
 import torchvision.transforms as T
 
+# NOTE: The model was trained on 512x512 so better keep that to make sure the predictions are accurate
+
 normalize_image = T.Compose([
+    T.Resize((512, 512)),
     T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
 ])
 
@@ -14,6 +17,7 @@ def get_mask_by_idx(
     class_idx: int = 17,
 ):
     images = images.to(device)
+    orig_size = images[0].shape[1:]
     images = normalize_image(images)
 
     masks = []
@@ -25,6 +29,6 @@ def get_mask_by_idx(
         pred = logits.argmax(dim=1)  # 1 x H x W
 
         mask = (pred == class_idx).float()  # 1 x H x W
-        masks.append(mask)
+        masks.append(T.functional.resize(mask, orig_size))
 
     return torch.stack(masks, dim=0)  # B x 1 x H x W

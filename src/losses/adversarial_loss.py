@@ -1,5 +1,4 @@
 import torch.nn as nn
-import torch.nn.init as init
 from torch.nn.utils.parametrizations import spectral_norm
 
 
@@ -52,47 +51,3 @@ class PatchGANDiscriminator(nn.Module):
 
     def forward(self, in_image):
         return self.model(in_image)
-
-
-def weights_init(m: nn.Module, final_layer_names=("shift", "output")):
-    """
-    Initialize Hair Shifter generator weights safely.
-
-    Rules:
-    - Hidden layers (Conv2d, Linear):
-        - LeakyReLU activations → Kaiming normal (fan_in, a=0.2)
-    - Final shift layers → small Gaussian N(0, 0.02)
-    - Bias → zero
-    - Handles spectral_norm (init weight_orig)
-    - Optionally, uses layer names to identify final shift layer
-    """
-
-    # Identify spectral norm layers
-    if hasattr(m, "weight_orig"):
-        weight_tensor = m.weight_orig
-    elif hasattr(m, "weight"):
-        weight_tensor = m.weight
-    else:
-        weight_tensor = None
-
-    # Determine if this is a final shift/output layer
-    is_final = any(n in getattr(m, "name", "") for n in final_layer_names)
-
-    if isinstance(m, (nn.Conv2d, nn.Linear)):
-        if is_final:
-            # Final shift layer → small Gaussian
-            init.normal_(weight_tensor, mean=0.0, std=0.02)
-        else:
-            # Hidden layers → Kaiming for LeakyReLU
-            init.kaiming_normal_(weight_tensor, a=0.2,
-                                 mode="fan_in", nonlinearity="leaky_relu")
-
-        # Bias
-        if hasattr(m, "bias") and m.bias is not None:
-            init.constant_(m.bias, 0.0)
-
-    elif isinstance(m, nn.BatchNorm2d):
-        if weight_tensor is not None:
-            init.normal_(weight_tensor, 1.0, 0.02)
-        if hasattr(m, "bias") and m.bias is not None:
-            init.constant_(m.bias, 0.0)

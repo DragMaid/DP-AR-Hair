@@ -1,8 +1,45 @@
 import torch.nn.functional as F
+import torch.nn as nn
 import torch
 from pathlib import Path
 from torchvision.utils import make_grid, save_image
 from matplotlib import pyplot as plt
+
+
+def initialize_model(model):
+    for name, m in model.named_modules():
+
+        # Get weight tensor (handling Spectral Norm)
+        if hasattr(m, "weight_orig"):
+            weight_tensor = m.weight_orig
+        elif hasattr(m, "weight"):
+            weight_tensor = m.weight
+        else:
+            continue  # Skip modules without weights
+
+        is_final = getattr(m, "is_final", False)
+
+        if isinstance(m, (nn.Conv2d, nn.Linear)):
+            if is_final:
+                nn.init.normal_(weight_tensor, mean=0.0, std=0.02)
+                print(
+                    f"Initialized weights for final: {name} ({m.__class__.__name__})")
+            else:
+                nn.init.kaiming_normal_(
+                    weight_tensor, a=0.2, mode="fan_in", nonlinearity="leaky_relu")
+                print(
+                    f"Initialized weights for: {name} ({m.__class__.__name__})")
+
+            if hasattr(m, "bias") and m.bias is not None:
+                nn.init.constant_(m.bias, 0.0)
+
+        elif isinstance(m, nn.BatchNorm2d):
+            if weight_tensor is not None:
+                nn.init.normal_(weight_tensor, 1.0, 0.02)
+            if hasattr(m, "bias") and m.bias is not None:
+                nn.init.constant_(m.bias, 0.0)
+
+            print(f"Initialized weights for: {name} ({m.__class__.__name__})")
 
 
 def enabled_rely(func):

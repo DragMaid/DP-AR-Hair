@@ -41,8 +41,12 @@ class SynthesisDecoder(nn.Module):
 
         if self.upscale is None or self.upscale <= 1:
             self.conv_img = nn.Conv2d(out_channels, 3, 3, padding=1)
+            self.conv_img.is_final = True
         else:
+            self.final_conv = nn.Conv2d(out_channels, 3 * (2 * 2),
+                                        kernel_size=3, padding=1),
+            self.final_conv.is_final = True
             self.conv_img = nn.Sequential(
-                nn.Conv2d(out_channels, 3 * (2 * 2), kernel_size=3, padding=1),
+                self.comv,
                 nn.PixelShuffle(upscale_factor=2)
             )

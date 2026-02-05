@@ -46,22 +46,25 @@ class ContextEncoder(nn.Module):
 
         # Different from E_H that there's no 3D resblocks
         # Projection to decoder-compatible channels
-        self.out_conv = nn.Conv2d(
+        self.out_conv_1 = nn.Conv2d(
+                out_features,
+                max_features,
+                kernel_size=1,
+                stride=1,
+        )
+        self.out_conv_2 = nn.Conv2d(
             max_features,
             out_channels,
             kernel_size=1,
             stride=1
         )
-        self.out_conv.is_final = True
+        self.out_conv_1.is_final = True
+        self.out_conv_2.is_final = True
+
         self.proj = nn.Sequential(
-            nn.Conv2d(
-                out_features,
-                max_features,
-                kernel_size=1,
-                stride=1,
-            ),
+            self.out_conv_1,
             nn.LeakyReLU(0.2, inplace=True),
-            self.out_conv
+            self.out_conv_2,
         )
 
     def forward(self, x):

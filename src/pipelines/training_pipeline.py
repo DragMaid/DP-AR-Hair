@@ -9,7 +9,7 @@ from losses.loss_handler import LossHandler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from hairshifter.utils import discriminator_augment_pair, jitter_binary_mask
 from configs.pipeline_config import pipeline_config as pco
-from hairshifter.utils import initialize_model
+from hairshifter.utils import init_weights
 
 
 def nan_hook(name):
@@ -37,30 +37,32 @@ class TrainingPipeline:
                                freeze=True).to(self.device)
         self.E_M = load_models("E_M", pretrained=loaded,
                                freeze=True).to(self.device)
-        self.E_C = load_models("E_C", pretrained=False).to(
-            self.device)  # trainable
+        self.E_C = load_models("E_C", pretrained=False
+                               ).to(self.device)  # trainable
         self.W = load_models("W", pretrained=loaded,
                              freeze=True).to(self.device)
         self.M_C = load_models("M_C", pretrained=True,
                                freeze=True).to(self.device)
+
         # D_S will load and freeze all params except for GF_SPADEs
         self.D_S = load_models("D_S", pretrained=loaded,
-                               strict=False, freeze=True).to(self.device)
+                               freeze=True, strict=False).to(self.device)
         self.D_C = load_models("D_C", pretrained=loaded,
-                               freeze=True).to(self.device)
+                               freeze=True, strict=False).to(self.device)
 
         for name, module in self.E_C.named_modules():
             if isinstance(module, (torch.nn.Conv2d, torch.nn.BatchNorm2d, torch.nn.InstanceNorm2d)):
                 module.register_forward_hook(nan_hook(name))
 
         # Wrapped in DDP for distributed parallel training
+        init_weights(self.E_C)
         self.E_C = DDP(self.E_C, device_ids=[local_rank], output_device=local_rank) if (
             device.type == "cuda") else DDP(self.E_C)
+
         self.D_S = DDP(self.D_S, device_ids=[local_rank], output_device=local_rank) if (
             device.type == "cuda") else DDP(self.D_S)
 
         self.D = MSGSpadeDecoder(self.D_C, self.D_S)
-        initialize_model(self.D)
 
         for name, module in self.D.named_modules():
             if isinstance(module, (torch.nn.Conv2d, torch.nn.BatchNorm2d, torch.nn.InstanceNorm2d)):
@@ -83,7 +85,8 @@ class TrainingPipeline:
 
         # --- Adversarial discriminator ---
         self.L_adv = PatchGANDiscriminator(n_in_channels=3).to(self.device)
-        initialize_model(self.L_adv)
+        init_weights(self.L_adv)
+
         self.L_adv = DDP(self.L_adv, device_ids=[local_rank], output_device=local_rank) if (
             device.type == "cuda") else DDP(self.L_adv)
         self.disc_trainable_params = [

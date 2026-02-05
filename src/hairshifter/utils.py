@@ -1,3 +1,4 @@
+import torch.nn.init as init
 import torch.nn.functional as F
 import torch.nn as nn
 import torch
@@ -6,40 +7,50 @@ from torchvision.utils import make_grid, save_image
 from matplotlib import pyplot as plt
 
 
-def initialize_model(model):
-    for name, m in model.named_modules():
+def init_weights(model: nn.Module):
+    """
+    Safe initialization for image generators / hair shifters.
+    Prevents color-channel collapse and early bias amplification.
+    """
 
-        # Get weight tensor (handling Spectral Norm)
+    for name, m in model.named_modules():
+        if not any(p.requires_grad for p in m.parameters(recurse=False)):
+            continue
+
+        # Resolve weight tensor (SpectralNorm-aware)
+        weight = None
         if hasattr(m, "weight_orig"):
-            weight_tensor = m.weight_orig
+            weight = m.weight_orig
         elif hasattr(m, "weight"):
-            weight_tensor = m.weight
-        else:
-            continue  # Skip modules without weights
+            weight = m.weight
+
+        if hasattr(m, "_skip_init") and m._skip_init:
+            continue
 
         is_final = getattr(m, "is_final", False)
 
-        if isinstance(m, (nn.Conv2d, nn.Linear)):
+        if isinstance(m, (nn.Conv2d, nn.Linear)) and weight is not None:
+
             if is_final:
-                nn.init.normal_(weight_tensor, mean=0.0, std=0.02)
-                print(
-                    f"Initialized weights for final: {name} ({m.__class__.__name__})")
+                init.normal_(weight, mean=0.0, std=0.02)
+
             else:
-                nn.init.kaiming_normal_(
-                    weight_tensor, a=0.2, mode="fan_in", nonlinearity="leaky_relu")
-                print(
-                    f"Initialized weights for: {name} ({m.__class__.__name__})")
+                init.kaiming_normal_(
+                    weight,
+                    a=0.2,
+                    mode="fan_in",
+                    nonlinearity="leaky_relu",
+                )
 
             if hasattr(m, "bias") and m.bias is not None:
-                nn.init.constant_(m.bias, 0.0)
+                init.constant_(m.bias, 0.0)
 
         elif isinstance(m, nn.BatchNorm2d):
-            if weight_tensor is not None:
-                nn.init.normal_(weight_tensor, 1.0, 0.02)
-            if hasattr(m, "bias") and m.bias is not None:
-                nn.init.constant_(m.bias, 0.0)
+            if weight is not None:
+                init.constant_(weight, 0.02)
 
-            print(f"Initialized weights for: {name} ({m.__class__.__name__})")
+            if hasattr(m, "bias") and m.bias is not None:
+                init.constant_(m.bias, 0.0)
 
 
 def enabled_rely(func):

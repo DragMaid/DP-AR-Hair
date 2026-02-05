@@ -52,16 +52,20 @@ class GFSPADE(nn.Module):
         nn.init.constant_(self.mlp_gamma.bias, 0.0)
         nn.init.constant_(self.mlp_beta.weight, 0.0)
         nn.init.constant_(self.mlp_beta.bias, 0.0)
+        self.mlp_gamma._skip_init = True
+        self.mlp_beta._skip_init = True
 
         # Spatial gating conv
         self.gate_conv = nn.Conv2d(
             2 * num_channels, 1, kernel_size=3, padding=1)
-        nn.init.constant_(self.gate_conv.bias, -2.0)  # favor context initially
-        nn.init.kaiming_normal_(self.gate_conv.weight, a=0.2)
+        nn.init.normal_(self.gate_conv.weight, mean=0.0, std=1e-3)
+        nn.init.constant_(self.gate_conv.bias, -2.0)
+        self.gate_conv._skip_init = True
 
         # Optional conv + activation after fusion
         self.post_conv = nn.Sequential(
             nn.Conv2d(num_channels, num_channels, kernel_size=3, padding=1),
+            nn.InstanceNorm2d(num_channels, affine=False, eps=1e-5),
             nn.ReLU(inplace=True)
         ) if post_conv else nn.Identity()
 
@@ -74,7 +78,6 @@ class GFSPADE(nn.Module):
         Returns:
             fused activation h_w_tilde (B,C,H,W)
         """
-        # 2. Modulate context activation
         normed = self.param_free_norm(h_c)
         actv = self.mlp_shared(f_n)
         # NOTE: opting for the conv split to save memory is good or not ?

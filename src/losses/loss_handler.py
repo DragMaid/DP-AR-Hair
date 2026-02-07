@@ -73,13 +73,9 @@ class LossHandler:
         a_gen_loss = self.weights.adv_rate * \
             self.disc_criterion(pred_fake, target_real)
 
-        # Calculate the gradient contribution of each loss
-
         # Weighted sum
         generator_loss = perceptual_loss + a_gen_loss + \
             hair_loss + face_loss + global_loss
-
-        # TODO: fix perceptual loss is dominating the losses
 
         return {
             "generator_loss": generator_loss,

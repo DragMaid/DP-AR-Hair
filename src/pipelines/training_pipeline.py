@@ -121,6 +121,8 @@ class TrainingPipeline:
         I_s, I_d, I_d_dilde,
         scaler,
         mini_batch_size,
+        freeze_discriminator=False,
+        freeze_generator=False,
         accumulate_grad_contrib=False,
         store_outputs=False,
     ):
@@ -168,59 +170,77 @@ class TrainingPipeline:
                 f_m_d = self.E_M(I_d)["kp"].view(I_s.size(0), -1, 3)
                 f_w = self.W(feature_3d=f_h, kp_source=f_m,
                              kp_driving=f_m_d)['out']
-                f_c = self.E_C(I_d_dilde)
-                I_p = self.D(f_c, f_w, m_c)
+
+                # Calculated only for discriminator training and not re-used
+                with torch.no_grad():
+                    f_c = self.E_C(I_d_dilde)
+                    I_p = self.D(f_c, f_w, m_c)
 
             I_p_detached = I_p.detach().float()
             del I_p, f_c
 
-            I_d_aug, I_p_aug = discriminator_augment_pair(
-                I_d, I_p_detached, p=pco.training.stablizers.image_aug_prob
-            )
+            # If discriminator is frozen then no need to train beforehand
+            if not freeze_discriminator:
+                for p in self.L_adv.parameters():
+                    p.requires_grad = True
 
-            # --- Discriminator update ---
-            disc_loss = self.losses.compute_discriminator_loss(
-                I_d_aug, I_p_aug, self.L_adv)
-            del I_d_aug, I_p_aug
-
-            # backprop discriminator
-            scaler.scale(disc_loss / steps).backward()
-            self.logger.accumulate_loss(
-                name="discriminator_loss", value=disc_loss)
-
-            del disc_loss
-
-            with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):
-                f_c = self.E_C(I_d_dilde)
-                I_p = self.D(f_c, f_w, m_c)
-
-            del I_d_dilde, f_c, f_h, f_m, f_m_d, f_w
-
-            # --- Generator update ---
-            for p in self.L_adv.parameters():
-                p.requires_grad = False
-
-            gen_losses = self.losses.compute_generator_losses(
-                I_d, I_p, m_c, m_f, self.L_adv)
-
-            gen_loss = gen_losses["generator_loss"]
-            for k, v in gen_losses.items():
-                self.logger.accumulate_loss(name=k, value=v)
-
-            scaler.scale(
-                gen_loss / steps).backward(retain_graph=accumulate_grad_contrib)
-
-            if accumulate_grad_contrib and last_mini:
-                self.logger.calculate_loss_contribution(
-                    gen_losses=gen_losses,
-                    params=self.generator_trainable_params,
-                    scaler=scaler,
+                I_d_aug, I_p_aug = discriminator_augment_pair(
+                    I_d, I_p_detached, p=pco.training.stablizers.image_aug_prob
                 )
 
-            del I_d, I_p, gen_losses
+                # --- Discriminator update ---
+                disc_loss = self.losses.compute_discriminator_loss(
+                    I_d_aug, I_p_aug, self.L_adv)
+                del I_d_aug, I_p_aug
 
-            for p in self.L_adv.parameters():
-                p.requires_grad = True
+                # backprop discriminator
+                scaler.scale(disc_loss / steps).backward()
+                self.logger.accumulate_loss(
+                    name="discriminator_loss", value=disc_loss)
+
+                del disc_loss
+            else:
+                for p in self.L_adv.parameters():
+                    p.requires_grad = False
+
+            # --- Generator update ---
+            if not freeze_generator:
+                for p in self.generator_trainable_params:
+                    p.requires_grad = True
+
+                with torch.cuda.amp.autocast(enabled=self.device.type == "cuda"):
+                    f_c = self.E_C(I_d_dilde)
+                    I_p = self.D(f_c, f_w, m_c)
+
+                del I_d_dilde, f_c, f_h, f_m, f_m_d, f_w
+
+                for p in self.L_adv.parameters():
+                    p.requires_grad = False
+
+                gen_losses = self.losses.compute_generator_losses(
+                    I_d, I_p, m_c, m_f, self.L_adv)
+
+                gen_loss = gen_losses["generator_loss"]
+                for k, v in gen_losses.items():
+                    self.logger.accumulate_loss(name=k, value=v)
+
+                scaler.scale(
+                    gen_loss / steps).backward(retain_graph=accumulate_grad_contrib)
+
+                if accumulate_grad_contrib and last_mini:
+                    self.logger.calculate_loss_contribution(
+                        gen_losses=gen_losses,
+                        params=self.generator_trainable_params,
+                        scaler=scaler,
+                    )
+
+                del I_d, I_p, gen_losses
+
+                for p in self.L_adv.parameters():
+                    p.requires_grad = True
+            else:
+                for p in self.generator_trainable_params:
+                    p.requires_grad = False
 
             if store_outputs:
                 self.logger.log_images(I_p_detached)

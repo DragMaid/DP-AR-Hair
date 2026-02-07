@@ -66,8 +66,13 @@ def get_args():
                    default=pco.dataset.num_workers)
     p.add_argument("--save_dir", type=str,
                    default=pco.training.save_dir)
+    # TODO: change this to steps instead
     p.add_argument("--save_weight_every", type=int, help="save weight every N epochs",
                    default=pco.training.epochs_till_save)
+    p.add_argument("--freeze_disc", type=int,
+                   help="freeze discriminator for N steps", default=0)
+    p.add_argument("--freeze_gen", type=int,
+                   help="freeze generator for N steps", default=0)
     p.add_argument("--resume", type=str, default=None,
                    help="path to checkpoint to resume")
     p.add_argument("--mlflow_uri", type=str, default=None,
@@ -211,6 +216,8 @@ class Trainer:
                         global_step+1) % pco.training.log_config.output_save_interval == 0
                     ema_update = (
                         global_step+1) % pco.training.log_config.ema_update_interval == 0
+                    freeze_disc = (global_step + 1) <= self.args.freeze_disc
+                    freeze_gen = (global_step + 1) <= self.args.freeze_gen
 
                     self.step(
                         batch=batch,
@@ -223,6 +230,8 @@ class Trainer:
                         param_norm=param_norm,
                         ema_update=ema_update,
                         save_debug=save_debug,
+                        freeze_disc=freeze_disc,
+                        freeze_gen=freeze_gen,
                     )
 
                     global_step += 1
@@ -249,7 +258,9 @@ class Trainer:
         param_hist: bool,
         param_norm: bool,
         ema_update: bool,
-        save_debug: bool
+        save_debug: bool,
+        freeze_disc: bool,
+        freeze_gen: bool
     ):
         # Get the 3 images: original front / side and hair transfered image
         I_s = batch["reference"]["content"]
@@ -261,7 +272,9 @@ class Trainer:
             mini_batch_size=self.args.mini_batch_size,
             scaler=self.scaler,
             accumulate_grad_contrib=grad_contrib,
-            store_outputs=save_debug)
+            store_outputs=save_debug,
+            freeze_discriminator=freeze_disc,
+            freeze_generator=freeze_gen)
 
         # Log gradient norms every step
         if first_processor:
@@ -278,10 +291,13 @@ class Trainer:
         # Update the weights and reset optimizer
         self.scaler.step(self.disc_optimizer)
         self.disc_scheduler.step()
+
         self.scaler.step(self.generator_optimizer)
         self.generator_scheduler.step()
+
         self.disc_optimizer.zero_grad(set_to_none=True)
         self.generator_optimizer.zero_grad(set_to_none=True)
+
         self.scaler.update()
 
         if first_processor:

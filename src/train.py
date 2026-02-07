@@ -67,8 +67,8 @@ def get_args():
     p.add_argument("--save_dir", type=str,
                    default=pco.training.save_dir)
     # TODO: change this to steps instead
-    p.add_argument("--save_weight_every", type=int, help="save weight every N epochs",
-                   default=pco.training.epochs_till_save)
+    p.add_argument("--save_per_steps", type=int, help="save weight every N steps",
+                   default=pco.training.steps_till_save)
     p.add_argument("--freeze_disc", type=int,
                    help="freeze discriminator for N steps", default=0)
     p.add_argument("--freeze_gen", type=int,
@@ -238,13 +238,13 @@ class Trainer:
 
                     global_step += 1
 
-        # epoch end — checkpoint
-        if self.first_processor \
-                and ((epoch + 1) % self.args.save_weight_every) == 0:
-            ck_path = os.path.join(
-                self.args.save_dir, f"epoch_{epoch+1:04d}.pt")
-            self.pipeline.save_checkpoint(ck_path, epoch=epoch)
-            print(f"Saved checkpoint: {ck_path}")
+                    # epoch end — checkpoint
+                    if self.first_processor \
+                            and ((global_step + 1) % self.args.save_per_steps) == 0:
+                        ck_path = os.path.join(
+                            self.args.save_dir, f"epoch_{epoch+1:04d}.pt")
+                        self.pipeline.save_checkpoint(ck_path, epoch=epoch)
+                        print(f"Saved checkpoint: {ck_path}")
 
         dist.destroy_process_group()
         print("Training complete.")

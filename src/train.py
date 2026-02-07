@@ -81,6 +81,8 @@ def get_args():
                    help="Specify discriminator warmup steps to perform")
     p.add_argument("--warmup_gen", type=int, default=0,
                    help="Specify generator warmup steps to perform")
+    p.add_argument("--seed", type=int, default=None,
+                   help="Specify seed when initilizing all modules")
     # p.add_argument("--device", type=str, default=None)
     p.add_argument("--mixed_precision", action="store_true")
     return p.parse_args()
@@ -273,8 +275,8 @@ class Trainer:
             I_s, I_d, I_d_dilde,
             mini_batch_size=self.args.mini_batch_size,
             scaler=self.scaler,
-            accumulate_grad_contrib=grad_contrib,
-            store_outputs=save_debug,
+            accumulate_grad_contrib=grad_contrib and self.first_processor,
+            store_outputs=save_debug and self.first_processor,
             freeze_discriminator=freeze_disc,
             freeze_generator=freeze_gen)
 
@@ -361,7 +363,8 @@ class Trainer:
 
 
 if __name__ == "__main__":
-    seed_everything()
     args = get_args()
+    if args.seed:
+        seed_everything(args.seed)
     trainer = Trainer(args=args)
     trainer.train()

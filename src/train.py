@@ -77,8 +77,10 @@ def get_args():
                    help="path to checkpoint to resume")
     p.add_argument("--mlflow_uri", type=str, default=None,
                    help="Specify the mlflow server to log to")
-    p.add_argument("--warmup", type=int, default=0,
-                   help="Specify warmup steps to perform")
+    p.add_argument("--warmup_disc", type=int, default=0,
+                   help="Specify discriminator warmup steps to perform")
+    p.add_argument("--warmup_gen", type=int, default=0,
+                   help="Specify generator warmup steps to perform")
     # p.add_argument("--device", type=str, default=None)
     p.add_argument("--mixed_precision", action="store_true")
     return p.parse_args()
@@ -152,7 +154,7 @@ class Trainer:
             lr=pco.training.generator.learn_rate,
             betas=pco.training.generator.betas)
         self.generator_scheduler = torch.optim.lr_scheduler.LambdaLR(
-            self.generator_optimizer, lr_lambda=self.warmup)
+            self.generator_optimizer, lr_lambda=lambda cs: self.warmup(cs, self.args.warmup_gen))
 
         # Discrimination optmizer
         self.disc_optimizer = torch.optim.Adam(
@@ -160,7 +162,7 @@ class Trainer:
             lr=pco.training.discriminator.learn_rate,
             betas=pco.training.discriminator.betas)
         self.disc_scheduler = torch.optim.lr_scheduler.LambdaLR(
-            self.disc_optimizer, lr_lambda=self.warmup)
+            self.disc_optimizer, lr_lambda=lambda cs: self.warmup(cs, self.args.warmup_disc))
 
         self.scaler = torch.cuda.amp.GradScaler(
             enabled=self.args.mixed_precision and self.device.type == "cuda")
@@ -183,9 +185,9 @@ class Trainer:
 
         os.makedirs(self.args.save_dir, exist_ok=True)
 
-    def warmup(self, current_step):
-        if current_step < self.args.warmup:
-            return float(current_step) / float(max(1, self.args.warmup))
+    def warmup(self, current_step, steps):
+        if current_step < steps:
+            return float(current_step) / float(max(1, steps))
         else:
             return 1.0
 

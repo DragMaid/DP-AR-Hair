@@ -295,6 +295,6 @@ class TrainingPipeline:
             if "ema" in ck and self.ema.enabled:
                 for name, param in self.generator_trainable_dict.items():
                     if param.requires_grad and name in ck['ema']:
-                        self.ema.shadow[name] = ck['ema'][name].clone()
+                        self.ema.shadow[name] = ck['ema'][name].detach().cpu().clone()
 
         return ck

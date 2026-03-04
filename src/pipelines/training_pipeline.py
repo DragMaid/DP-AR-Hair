@@ -292,7 +292,7 @@ class TrainingPipeline:
             if "disc_optimizer" in ck:
                 self.disc_optimizer.load_state_dict(ck["disc_optimizer"])
 
-            if "ema" in ck:
+            if "ema" in ck and self.ema.enabled:
                 for name, param in self.generator_trainable_dict.items():
                     if param.requires_grad and name in ck['ema']:
                         self.ema.shadow[name] = ck['ema'][name].clone()

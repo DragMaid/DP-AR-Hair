@@ -4,6 +4,7 @@ import random
 import numpy as np
 import torch
 from tqdm import tqdm
+from datetime import datetime
 from torch.utils.data import DataLoader, DistributedSampler
 from torchvision import transforms as T
 from data.celebvhq_generated import CelebVHQGeneratedDataset
@@ -241,10 +242,13 @@ class Trainer:
                     global_step += 1
 
                     # epoch end — checkpoint
-                    if self.first_processor \
-                            and ((global_step + 1) % self.args.save_per_steps) == 0:
+                    is_save_step = (
+                        global_step + 1) % self.args.save_per_steps == 0
+                    is_last_step = global_step + 1 == self.args.epochs * self.steps_count
+                    if self.first_processor and (is_save_step or is_last_step):
+                        date = datetime.now().strftime('%Y-%m-%d_%H:%M')
                         ck_path = os.path.join(
-                            self.args.save_dir, f"epoch_{epoch+1:04d}.pt")
+                            self.args.save_dir, f"epoch_{epoch+1:04d}_{date}.pt")
                         self.pipeline.save_checkpoint(ck_path, epoch=epoch)
                         print(f"Saved checkpoint: {ck_path}")
 

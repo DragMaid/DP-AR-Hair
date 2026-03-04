@@ -12,14 +12,13 @@ class EMA:
             decay (float): Decay rate, typically a value close to 1, e.g., 0.999.
         """
         self.enabled = enabled
-
-        if not enabled:
-            return
-
         self.param_dict = param_dict
         self.decay = decay
         self.shadow = {}
         self.backup = {}
+
+        if not enabled:
+            return
 
         # Store initial parameters
         with torch.no_grad():

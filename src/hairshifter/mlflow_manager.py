@@ -1,5 +1,6 @@
 import mlflow
 import logging
+import dagshub
 from contextlib import nullcontext
 from hairshifter.utils import enabled_rely
 
@@ -10,7 +11,7 @@ class MLFlowManager:
     """
 
     def __init__(self,
-                 uri: str = "http://localhost:5000",
+                 uri: str,
                  enabled=True,
                  experiment_name: str = "dp-hair-training"):
         self.uri = uri
@@ -36,7 +37,8 @@ class MLFlowManager:
     @enabled_rely
     def _setup_mlflow(self):
         """Configure MLFlow tracking URI and experiment."""
-        mlflow.set_tracking_uri(self.uri)
+        parts = self.uri.split(':')
+        dagshub.init(repo_owner=parts[0], repo_name=parts[1], mlflow=True)
         mlflow.set_experiment(self.experiment_name)
         logging.info(f"MLflow Tracking Server is running at {self.uri}")
 

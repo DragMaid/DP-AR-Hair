@@ -186,6 +186,9 @@ class HairShifter:
                     quad, qsize = extract_aligned_metadata(lms[0])
 
                 frame = apply_alignment(frame, quad, qsize)
+                transform = T.ToTensor()
+                frame = transform(frame).clamp(0, 1)
+
                 batch_buffer[len(driving_frames)] = T.Resize(
                     (self.in_size, self.in_size))(frame)
             else:

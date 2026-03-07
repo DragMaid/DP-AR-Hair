@@ -199,6 +199,8 @@ def apply_alignment(img, quad, qsize, output_size=1024):
     if output_size < transform_size:
         img = img.resize((output_size, output_size), PIL.Image.LANCZOS)
 
+    return img
+
 
 def align_face(
         data,

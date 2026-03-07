@@ -42,11 +42,12 @@ class SPADEResnetBlock(nn.Module):
             self.conv_s = nn.Conv2d(fin, fout, kernel_size=1, bias=False)
         # apply spectral norm if specified
         # WARN: spectral norm was producing NaN for variant batches
-        # if 'spectral' in norm_G:
-            # self.conv_0 = spectral_norm(self.conv_0)
-            # self.conv_1 = spectral_norm(self.conv_1)
-            # if self.learned_shortcut:
-                # self.conv_s = spectral_norm(self.conv_s)
+        if 'spectral' in norm_G:
+            self.conv_0 = spectral_norm(self.conv_0)
+            self.conv_1 = spectral_norm(self.conv_1)
+            if self.learned_shortcut:
+                self.conv_s = spectral_norm(self.conv_s)
+
         # define normalization layers
         self.norm_0 = SPADE(fin, label_nc)
         self.norm_1 = SPADE(fmiddle, label_nc)

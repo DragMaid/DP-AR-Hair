@@ -181,7 +181,7 @@ class HairShifter:
             if align:
                 frame = cv2_to_pil(frame)
 
-                if not quad:
+                if quad is None:
                     _, lms = get_landmark_from_tensors([frame], self.predictor)
                     quad, qsize = extract_aligned_metadata(lms[0])
 

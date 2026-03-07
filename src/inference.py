@@ -11,7 +11,7 @@ from pipelines.inference_pipeline import InferencePipeline
 from configs.pipeline_config import pipeline_config as pco
 from sixdrepnet import SixDRepNet
 from loaders.loader import load_hfg_generator
-from hair_gan.utils.shape_predictor import align_face, get_landmark_detector, extract_aligned_metadata, apply_alignment
+from hair_gan.utils.shape_predictor import align_face, get_landmark_detector, extract_aligned_metadata, apply_alignment, get_landmark_from_tensors
 from hairshifter.ema import EMA
 
 
@@ -180,8 +180,11 @@ class HairShifter:
 
             if align:
                 frame = cv2_to_pil(frame)
+
                 if not quad:
-                    quad, qsize = extract_aligned_metadata(frame)
+                    _, lms = get_landmark_from_tensors([frame], self.predictor)
+                    quad, qsize = extract_aligned_metadata(lms[0])
+
                 frame = apply_alignment(frame, quad, qsize)
                 batch_buffer[len(driving_frames)] = T.Resize(
                     (self.in_size, self.in_size))(frame)

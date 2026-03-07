@@ -9,9 +9,9 @@ training:
     learn_rate: 2e-5
     betas: [0.5, 0.999]
   loss:
-    adv_rate: 1
-    rec_rate: 1
-    p_rate: 1
+    adv_rate: 0.4
+    rec_rate: 2
+    p_rate: 0.01
     h_rate: 1
     f_rate: 1
   stablizers:
